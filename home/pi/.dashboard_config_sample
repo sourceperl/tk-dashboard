@@ -8,7 +8,7 @@ city = Loos, fr
 url = <url iswip>
 [gmap]
 key = <google map key>
-origin = 79 Bis Rue Georges Potié Loos
+origin = <google map address>
 [restpack]
 token = <restpack token>
 img_url = https://www.google.fr/maps/@50.0160002,1.997554,7z/data=!5m1!1e1!
