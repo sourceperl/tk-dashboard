@@ -195,7 +195,6 @@ def gmap_travel_time_job():
         try:
             duration_abs = gm_json["routes"][0]["legs"][0]["duration"]["text"]
             duration_with_traffic = gm_json["routes"][0]["legs"][0]["duration_in_traffic"]["text"]
-            print("%s: %s %s" % (gm_dest, duration_abs, duration_with_traffic))
             # update redis
             DS.redis_set('Googlemap.%s.duration' % gm_dest, duration_abs)
             DS.redis_set('Googlemap.%s.duration_traffic' % gm_dest, duration_with_traffic)
