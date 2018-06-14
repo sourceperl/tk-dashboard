@@ -1,0 +1,15 @@
+[gsheet]
+url = <gsheet url>
+redis_key = grt:gsheet:import
+[openweathermap]
+app_id = <openweathermap app_id>
+city = Loos, fr
+[iswip]
+url = <url iswip>
+[gmap]
+key = <google map key>
+origin = 79 Bis Rue Georges Potié Loos
+[restpack]
+token = <restpack token>
+img_url = https://www.google.fr/maps/@50.0160002,1.997554,7z/data=!5m1!1e1!
+img_target = /media/ramdisk/Traffic_Map.png
