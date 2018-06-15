@@ -225,19 +225,19 @@ if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s %(message)s')
 
     # init scheduler
+    schedule.every(5).minutes.do(restpack_traffic_img_job)
     schedule.every(5).minutes.do(gsheet_job)
     schedule.every(5).minutes.do(openweathermap_job)
     schedule.every(5).minutes.do(local_info_job)
     schedule.every(5).minutes.do(iswip_job)
     schedule.every(5).minutes.do(gmap_travel_time_job)
-    schedule.every(5).minutes.do(restpack_traffic_img_job)
     # first call
+    restpack_traffic_img_job()
     gsheet_job()
     openweathermap_job()
     local_info_job()
     iswip_job()
     gmap_travel_time_job()
-    restpack_traffic_img_job()
 
     # main loop
     while True:
