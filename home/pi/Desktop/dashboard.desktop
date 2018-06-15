@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Dashboard
+Exec=dashboard_hmi.py
+Icon=krfb
+Type=Application
+Terminal=false

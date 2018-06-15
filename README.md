@@ -22,6 +22,13 @@
     sudo pip3 install -r requirements.txt
     sudo cp -r scripts/* /usr/local/bin/
 
+### Setup LXDE
+
+    # add shortcut
+    cp home/pi/Desktop/* /home/pi/Desktop/
+    # add autostart
+    ln -s /home/pi/Desktop/dashboard.desktop /home/pi/.config/autostart/
+
 ### Setup supervisor :
 
     sudo apt-get install supervisor
