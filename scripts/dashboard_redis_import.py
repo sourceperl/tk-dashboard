@@ -18,7 +18,6 @@ cnf = ConfigParser()
 cnf.read(os.path.expanduser('~/.dashboard_config'))
 # gsheet
 gsheet_url = cnf.get('gsheet', 'url')
-gsheet_redis_key = cnf.get('gsheet', 'redis_key')
 # openweathermap
 ow_app_id = cnf.get('openweathermap', 'app_id')
 ow_city = cnf.get('openweathermap', 'city')
@@ -83,7 +82,7 @@ def gsheet_job():
             tag, value = line.split(',')
             d[tag] = value
         d['UPDATE'] = datetime.now().isoformat("T")
-        DS.redis_hmset(gsheet_redis_key, d)
+        DS.redis_hmset("grt:gsheet:import", d)
     except Exception:
         logging.error(traceback.format_exc())
 

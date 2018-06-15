@@ -1,6 +1,5 @@
 [gsheet]
 url = <gsheet url>
-redis_key = grt:gsheet:import
 [openweathermap]
 app_id = <openweathermap app_id>
 city = Loos, fr
