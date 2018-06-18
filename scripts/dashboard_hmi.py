@@ -9,6 +9,7 @@ except ImportError:
     import tkinter as tk
     from tkinter import ttk
 
+import json
 import logging
 import traceback
 import redis
@@ -26,10 +27,9 @@ Step : file independant, can be used without pdf and images
 """
 
 # some const
-DATA_PATH = "/home/pi/dashboard/"
-IMG_PATH = DATA_PATH + "images/"
-PDF_PATH = DATA_PATH + "pdf_reglementation/"
-DOC_PATH = DATA_PATH + "Document_affichage/"
+IMG_PATH = "/home/pi/dashboard/images/"
+PDF_PATH = "/home/pi/dashboard/pdf_reglementation/"
+DOC_PATH = "/home/pi/dashboard/Document_affichage/"
 # GRTgaz Colors
 BLEU = "#007bc2"
 VERT = "#00a984"
@@ -180,7 +180,7 @@ class Tags:
         # for tag auto-update method (with cmd_srv)
         Tag_.update_all()
         # read google sheet infos
-        d_gsheet = DS.redis_hgetall('grt:gsheet:import')
+        d_gsheet = DS.redis_hgetall('gsheet:grt')
         # if d_gsheet:
         #     # IGP_VEH
         #     cls.IGP_VEH.var.real = d_gsheet.get('IGP_VEH_REAL_DTS', 0.0)
@@ -200,21 +200,15 @@ class Application(tk.Frame):
         self.master.grid_propagate(False)
         self.master.title("GRTgaz Dashboard")
 
-        # full screen
-        self.master.geometry("{0}x{1}+0+0".format(master.winfo_screenwidth(), master.winfo_screenheight()))
         self.master.focus_set()
         # press Esc to quit
         self.master.bind("<Escape>", lambda e: self.master.destroy())
         # compute to get the width, height of the screen and compute the number of possible tile to put in it
-        self.screen_width = self.master.winfo_screenwidth()
-        self.number_of_tile_width = self.screen_width // 100
-        print(self.number_of_tile_width)
-        self.screen_height = self.master.winfo_screenheight()
-        self.number_of_tile_height = self.screen_height // 100
 
         # main notebook
         self.nb = ttk.Notebook(self.master)
-        self.nb.grid(row=0, column=0, rowspan=1, columnspan=self.number_of_tile_width, sticky='news')
+        self.nb.grid(row=0, column=0, rowspan=1, columnspan=20, sticky='news')
+        self.nb.place(in_=self.master, anchor="c", relx=.5, rely=.52)
         # first tab
         self.hotFrame = tk.Label(self.nb)  # page with Hot Data, dynamique and the most interristing ones
         self.nb.add(self.hotFrame, text='\n   Hot Page  \n')  # double \n to expand the tab
@@ -232,19 +226,17 @@ class Tab(tk.Frame):
     Base Tab class, with a frame full of tile, can be derived as you need it
     """
 
-    def __init__(self, master=None, ms=200, redis_db=None, nb=None):
+    def __init__(self, master=None, ms=200):
         tk.Frame.__init__(self, master=master, bg=VERT)
-        self.nb = nb  # nbbook
-        self.redis_db = redis_db
         self.master = master
 
-        self.screen_width = self.master.winfo_screenwidth() - 180  # same as befor, but with some screen ajustments, not much professionnal down there
-        self.number_of_tile_width = self.screen_width // 100
-        self.screen_height = self.master.winfo_screenheight() - 50
-        self.number_of_tile_height = self.screen_height // 100
+        self.screen_width = self.master.winfo_screenwidth()
+        self.number_of_tile_width = 17
+        self.screen_height = self.master.winfo_screenheight() - 60
+        self.number_of_tile_height = 10
 
-        self.general_padx = (self.screen_width / self.number_of_tile_width // 2 + 5)
-        self.general_pady = (self.screen_height / self.number_of_tile_height // 2)
+        self.general_padx = (self.screen_width / (self.number_of_tile_width * 2)) - 1
+        self.general_pady = (self.screen_height / (self.number_of_tile_height * 2))
 
         self.tiles = dict()
 
@@ -290,29 +282,26 @@ class HotTab(Tab):
     """
 
     def __init__(self, master=None, redis_db=None, nb=None):
-        Tab.__init__(self, master=master, redis_db=redis_db, nb=nb)
+        Tab.__init__(self, master=master)
 
         # Then create the tile you want !
         # the names here are crystal clear
         # first create it, second print it, boom
 
-        self.tiles["Traffic_Dunkerque"] = Traffic_Duration_Tile(master=self.master, destination="Dunkerque",
-                                                                redis_db=self.redis_db)
+        self.tiles["Traffic_Dunkerque"] = Traffic_Duration_Tile(master=self.master, destination="Dunkerque")
         self.tiles["Traffic_Dunkerque"].SetTile(row=1, column=0)
-        self.tiles["Traffic_Seclin"] = Traffic_Duration_Tile(master=self.master, destination="Seclin",
-                                                             redis_db=self.redis_db)
+        self.tiles["Traffic_Seclin"] = Traffic_Duration_Tile(master=self.master, destination="Seclin")
         self.tiles["Traffic_Seclin"].SetTile(row=2, column=0)
-        self.tiles["Traffic_Valenciennes"] = Traffic_Duration_Tile(master=self.master, destination="Valenciennes",
-                                                                   redis_db=self.redis_db)
+        self.tiles["Traffic_Valenciennes"] = Traffic_Duration_Tile(master=self.master, destination="Valenciennes")
         self.tiles["Traffic_Valenciennes"].SetTile(row=3, column=0)
 
-        self.tiles["Weather"] = Weather_Tile(master=self.master, destination="Loos", redis_db=self.redis_db)
+        self.tiles["Weather"] = Weather_Tile(master=self.master, destination="Loos")
         self.tiles["Weather"].SetTile(row=1, column=13)
 
         self.tiles["Date"] = Time_Tile(master=self.master)
         self.tiles["Date"].SetTile(row=1, column=6, rowspan=2, columnspan=2)
 
-        self.tiles["Infos"] = Local_Information_Tile(master=self.master, redis_db=self.redis_db)
+        self.tiles["Infos"] = Local_Information_Tile(master=self.master)
         self.tiles["Infos"].SetTile(row=9, column=0)
 
         self.tiles["Traffic_Map"] = Traffic_Map_Tile(master=self.master)
@@ -322,48 +311,37 @@ class HotTab(Tab):
         self.tiles["Gauge_IGP_Vehicule"].SetTile(row=4, column=13, columnspan=2)
         self.tiles["Gauge_IGP_Vehicule"].tag.set(gauge=75.0)
 
-        self.tiles["Gauge_IGP_Locaux"] = Gauge_Tile(master=self.master, title="IGP_Locaux", redis_db=self.redis_db)
+        self.tiles["Gauge_IGP_Locaux"] = Gauge_Tile(master=self.master, title="IGP_Locaux")
         self.tiles["Gauge_IGP_Locaux"].SetTile(row=4, column=15, columnspan=2)
 
-        self.tiles["Gauge_Requipe"] = Gauge_Tile(master=self.master, title="Requipe",
-                                                 redis_db=self.redis_db)
+        self.tiles["Gauge_Requipe"] = Gauge_Tile(master=self.master, title="Requipe")
         self.tiles["Gauge_Requipe"].SetTile(row=5, column=13, columnspan=2)
-        self.tiles["Gauge_VCS"] = Gauge_Tile(master=self.master, title="VCS", redis_db=self.redis_db)
+        self.tiles["Gauge_VCS"] = Gauge_Tile(master=self.master, title="VCS")
         self.tiles["Gauge_VCS"].SetTile(row=5, column=15, columnspan=2)
-        self.tiles["Gauge_VST"] = Gauge_Tile(master=self.master, title="VST", redis_db=self.redis_db)
+        self.tiles["Gauge_VST"] = Gauge_Tile(master=self.master, title="VST")
         self.tiles["Gauge_VST"].SetTile(row=6, column=13, columnspan=2)
-        self.tiles["Gauge_Secu"] = Gauge_Tile(master=self.master, title="Secu", redis_db=self.redis_db)
+        self.tiles["Gauge_Secu"] = Gauge_Tile(master=self.master, title="Secu")
         self.tiles["Gauge_Secu"].SetTile(row=6, column=15, columnspan=2)
 
-        self.tiles["Salle_TRAINNING"] = Salle_de_Reunion_Tile(master=self.master, salle="Salle_TRAINNING",
-                                                              redis_db=self.redis_db)
+        self.tiles["Salle_TRAINNING"] = Salle_de_Reunion_Tile(master=self.master, salle="Salle_TRAINNING")
         self.tiles["Salle_TRAINNING"].SetTile(row=5, column=0, columnspan=2)
-        self.tiles["Salle_PROJECT"] = Salle_de_Reunion_Tile(master=self.master, salle="Salle_PROJECT",
-                                                            redis_db=self.redis_db)
+        self.tiles["Salle_PROJECT"] = Salle_de_Reunion_Tile(master=self.master, salle="Salle_PROJECT")
         self.tiles["Salle_PROJECT"].SetTile(row=5, column=2, columnspan=2)
-        self.tiles["Salle_MEETING"] = Salle_de_Reunion_Tile(master=self.master, salle="Salle_MEETING",
-                                                            redis_db=self.redis_db)
+        self.tiles["Salle_MEETING"] = Salle_de_Reunion_Tile(master=self.master, salle="Salle_MEETING")
         self.tiles["Salle_MEETING"].SetTile(row=7, column=0, columnspan=2)
-        self.tiles["Bureau_Passage_1"] = Salle_de_Reunion_Tile(master=self.master, salle="Bureau_Passage_1",
-                                                               redis_db=self.redis_db)
+        self.tiles["Bureau_Passage_1"] = Salle_de_Reunion_Tile(master=self.master, salle="Bureau_Passage_1")
         self.tiles["Bureau_Passage_1"].SetTile(row=6, column=0, columnspan=2)
-        self.tiles["Bureau_Passage_2"] = Salle_de_Reunion_Tile(master=self.master, salle="Bureau_Passage_2",
-                                                               redis_db=self.redis_db)
+        self.tiles["Bureau_Passage_2"] = Salle_de_Reunion_Tile(master=self.master, salle="Bureau_Passage_2")
         self.tiles["Bureau_Passage_2"].SetTile(row=6, column=2, columnspan=2)
 
-        self.tiles["Accident"] = Days_from_accident(master=self.master, redis_db=self.redis_db)
+        self.tiles["Accident"] = DaysFromAccident(master=self.master)
         self.tiles["Accident"].SetTile(row=1, column=8, columnspan=5, rowspan=2)
 
         self.tiles["Logo"] = Image_Tile(master=self.master)
         self.tiles["Logo"].SetTile(row=7, column=13, rowspan=2, columnspan=4)
 
-        self.tiles["caroussel"] = Caroussel_Tile(master=self.master)
+        self.tiles["caroussel"] = CarousselTile(master=self.master)
         self.tiles["caroussel"].SetTile(row=5, column=4, rowspan=4, columnspan=6)
-
-        """
-        self.tiles["test"] = funtile(master=self.master)
-        self.tiles["test"].SetTile(row=8,column=0)
-        """
 
         self.bind('<Visibility>', lambda evt: self.visibility_update())
 
@@ -384,19 +362,18 @@ class HotTab(Tab):
             # every 5 min
             if (self.update_inc % (5 * 60 * 5)) == 0:
                 print("5 min")
-                if self.redis_db:
-                    self.tiles["Traffic_Dunkerque"].update()
-                    self.tiles["Traffic_Seclin"].update()
-                    self.tiles["Traffic_Valenciennes"].update()
+                self.tiles["Traffic_Dunkerque"].update()
+                self.tiles["Traffic_Seclin"].update()
+                self.tiles["Traffic_Valenciennes"].update()
 
-                    self.tiles["Weather"].update()
-                    self.tiles["Infos"].getInformation()  # update the information from the base
+                self.tiles["Weather"].update()
+                self.tiles["Infos"].getInformation()  # update the information from the base
 
-                    self.tiles["Salle_TRAINNING"].update()
-                    self.tiles["Salle_PROJECT"].update()
-                    self.tiles["Salle_MEETING"].update()
-                    self.tiles["Bureau_Passage_1"].update()
-                    self.tiles["Bureau_Passage_2"].update()
+                self.tiles["Salle_TRAINNING"].update()
+                self.tiles["Salle_PROJECT"].update()
+                self.tiles["Salle_MEETING"].update()
+                self.tiles["Bureau_Passage_1"].update()
+                self.tiles["Bureau_Passage_2"].update()
                 # wait for initial img loading
                 self.master.after(500, self.tiles["Traffic_Map"].update)
 
@@ -425,7 +402,7 @@ class HotTab(Tab):
 
 class ColdTab(Tab):
     def __init__(self, master=None, redis_db=None, nb=None, ms=2000):
-        Tab.__init__(self, master=master, redis_db=redis_db, nb=nb, ms=ms)
+        Tab.__init__(self, master=master)
         self.tiles["pdfs"] = list()
         self.bind('<Visibility>', lambda evt: self.tab_update())
         self.old = ""
@@ -438,7 +415,8 @@ class ColdTab(Tab):
 
             print("scanning", self.old, current_pdf)
 
-            if current_pdf != self.old:  # if there is any difference in the pdf list, REFRESH, else don't, there is no need
+            # if there is any difference in the pdf list, REFRESH, else don't, there is no need
+            if current_pdf != self.old:
                 print("TRULY DIFFERENT")
                 for pdf in self.tiles["pdfs"]:
                     pdf.SetTile(remove=True)
@@ -461,7 +439,7 @@ class ColdTab(Tab):
             print("saving", self.old, current_pdf)
             print("#" * 50)
         except:
-            pass  # the directory "../pdf_reglementation/" isn't present
+            pass
 
 
 class Tile(tk.Frame):
@@ -470,7 +448,7 @@ class Tile(tk.Frame):
     Dafault : a gray, black bordered, case 
     """
 
-    def __init__(self, master=None, pady=0, padx=0, bg=VERT, bd=ARDOISE, redis_db=None):
+    def __init__(self, master=None, pady=0, padx=0, bg=VERT, bd=ARDOISE):
         tk.Frame.__init__(self, master=master, bg=bg, padx=padx, pady=pady,
                           highlightbackground=bd, highlightthickness=3, bd=0)
         self.master = master
@@ -478,9 +456,13 @@ class Tile(tk.Frame):
         self.pady = pady
         self.bg = bg
         self.bdcolor = bd
-        self.redis_db = redis_db
+        self.row = 0
+        self.column = 0
+        self.rowspan = 1
+        self.columnspan = 1
+        self.sticky = "news"
 
-    def SetTile(self, row="0", column="0", rowspan=1, columnspan=1, sticky=tk.N + tk.S + tk.E + tk.W, remove=None):
+    def SetTile(self, row="0", column="0", rowspan=1, columnspan=1, sticky="news", remove=None):
         # function to print a tile on the screen at the given coordonates
         if remove == False:
             self.grid(row=self.row, column=self.column, rowspan=self.rowspan, columnspan=self.columnspan,
@@ -507,20 +489,17 @@ class Tile(tk.Frame):
 class Traffic_Duration_Tile(Tile):  # traffic duration #json
     def __init__(self, master=None, destination=None, redis_db=None):
         if destination:
-            Tile.__init__(self, master=master, redis_db=redis_db)
+            Tile.__init__(self, master=master)
             tk.LabelFrame.__init__(self, master=master, text="xxx :", background=self.cget("bg"))
             # self.grid()
 
             self.destination = destination
-            self.configure(text=destination + " :", font=("bold"))
+            self.configure(text=destination + " :", font="bold")
             self.grid()
             self.duration_frame = tk.Label(self, text="ForEver", anchor="e", background=self.cget("bg"),
                                            font=("bold"))
             self.duration_frame.grid(in_=self)
-            if self.redis_db:
-                self.duration = self.redis_db.get("Googlemap." + self.destination + ".duration").decode("utf-8")
-            else:
-                self.duration = "0 minutes"
+            self.duration = DS.r.get("Googlemap." + self.destination + ".duration").decode("utf-8")
             self.duration_minutes = self.time_str_to_int(self.duration)
             self.orange = int(self.duration_minutes * 1.2)
             self.red = int(self.duration_minutes * 1.4)
@@ -531,8 +510,8 @@ class Traffic_Duration_Tile(Tile):  # traffic duration #json
             self.normal_duration.grid()
 
         else:
-            print(
-                "Missing destination in the creation of the traffic tile\nSyntaxe : Traffic_Duration_Tile(destination=\"Ville\"\n")
+            print("Missing destination in the creation of the traffic tile")
+            print("Syntax : Traffic_Duration_Tile(destination=\"Ville\"\n")
 
     def time_str_to_int(self, time=""):
         # convert str("1 heure 10 minutes") into int(70) in a return variable
@@ -551,10 +530,10 @@ class Traffic_Duration_Tile(Tile):  # traffic duration #json
         update function, call it 17 time each 5 minutes, from 07 AM to 06 PM ! 2500 calls is the limite
         """
         try:
-            duration = self.redis_db.get("Googlemap." + self.destination + ".duration").decode("utf-8")
+            duration = DS.r.get("Googlemap." + self.destination + ".duration").decode("utf-8")
             self.normal_duration.configure(text=duration)
             # self.frame.configure(background=self.frame.cget("bg"))
-            traffic_duration = self.redis_db.get("Googlemap." + self.destination + ".duration_traffic").decode("utf-8")
+            traffic_duration = DS.r.get("Googlemap." + self.destination + ".duration_traffic").decode("utf-8")
             traffic_duration_int = self.time_str_to_int(traffic_duration)
 
             if traffic_duration_int < self.orange:  # si le temps de trajet est entre la normale et +20% : VERT
@@ -577,7 +556,7 @@ class Traffic_Duration_Tile(Tile):  # traffic duration #json
 
 class Weather_Tile(Tile):  # principal, she own all the day, could be divided if wanted #json
     def __init__(self, master=None, destination="Loos", redis_db=None):
-        Tile.__init__(self, master=master, redis_db=redis_db, bg="gray")
+        Tile.__init__(self, master=master, bg="gray")
 
         # here lay the color background in function of the main weather
         self.weathercolor = {"Thinderstorm": "Yellow",
@@ -607,21 +586,16 @@ class Weather_Tile(Tile):  # principal, she own all the day, could be divided if
 
             self.grid_columnconfigure(c, weight=1)  # auto ajust all the columns
             ## creation ##
-            self.days.append(tk.LabelFrame(master=self, text="dd/mm/yyyy", bg="yellow",
-                                           font=("bold", 10)))  # pour chaque jour on crée un LabelFrame avec la date
-            self.dayslabel.append(tk.Label(master=self.days[c], text="empty", font=(
-                'bold')))  # pour chaque labelframe on y ajoute un label pour les infos météo
-            self.daysicone.append(tk.PhotoImage())  # on crée des images pour chaque jour
-            self.daysiconelabel.append(tk.Label(master=self.days[c], image=self.daysicone[
-                c],
-                                                text="daily icone missing ?"))  # on met les images dans un label dans les label frame de chaque jour
+            self.days.append(tk.LabelFrame(master=self, text="dd/mm/yyyy", bg="yellow", font=("bold", 10)))
+            self.dayslabel.append(tk.Label(master=self.days[c], text="empty", font='bold', anchor=tk.W, justify=tk.LEFT))
+            self.daysicone.append(tk.PhotoImage())
+            self.daysiconelabel.append(tk.Label(master=self.days[c], image=self.daysicone[c]))
             # end creation
             ## impression ##
-            self.days[c].grid(row=2, column=c,
-                              sticky="news")  # on imprime les jours a leur place (dernière ligne, chaque colonne)
-            self.days[c].grid_propagate(False)  # on évite que les tuiles bougent
+            self.days[c].grid(row=2, column=c,sticky="news")
+            self.days[c].grid_propagate(False)
 
-            self.dayslabel[c].grid(sticky="news")  # idem pour les infos météo de chaque jour
+            self.dayslabel[c].grid(sticky="news")
             self.dayslabel[c].grid_propagate(False)  # idem
 
             self.daysiconelabel[c].grid(sticky="news")  # on imprime les images
@@ -630,15 +604,14 @@ class Weather_Tile(Tile):  # principal, she own all the day, could be divided if
 
             ### Today ###
         self.todayframe = tk.LabelFrame(master=self, bg="red", text="Today :", font=("bold", 20))  # today title
-        self.todaylabel = tk.Label(master=self.todayframe, text="empty", font=('courier', 18, 'bold'))  # today weather
+        self.todaylabel = tk.Label(master=self.todayframe, text="empty", font=('courier', 18, 'bold'), anchor=tk.W, justify=tk.LEFT)  # today weather
         self.todayicone = tk.PhotoImage()  # today icone
 
         self.todayframe.grid(row=0, column=0, columnspan=4, rowspan=2, sticky="news")
         self.todayframe.grid_propagate(False)
         self.todaylabel.grid(column=0)
         self.todaylabel.grid_propagate(False)
-        self.todayiconelabel = tk.Label(master=self.todayframe, image=self.todayicone, text="today icone missing ?",
-                                        bg=self.todayframe.cget("bg"))
+        self.todayiconelabel = tk.Label(master=self.todayframe, image=self.todayicone, bg=self.todayframe.cget("bg"))
         self.todayiconelabel.grid(row=1)
 
     # end today
@@ -657,36 +630,36 @@ class Weather_Tile(Tile):  # principal, she own all the day, could be divided if
 
             ###TODAY 
             # text of the Today cell
-            today_mood = str(self.redis_db.get("Weather." + self.destination + ".Today.mood").decode("utf-8"))
-            today_desc = str(self.redis_db.get("Weather." + self.destination + ".Today.description").decode("utf-8"))
-            today_t = float(self.redis_db.get("Weather." + self.destination + ".Today.temp").decode("utf-8"))
-            today_t_min = float(self.redis_db.get("Weather." + self.destination + ".Today.temp_min").decode("utf-8"))
-            today_t_max = float(self.redis_db.get("Weather." + self.destination + ".Today.temp_max").decode("utf-8"))
+            today_mood = str(DS.r.get("Weather." + self.destination + ".Today.mood").decode("utf-8"))
+            today_desc = str(DS.r.get("Weather." + self.destination + ".Today.description").decode("utf-8"))
+            today_t = float(DS.r.get("Weather." + self.destination + ".Today.temp").decode("utf-8"))
+            today_t_min = float(DS.r.get("Weather." + self.destination + ".Today.temp_min").decode("utf-8"))
+            today_t_max = float(DS.r.get("Weather." + self.destination + ".Today.temp_max").decode("utf-8"))
             message = "Today's mood : %s\nDescription : %s\nTempérature actuelle : %.1f°C\n" + \
                       "            minimale : %.1f°C\n" + \
                       "            maximale : %.1f°C"
             message %= (today_mood, today_desc, today_t, today_t_min, today_t_max)
-            self.todaylabel.configure(text=message, anchor=tk.W, justify=tk.LEFT)  # stiick the text to the left
+            self.todaylabel.configure(text=message)  # stiick the text to the left
             self.todayframe.configure(
-                bg=self.weathercolor[self.redis_db.get("Weather." + self.destination + ".Today.mood").decode("utf-8")])
+                bg=self.weathercolor[DS.r.get("Weather." + self.destination + ".Today.mood").decode("utf-8")])
             self.todaylabel.configure(
                 bg=self.todayframe.cget("bg"))  # to get the TodayFrame bg attribute, to use on the childer frame
             self.todayiconelabel.configure(bg=self.todayframe.cget("bg"))  # same as befor
             self.todayicone.configure(
-                file=IMG_PATH + self.redis_db.get("Weather." + self.destination + ".Today.icon").decode(
+                file=IMG_PATH + DS.r.get("Weather." + self.destination + ".Today.icon").decode(
                     "utf-8") + '.png')
 
             for inc in range(1, 5):  # other 4 days, same structure than befor, but simplier, less information needed
-                day_mood = str(self.redis_db.get("Weather." + self.destination + ".Day" + str(inc) + ".mood").decode("utf-8"))
-                day_t_min = int(float(self.redis_db.get("Weather." + self.destination + ".Day" + str(inc) + ".temp_min").decode("utf-8")))
-                day_t_max = int(float(self.redis_db.get("Weather." + self.destination + ".Day" + str(inc) + ".temp_max").decode("utf-8")))
+                day_mood = str(DS.r.get("Weather." + self.destination + ".Day" + str(inc) + ".mood").decode("utf-8"))
+                day_t_min = int(float(DS.r.get("Weather." + self.destination + ".Day" + str(inc) + ".temp_min").decode("utf-8")))
+                day_t_max = int(float(DS.r.get("Weather." + self.destination + ".Day" + str(inc) + ".temp_max").decode("utf-8")))
                 message = "%s\nT mini %d°C\nT maxi %d°C"
                 message %= (day_mood, day_t_min, day_t_max)
                 self.dayslabel[inc - 1].configure(text=message)
                 self.days[inc - 1].configure(bg=self.weathercolor[
-                    self.redis_db.get("Weather." + self.destination + ".Day" + str(inc) + ".mood").decode("utf-8")])
+                    DS.r.get("Weather." + self.destination + ".Day" + str(inc) + ".mood").decode("utf-8")])
                 self.dayslabel[inc - 1].configure(bg=self.days[inc - 1].cget("bg"))
-                self.daysicone[inc - 1].configure(file=IMG_PATH + self.redis_db.get(
+                self.daysicone[inc - 1].configure(file=IMG_PATH + DS.r.get(
                     "Weather." + self.destination + ".Day" + str(inc) + ".icon").decode("utf-8") + ".png")
                 self.daysiconelabel[inc - 1].configure(bg=self.days[inc - 1].cget("bg"))
                 inc += 1
@@ -694,7 +667,7 @@ class Weather_Tile(Tile):  # principal, she own all the day, could be divided if
             print(e)
             self.days[0].configure(text="error 42")  # private joke, can be delete cause error never happend, humhum
 
-    def SetTile(self, row="0", column="0", sticky=tk.N + tk.S + tk.E + tk.W, remove=False):
+    def SetTile(self, row="0", column="0", sticky=tk.NSEW, remove=False):
         self.row = row
         self.column = column
         self.rowspan = 3  # default, no need to change it's cool with  that configuration
@@ -709,11 +682,11 @@ class Weather_Tile(Tile):  # principal, she own all the day, could be divided if
         else:
             self.grid(row=self.row, column=self.column, rowspan=self.rowspan, columnspan=self.columnspan,
                       sticky=self.sticky)
-            self.grid_propagate(
-                False)  # this disable the resizing effect of putting widget in the frame #sush a good boy
+            # this disable the resizing effect of putting widget in the frame #sush a good boy
+            self.grid_propagate(False)
 
 
-class Time_Tile(Tile):  # google map traffic # still need to define
+class Time_Tile(Tile):
     def __init__(self, master=None):
         Tile.__init__(self, master=master)
         self.day = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
@@ -766,34 +739,39 @@ class Traffic_Map_Tile(Tile):  # google map traffic # still need to define
 
 class Local_Information_Tile(Tile):  # 1 * x "header" or "footer" #still need to define
     def __init__(self, master=None, redis_db=None):
-        Tile.__init__(self, master=master, redis_db=redis_db)
+        Tile.__init__(self, master=master)
         # width --> width in chars, height --> lines of text
-        self.text_width = 44  # number of space to fill the all text area, user friendlier
+        self.text_width = 50  # number of space to fill the all text area, user friendlier
         self.text = tk.Label(self, height=1, bg='yellow', )
         self.columnconfigure(0, weight=1)  # to take all the weight of the bottom screen
         self.text.grid(row=0, column=0, sticky="news")
         # use a proportional font to handle spaces correctly
-        self.text.config(font=('courier', 48, 'bold'))
-        self.s = ""
-        self.k = 0  # inc which will count the number of char show, so the number of char to shown
+        self.text.config(font=('courier', 51, 'bold'))
+        self.banner = ""
+        self.banner_off = 0  # inc which will count the number of char show, so the number of char to shown
 
     def update(self):
         # update the text on the screen
-        if self.k >= (len(self.s) - (self.text_width // 2)):
-            self.k = 0
+        if self.banner_off >= (len(self.banner) - (self.text_width // 2)):
+            self.banner_off = 0
         # use string slicing to do the trick
-        self.ticker_text = self.s[self.k:self.k + self.text_width]  # the "k"ey of the trick ....
+        self.ticker_text = self.banner[self.banner_off:self.banner_off + self.text_width]  # the "k"ey of the trick ....
         # print (self.ticker_text)#test
         self.text.configure(text=self.ticker_text)
-        self.k += 1
+        self.banner_off += 1
 
     def getInformation(self):
+        HEAD = " " * 20
         try:
-            self.s = self.redis_db.get("Info").decode("utf-8")
+            l_titles = json.loads(DS.redis_get("news:local").decode("utf-8"))
+            # update banner
+            self.banner = ""
+            for title in l_titles:
+                self.banner += HEAD + title + HEAD
         except:
-            self.s = " " * self.text_width + "error redis" + " " * self.text_width
+            self.banner = " " * self.text_width + "error redis" + " " * self.text_width
 
-    def SetTile(self, row="0", column="0", sticky=tk.N + tk.S + tk.E + tk.W, remove=False):
+    def SetTile(self, row="0", column="0", sticky="news", remove=False):
         # can't we use the Tile.SetFrame(...) ? let's test it later #WIP
         self.row = row
         self.column = column
@@ -809,13 +787,8 @@ class Local_Information_Tile(Tile):  # 1 * x "header" or "footer" #still need to
         else:
             self.grid(row=self.row, column=self.column, rowspan=self.rowspan, columnspan=self.columnspan,
                       sticky=self.sticky)
-            self.grid_propagate(
-                False)  # this disable the resizing effect of putting widget in the frame #sush a good boy
-
-
-class Flyspray_Tile(Tile):  # still need to define
-    def __init__(self):
-        pass
+            # this disable the resizing effect of putting widget in the frame #sush a good boy
+            self.grid_propagate(False)
 
 
 class Pdf_Tile(Tile):  # clickable pdf luncher
@@ -836,7 +809,7 @@ class Pdf_Tile(Tile):  # clickable pdf luncher
         except:
             pass
 
-    def SetTile(self, row="0", column="0", rowspan=1, columnspan=1, sticky=tk.N + tk.S + tk.E + tk.W, remove=False):
+    def SetTile(self, row="0", column="0", rowspan=1, columnspan=1, sticky=tk.NSEW, remove=False):
         # function to print a tile on the screen at the given coordonates
         self.row = row
         self.column = column
@@ -858,7 +831,7 @@ class Pdf_Tile(Tile):  # clickable pdf luncher
 
 class Salle_de_Reunion_Tile(Tile):  # dummy #json # need more information
     def __init__(self, master=None, redis_db=None, salle="Ceilling"):
-        Tile.__init__(self, master=master, redis_db=redis_db)
+        Tile.__init__(self, master=master)
         self.salle_name = salle
         for r in range(3):  # print it in the midle of a 3x3 grid !
             for c in range(3):
@@ -866,11 +839,11 @@ class Salle_de_Reunion_Tile(Tile):  # dummy #json # need more information
                 tk.Label(self, bg=self.cget("bg")).grid(row=r, column=c)
             self.grid_rowconfigure(r, weight=1)
 
-        self.salle = tk.Label(self, text=self.salle_name, bg=self.cget("bg"))
-        self.salle.grid(row=1, column=0)
+        self.salle = tk.Label(self, text=self.salle_name.replace("_", " "), bg=self.cget("bg"),font="bold",justify="left", anchor="w")
+        self.salle.grid(row=1, column=0, sticky="news")
         self.status = "Unocc"
-        self.salle_status = tk.Label(self, text="UnOccuped", bg=self.cget("bg"))
-        self.salle_status.grid(row=2, column=0)
+        self.salle_status = tk.Label(self, text="UnOccuped", bg=self.cget("bg"), font="bold", justify="left",anchor="w")
+        self.salle_status.grid(row=2, column=0, sticky="news")
 
         try:
             self.image_Orange = tk.PhotoImage(file=IMG_PATH + "TraficLight_Orange.png").subsample(10)
@@ -886,7 +859,7 @@ class Salle_de_Reunion_Tile(Tile):  # dummy #json # need more information
 
     def update(self):
         old = self.status
-        self.status = self.redis_db.get("Widget_salle." + self.salle_name).decode("utf-8")
+        self.status = DS.r.get("Widget_salle." + self.salle_name).decode("utf-8")
         if old != self.status:
             print(datetime.now(), self.salle_name, old, " => ", self.status)
 
@@ -904,7 +877,7 @@ class Salle_de_Reunion_Tile(Tile):  # dummy #json # need more information
 
 class Gauge_Tile(Tile):  # compteur aiguille
     def __init__(self, master=None, title="Nathemoment", redis_db=None):
-        Tile.__init__(self, master=master, redis_db=redis_db)
+        Tile.__init__(self, master=master)
         self.meter = 0
         self.angle = 0
         self.var = tk.IntVar(self, 0)
@@ -940,23 +913,17 @@ class Gauge_Tile(Tile):  # compteur aiguille
         self.updateMeterLine(pos * 0.6 + 0.2)
 
     def update(self, inc=0):
-        # bla bla bla inc = self.redis_db.get("blablabla").decode("utf-8")
-        if self.redis_db:
-            try:
-                inc = int(self.redis_db.get("Gauges." + self.title + ".current").decode("utf-8"))
-                inc = (100 * inc) / int(self.redis_db.get("Gauges." + self.title + ".goal").decode("utf-8"))
-                try:  # WIP
-                    current = self.redis_db.get("Gauges." + self.title + ".current").decode("utf-8")
-                    total = self.redis_db.get("Gauges." + self.title + ".goal").decode("utf-8")
-                    self.label.configure(text=self.title.replace("_", " ") + ":" + str(current) + "/" + str(total))
-                except Exception as e:
-                    pass
-                    #print(self.title, "1", e)
+        try:
+            inc = int(DS.r.get("Gauges." + self.title + ".current").decode("utf-8"))
+            inc = (100 * inc) / int(DS.r.get("Gauges." + self.title + ".goal").decode("utf-8"))
+            try:  # WIP
+                current = DS.r.get("Gauges." + self.title + ".current").decode("utf-8")
+                total = DS.r.get("Gauges." + self.title + ".goal").decode("utf-8")
+                self.label.configure(text=self.title.replace("_", " ") + ":" + str(current) + "/" + str(total))
             except Exception as e:
-                #print(self.title, "2", e)
-                inc = 50
-        else:
-            inc = 0
+                pass
+        except Exception as e:
+            inc = 50
 
         if inc < 50:
             self.gauge.configure(bg="red")
@@ -1027,41 +994,46 @@ class GaugeTile(Tile):
         self.can.coords(self.can_arrow, 112, 100, x, y)
 
 
-class Days_from_accident(Tile):  # WIP
+class DaysFromAccident(Tile):
     def __init__(self, master=None, redis_db=None):
-        Tile.__init__(self, master=master, redis_db=redis_db)
+        Tile.__init__(self, master=master)
         tk.LabelFrame.__init__(self, master=master, text="Safety is number one priority !",
-                               font=('courier', 18, 'bold'),
-                               bg="white")
-
+                               font=('courier', 20, 'bold'), bg="white")
+        # populate tile with blank grid parts
         for c in range(5):
             for r in range(3):
                 self.grid_rowconfigure(r, weight=1)
                 if c > 0:
                     tk.Label(self, bg="white").grid(row=r, column=c, )
             self.columnconfigure(c, weight=1)
-
-        self.nbjour = tk.Label(self, text="Null", font=('courier', 24, 'bold'), fg=FUSHIA, bg=self.cget("bg"))
-        self.nbjour.grid(row=1, column=0, columnspan=2)
-
-        tk.Label(self, text="Jours sans accident",
-                 font=('courier', 20, 'bold'), bg=self.cget("bg")).grid(row=1, column=2, columnspan=3)
+        # DTS
+        self.lbl_days_dts = tk.Label(self, text="N/A", font=('courier', 24, 'bold'), fg=FUSHIA, bg=self.cget("bg"))
+        self.lbl_days_dts.grid(row=1, column=0, columnspan=2)
+        tk.Label(self, text="Jours sans accident DTS",
+                 font=('courier', 18, 'bold'), bg=self.cget("bg")).grid(row=1, column=2, columnspan=3)
+        # DIGNE
+        self.lbl_days_digne = tk.Label(self, text="N/A", font=('courier', 24, 'bold'), fg=FUSHIA, bg=self.cget("bg"))
+        self.lbl_days_digne.grid(row=2, column=0, columnspan=2)
+        tk.Label(self, text="Jours sans accident DIGNE",
+                 font=('courier', 18, 'bold'), bg=self.cget("bg")).grid(row=2, column=2, columnspan=3)
 
     def update(self):
-        # update datetime timedelta until today an the accident day
-        tmp_now = datetime.now()
+        # retrieve data
+        d_gsheet = DS.redis_hgetall("gsheet:grt")
+        # DTS acc update
         try:
-            tmp = self.redis_db.get("Accident_day").decode("utf-8").split(":")  # format dd:mm:yyyy
-        except:
-            tmp = "1:1:2008".split(":")
-        day = int(tmp[0])
-        month = int(tmp[1])
-        year = int(tmp[2])
-        tmp_accident = datetime(year, month, day)
-
-        tmp_difference = tmp_now - tmp_accident
-
-        self.nbjour.configure(text=str(tmp_difference.days))
+            day, month, year = map(int, d_gsheet[b'DATE_ACC_DTS'].decode("utf-8").split('/'))
+            self.lbl_days_dts.configure(text=str((datetime.now() - datetime(year, month, day)).days))
+        except Exception:
+            logging.error(traceback.format_exc())
+            self.lbl_days_dts.configure(text="N/A")
+        # DIGNE acc update
+        try:
+            day, month, year = map(int, d_gsheet[b'DATE_ACC_DIGNE'].decode("utf-8").split('/'))
+            self.lbl_days_digne.configure(text=str((datetime.now() - datetime(year, month, day)).days))
+        except Exception:
+            logging.error(traceback.format_exc())
+            self.lbl_days_digne.configure(text="N/A")
 
 
 class Image_Tile(Tile):
@@ -1077,7 +1049,7 @@ class Image_Tile(Tile):
         self.labelimage.grid()
 
 
-class Caroussel_Tile(Tile):
+class CarousselTile(Tile):
     def __init__(self, master=None):
         Tile.__init__(self, master=master, bg="white")
         # private
@@ -1086,7 +1058,7 @@ class Caroussel_Tile(Tile):
         # tk job
         self.tk_img = tk.PhotoImage()
         self.lbl_img = tk.Label(self, image=self.tk_img)
-        self.lbl_img.grid(sticky=tk.NSEW)
+        self.lbl_img.grid()
         # first img load
         self._img_files_reload()
 
