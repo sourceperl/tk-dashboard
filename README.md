@@ -11,6 +11,13 @@
     # reboot to take effect
     sudo reboot
 
+### Setup redis
+
+    sudo apt-get install redis-server
+    # edit config file /etc/redis/redis.conf
+    # for use with pi SD card, we need to reduce backup cycle
+    # -> here we use only "save 3600 1"
+
 ### Copy config file (URL, API credentials, misc...)
 
     # edit home/pi/.dashboard_config_sample with credentials
@@ -29,8 +36,16 @@
     # add autostart
     ln -s /home/pi/Desktop/dashboard.desktop /home/pi/.config/autostart/
 
-### Setup supervisor :
+### Setup supervisor
 
     sudo apt-get install supervisor
     sudo cp etc/supervisor/conf.d/* /etc/supervisor/conf.d/
     sudo supervisorctl update
+
+### Setup remote access
+
+    sudo apt-get install x11vnc
+    # create password
+    x11vnc -storepasswd
+    # launch server as you want
+    x11vnc -usepw -forever &
