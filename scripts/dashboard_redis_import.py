@@ -27,10 +27,9 @@ iswip_url = cnf.get('iswip', 'url')
 # gmap (traffic duration)
 gmap_key = cnf.get('gmap', 'key')
 gmap_origin = cnf.get('gmap', 'origin')
-# restpack
-rpack_token = cnf.get("restpack", "token")
-rpack_img_url = cnf.get("restpack", "img_url")
-rpack_img_target = cnf.get("restpack", "img_target")
+# gmap img traffic
+gmap_img_url = cnf.get("gmap_img", "img_url")
+gmap_img_target = cnf.get("gmap_img", "img_target")
 
 
 # dataset access
@@ -177,7 +176,7 @@ def local_info_job():
 
 
 def gmap_travel_time_job():
-    for gm_dest in ("Seclin", "Dunkerque", "Valenciennes"):
+    for gm_dest in ("Arras", "Amiens", "Dunkerque", "Maubeuge", "Valenciennes"):
         # build url
         gm_url_origin = urllib.parse.quote_plus(gmap_origin)
         gm_url_destination = urllib.parse.quote_plus(gm_dest)
@@ -192,8 +191,8 @@ def gmap_travel_time_job():
             return None
         # decode json
         try:
-            duration_abs = gm_json["routes"][0]["legs"][0]["duration"]["text"]
-            duration_with_traffic = gm_json["routes"][0]["legs"][0]["duration_in_traffic"]["text"]
+            duration_abs = gm_json["routes"][0]["legs"][0]["duration"]["value"]
+            duration_with_traffic = gm_json["routes"][0]["legs"][0]["duration_in_traffic"]["value"]
             # update redis
             DS.redis_set('Googlemap.%s.duration' % gm_dest, duration_abs)
             DS.redis_set('Googlemap.%s.duration_traffic' % gm_dest, duration_with_traffic)
@@ -201,19 +200,12 @@ def gmap_travel_time_job():
             logging.error(traceback.format_exc())
 
 
-# restpack.io is currently unusable
-def restpack_traffic_img_job():
-    # build url
-    rp_url = "https://restpack.io/api/screenshot/v3/"
-    rp_url += "capture?url=%s&width=580&height=550&format=png&fresh=true&ttl=1&wait=network&delay=1000"
-    rp_url %= rpack_img_url
+def gmap_traffic_img_job():
     # http request
     try:
-        r = requests.get(rp_url, stream=True,
-                         headers={"x-access-token": rpack_token})
-        print(r.status_code)
+        r = requests.get(gmap_img_url, stream=True)
         if r.status_code == 200:
-            with open(rpack_img_target, 'wb') as f:
+            with open(gmap_img_target, 'wb') as f:
                 r.raw.decode_content = True
                 shutil.copyfileobj(r.raw, f)
     except requests.exceptions.RequestException:
@@ -227,14 +219,14 @@ if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s %(message)s')
 
     # init scheduler
-    # schedule.every(5).minutes.do(restpack_traffic_img_job)
+    schedule.every(5).minutes.do(gmap_traffic_img_job)
     schedule.every(5).minutes.do(gsheet_job)
     schedule.every(5).minutes.do(openweathermap_job)
     schedule.every(5).minutes.do(local_info_job)
     schedule.every(5).minutes.do(iswip_job)
     schedule.every(5).minutes.do(gmap_travel_time_job)
     # first call
-    # restpack_traffic_img_job()
+    gmap_traffic_img_job()
     gsheet_job()
     openweathermap_job()
     local_info_job()
