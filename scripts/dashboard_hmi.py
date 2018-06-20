@@ -31,6 +31,10 @@ Step : file independant, can be used without pdf and images
 IMG_PATH = "/home/pi/dashboard/images/"
 PDF_PATH = "/home/pi/dashboard/pdf_reglementation/"
 DOC_PATH = "/home/pi/dashboard/Document_affichage/"
+# Geometry
+TAB_PAD_HEIGHT = 17
+TAB_PAD_WIDTH = 17
+NEWS_BANNER_HEIGHT = 90
 # GRTgaz Colors
 BLEU = "#007bc2"
 VERT = "#00a984"
@@ -55,22 +59,22 @@ class DS:
     @classmethod
     def redis_get(cls, name):
         try:
-            return cls.r.get(name)
-        except redis.RedisError:
+            return cls.r.get(name).decode('utf-8')
+        except (redis.RedisError, AttributeError):
             return None
 
     @classmethod
     def redis_hgetall(cls, name):
         try:
             return cls.r.hgetall(name)
-        except (redis.RedisError, TypeError) as e:
+        except (redis.RedisError, TypeError):
             return None
 
     @classmethod
     def redis_hmget_one(cls, name, key):
         try:
-            return cls.r.hmget(name, key)[0]
-        except (redis.RedisError, TypeError) as e:
+            return cls.r.hmget(name, key)[0].decode("utf-8")
+        except (redis.RedisError, AttributeError):
             return None
 
 
@@ -151,32 +155,6 @@ class Tag:
             tag.update()
 
 
-class GaugeTag(Tag):
-    def __init__(self, real=0.0, obj=0.0, gauge=0.0):
-        super().__init__()
-        # public
-        self.real = real
-        self.obj = obj
-        self.gauge = gauge
-
-    def set(self, real=None, obj=None, gauge=None):
-        is_changed = False
-        if real is not None and real != self.real:
-            self.real = float(real)
-            is_changed = True
-        if obj is not None and obj != self.obj:
-            self.real = float(obj)
-            is_changed = True
-        if gauge is not None and gauge != self.gauge:
-            self.gauge = float(gauge)
-            is_changed = True
-        if is_changed:
-            self.is_update()
-
-    def __repr__(self):
-        return '%s %s %s ' % (self.real, self.obj, self.gauge)
-
-
 class Tags:
     # IGP_VEH_JAUGE = Tag_(cmd_src=lambda: DS.redis_hmget_one('grt:gsheet:import', 'IGP_VEH_JAUGE_DTS'))
     # IGP_VEH_REAL = Tag_(cmd_src=lambda: DS.redis_hmget_one('grt:gsheet:import', 'IGP_VEH_REAL_DTS'))
@@ -198,17 +176,20 @@ class MainApp(tk.Tk):
         tk.Tk.__init__(self, *args, **kwargs)
         # define style to fix size of tab header
         self.style = ttk.Style()
-        self.style.theme_settings("default", {"TNotebook.Tab": {"configure": {"padding": [17, 17]}}})
+        self.style.theme_settings("default",
+                                  {"TNotebook.Tab": {"configure": {"padding": [TAB_PAD_WIDTH, TAB_PAD_HEIGHT]}}})
         # define notebook
         self.note = ttk.Notebook(self)
         self.tab1 = LiveTab(self.note)
         self.tab2 = DocTab(self.note)
         self.note.add(self.tab1, text="Tableau de bord")
         self.note.add(self.tab2, text="Affichage réglementaire")
-        # self.note.pack(fill=tk.BOTH, expand=True)
         # default tab
-        self.note.grid(row=0, column=0, rowspan=1, columnspan=20, sticky=tk.NSEW)
-        # self.note.place(in_=self, anchor="c", relx=.5, rely=.52)
+        # self.note.grid(row=0, column=0, rowspan=1, columnspan=20, sticky=tk.NSEW)
+        # self.note.grid_columnconfigure(0, minsize=1940)
+        # self.note.place(in_=self, anchor="c", relx=.5, rely=.5)
+        #  self.note.pack(fill=tk.BOTH, expand=True)
+        self.note.pack()
         self.note.select(self.tab1)
         # press Esc to quit
         self.bind("<Escape>", lambda e: self.destroy())
@@ -227,12 +208,9 @@ class Tab(tk.Frame):
         self.screen_width = self.winfo_screenwidth()
         self.number_of_tile_width = 17
         self.screen_height = self.winfo_screenheight() - 60
-        self.number_of_tile_height = 10
-
-        self.general_padx = (self.screen_width / (self.number_of_tile_width * 2)) - 1
-        self.general_pady = (self.screen_height / (self.number_of_tile_height * 2))
-
-        self.tiles = dict()
+        self.number_of_tile_height = 9
+        self.general_padx = round(self.screen_width / (self.number_of_tile_width * 2))
+        self.general_pady = round((self.screen_height - TAB_PAD_HEIGHT) / (self.number_of_tile_height * 2))
 
         # populate the grid with all tiles
         for c in range(0, self.number_of_tile_width):
@@ -274,19 +252,19 @@ class LiveTab(Tab):
         # create all tiles for this tab here
 
         # traffic Amiens
-        self.tl_tf_ami = Traffic_Duration_Tile(self, to_city="Amiens")
+        self.tl_tf_ami = TrafficDurationTile(self, to_city="Amiens")
         self.tl_tf_ami.set_tile(row=0, column=0)
         # traffic Arras
-        self.tl_tf_arr = Traffic_Duration_Tile(self, to_city="Arras")
+        self.tl_tf_arr = TrafficDurationTile(self, to_city="Arras")
         self.tl_tf_arr.set_tile(row=0, column=1)
         # traffic Dunkerque
-        self.tl_tf_dunk = Traffic_Duration_Tile(self, to_city="Dunkerque")
+        self.tl_tf_dunk = TrafficDurationTile(self, to_city="Dunkerque")
         self.tl_tf_dunk.set_tile(row=0, column=2)
         # traffic Maubeuge
-        self.tl_tf_maub = Traffic_Duration_Tile(self, to_city="Maubeuge")
+        self.tl_tf_maub = TrafficDurationTile(self, to_city="Maubeuge")
         self.tl_tf_maub.set_tile(row=0, column=3)
         # traffic Valenciennes
-        self.tl_tf_vale = Traffic_Duration_Tile(self, to_city="Valenciennes")
+        self.tl_tf_vale = TrafficDurationTile(self, to_city="Valenciennes")
         self.tl_tf_vale.set_tile(row=0, column=4)
 
         # traffic map
@@ -302,23 +280,22 @@ class LiveTab(Tab):
         self.tl_clock.set_tile(row=0, column=5, rowspan=2, columnspan=3)
 
         # news banner
-        self.tl_news = Local_Information_Tile(self)
+        self.tl_news = News_Banner_Tile(self)
         self.tl_news.set_tile(row=8, column=0, columnspan=17)
 
         # all Gauges
-        self.tl_g_veh = GaugeTile(self, title="IGP_Vehicule")
+        self.tl_g_veh = GaugeTile(self, title="IGP véhicule")
         self.tl_g_veh.set_tile(row=3, column=13, columnspan=2)
-        self.tl_g_veh.tag.set(gauge=75.0)
-        self.tl_g_loc = Gauge_Tile(self, title="IGP_Locaux")
+        self.tl_g_loc = GaugeTile(self, title="IGP locaux")
         self.tl_g_loc.set_tile(row=3, column=15, columnspan=2)
-        self.tl_g_req = Gauge_Tile(self, title="Requipe")
+        self.tl_g_req = GaugeTile(self, title="Réunion équipe")
         self.tl_g_req.set_tile(row=4, column=13, columnspan=2)
-        self.tl_g_vcs = Gauge_Tile(self, title="VCS")
+        self.tl_g_vcs = GaugeTile(self, title="VCS")
         self.tl_g_vcs.set_tile(row=4, column=15, columnspan=2)
-        self.tl_g_vst = Gauge_Tile(self, title="VST")
+        self.tl_g_vst = GaugeTile(self, title="VST")
         self.tl_g_vst.set_tile(row=5, column=13, columnspan=2)
-        self.tl_g_sec = Gauge_Tile(self, title="Secu")
-        self.tl_g_sec.set_tile(row=5, column=15, columnspan=2)
+        self.tl_g_qsc = GaugeTile(self, title="1/4h sécurité")
+        self.tl_g_qsc.set_tile(row=5, column=15, columnspan=2)
 
         # meeting room
         self.tl_room_prj = Meeting_Room_Tile(self, room="Salle_PROJECT")
@@ -344,30 +321,13 @@ class LiveTab(Tab):
         self.tl_crl = CarousselTile(self)
         self.tl_crl.set_tile(row=4, column=7, rowspan=4, columnspan=6)
 
-        # self.bind('<Visibility>', lambda evt: self.tab_update())
+        # update counter
         self.update_inc = 0
-        self.tick = 200  # ms
 
     def tab_update(self):
-        # some update stuff to do every 5 minutes when this tab is mapped
+        # some update stuff to do when this tab is mapped
         # every 5 min
         if (self.update_inc % (5 * 60 * 5)) == 0:
-            # Amiens
-            self.tl_tf_ami.travel_t.set(DS.r.get("Googlemap.Amiens.duration").decode("utf-8"))
-            self.tl_tf_ami.traffic_t.set(DS.r.get("Googlemap.Amiens.duration_traffic").decode("utf-8"))
-            # Arras
-            self.tl_tf_arr.travel_t.set(DS.r.get("Googlemap.Arras.duration").decode("utf-8"))
-            self.tl_tf_arr.traffic_t.set(DS.r.get("Googlemap.Arras.duration_traffic").decode("utf-8"))
-            # Dunkerque
-            self.tl_tf_dunk.travel_t.set(DS.r.get("Googlemap.Dunkerque.duration").decode("utf-8"))
-            self.tl_tf_dunk.traffic_t.set(DS.r.get("Googlemap.Dunkerque.duration_traffic").decode("utf-8"))
-            # Maubeuge
-            self.tl_tf_maub.travel_t.set(DS.r.get("Googlemap.Maubeuge.duration").decode("utf-8"))
-            self.tl_tf_maub.traffic_t.set(DS.r.get("Googlemap.Maubeuge.duration_traffic").decode("utf-8"))
-            # Valenciennes
-            self.tl_tf_vale.travel_t.set(DS.r.get("Googlemap.Valenciennes.duration").decode("utf-8"))
-            self.tl_tf_vale.traffic_t.set(DS.r.get("Googlemap.Valenciennes.duration_traffic").decode("utf-8"))
-
             # traffic map (3s delay for startup init)
             self.after(3000, self.tl_tf_map.update)
 
@@ -378,7 +338,7 @@ class LiveTab(Tab):
             self.tl_weath.update()
 
             # update the information from the base
-            self.tl_news.getInformation()
+            self.tl_news.get_information()
 
             self.tl_room_trn.update()
             self.tl_room_prj.update()
@@ -388,17 +348,33 @@ class LiveTab(Tab):
 
         # every 20s
         if (self.update_inc % (5 * 20)) == 0:
+            # Amiens
+            self.tl_tf_ami.travel_t = DS.redis_get("Googlemap.Amiens.duration")
+            self.tl_tf_ami.traffic_t = DS.redis_get("Googlemap.Amiens.duration_traffic")
+            # Arras
+            self.tl_tf_arr.travel_t = DS.redis_get("Googlemap.Arras.duration")
+            self.tl_tf_arr.traffic_t = DS.redis_get("Googlemap.Arras.duration_traffic")
+            # Dunkerque
+            self.tl_tf_dunk.travel_t = DS.redis_get("Googlemap.Dunkerque.duration")
+            self.tl_tf_dunk.traffic_t = DS.redis_get("Googlemap.Dunkerque.duration_traffic")
+            # Maubeuge
+            self.tl_tf_maub.travel_t = DS.redis_get("Googlemap.Maubeuge.duration")
+            self.tl_tf_maub.traffic_t = DS.redis_get("Googlemap.Maubeuge.duration_traffic")
+            # Valenciennes
+            self.tl_tf_vale.travel_t = DS.redis_get("Googlemap.Valenciennes.duration")
+            self.tl_tf_vale.traffic_t = DS.redis_get("Googlemap.Valenciennes.duration_traffic")
             # carousel update
             self.tl_crl.update()
             # update all defined tags
             Tags.update_tags()
             # gauges update
-            self.tl_g_veh.update()
-            self.tl_g_loc.update()
-            self.tl_g_req.update()
-            self.tl_g_vcs.update()
-            self.tl_g_vst.update()
-            self.tl_g_sec.update()
+            self.tl_g_veh.percent = DS.redis_hmget_one("gsheet:grt", "IGP_VEH_JAUGE_DTS")
+            self.tl_g_veh.value = DS.redis_hmget_one("gsheet:grt", "IGP_VEH_REAL_DTS")
+            self.tl_g_loc.percent = DS.redis_hmget_one("gsheet:grt", "IGP_LOC_JAUGE_DTS")
+            self.tl_g_req.percent = DS.redis_hmget_one("gsheet:grt", "R_EQU_JAUGE_DTS")
+            self.tl_g_vcs.percent = DS.redis_hmget_one("gsheet:grt", "VCS_JAUGE_DTS")
+            self.tl_g_vst.percent = DS.redis_hmget_one("gsheet:grt", "VST_JAUGE_DTS")
+            self.tl_g_qsc.percent = DS.redis_hmget_one("gsheet:grt", "Q_HRE_JAUGE_DTS")
 
         # every 0.2s
         if (self.update_inc % 1) == 0:
@@ -413,6 +389,7 @@ class LiveTab(Tab):
 class DocTab(Tab):
     def __init__(self, *args, **kwargs):
         Tab.__init__(self, *args, **kwargs)
+        self.tiles = dict()
         self.tiles["pdfs"] = list()
         self.bind('<Visibility>', lambda evt: self.tab_update())
         self.old = ""
@@ -473,16 +450,14 @@ class Tile(tk.Frame):
         pass
 
 
-class Traffic_Duration_Tile(Tile):  # traffic duration #json
+class TrafficDurationTile(Tile):  # traffic duration #json
     def __init__(self, *args, to_city, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # public
         self.to_city = to_city
-        self.travel_t = tk.IntVar()
-        self.traffic_t = tk.IntVar()
-        self.traffic_t.trace("w", self._on_data_change)
-        self.travel_t.trace("w", self._on_data_change)
         # private
+        self._travel_t = 0
+        self._traffic_t = 0
         self._traffic_str = tk.StringVar()
         self._t_inc_str = tk.StringVar()
         self._traffic_str.set("N/A")
@@ -493,18 +468,58 @@ class Traffic_Duration_Tile(Tile):  # traffic duration #json
         tk.Label(self, textvariable=self._traffic_str).pack()
         tk.Label(self, textvariable=self._t_inc_str).pack()
 
-    def _on_data_change(self, *args):
-        t_increase = self.traffic_t.get() - self.travel_t.get()
-        t_increase_ratio = t_increase / self.travel_t.get()
-        # set tk var
-        self._traffic_str.set("%.0f mn" % (self.traffic_t.get() / 60))
-        self._t_inc_str.set("%+.0f mn" % (t_increase / 60))
-        # set tile color
-        tile_color = "green"
-        if t_increase_ratio > 0.25:
-            tile_color = "red"
-        elif t_increase_ratio > 0.10:
-            tile_color = "yellow"
+    @property
+    def travel_t(self):
+        return self._travel_t
+
+    @travel_t.setter
+    def travel_t(self, value):
+        # check type
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._travel_t != value:
+            self._travel_t = value
+            self._on_data_change()
+
+    @property
+    def traffic_t(self):
+        return self._travel_t
+
+    @traffic_t.setter
+    def traffic_t(self, value):
+        # check type
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._traffic_t != value:
+            self._traffic_t = value
+            self._on_data_change()
+
+    def _on_data_change(self):
+        try:
+            t_increase = self._traffic_t - self._travel_t
+            t_increase_ratio = t_increase / self._travel_t
+        except (TypeError, ZeroDivisionError):
+            # set tk var
+            self._traffic_str.set("N/A")
+            self._t_inc_str.set("N/A")
+            # choose tile color
+            tile_color = "pink"
+        else:
+            # set tk var
+            self._traffic_str.set("%.0f mn" % (self._traffic_t / 60))
+            self._t_inc_str.set("%+.0f mn" % (t_increase / 60))
+            # choose tile color
+            tile_color = "green"
+            if t_increase_ratio > 0.25:
+                tile_color = "red"
+            elif t_increase_ratio > 0.10:
+                tile_color = "orange"
         # update tile and his childs color
         for w in self.winfo_children():
             w.configure(bg=tile_color)
@@ -682,14 +697,16 @@ class TrafficMapTile(Tile):  # google map traffic # still need to define
             logging.error(traceback.format_exc())
 
 
-class Local_Information_Tile(Tile):  # 1 * x "header" or "footer" #still need to define
-    def __init__(self, master=None):
-        Tile.__init__(self, master=master)
+class News_Banner_Tile(Tile):  # 1 * x "header" or "footer" #still need to define
+    def __init__(self, *args, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
+        self.configure(bg="yellow")
         # width --> width in chars, height --> lines of text
         self.text_width = 50  # number of space to fill the all text area, user friendlier
-        self.text = tk.Label(self, height=1, bg='yellow', )
+        self.text = tk.Label(self, height=1, bg='yellow')
         self.columnconfigure(0, weight=1)  # to take all the weight of the bottom screen
-        self.text.grid(row=0, column=0, sticky=tk.NSEW)
+        # self.text.grid(row=0, column=0, sticky=tk.NSEW)
+        self.text.pack(expand=True)
         # use a proportional font to handle spaces correctly
         self.text.config(font=('courier', 51, 'bold'))
         self.banner = ""
@@ -705,16 +722,17 @@ class Local_Information_Tile(Tile):  # 1 * x "header" or "footer" #still need to
         self.text.configure(text=self.ticker_text)
         self.banner_off += 1
 
-    def getInformation(self):
+    def get_information(self):
         HEAD = " " * 20
         try:
-            l_titles = json.loads(DS.redis_get("news:local").decode("utf-8"))
+            l_titles = json.loads(DS.redis_get("news:local"))
             # update banner
             self.banner = ""
             for title in l_titles:
                 self.banner += HEAD + title + HEAD
         except:
             self.banner = " " * self.text_width + "error redis" + " " * self.text_width
+            logging.error(traceback.format_exc())
 
 
 # clickable pdf luncher
@@ -788,113 +806,72 @@ class Meeting_Room_Tile(Tile):
             print("wrong status :", self.status)
 
 
-class Gauge_Tile(Tile):  # compteur aiguille
-    def __init__(self, master=None, title="Nathemoment"):
-        Tile.__init__(self, master=master)
-        self.meter = 0
-        self.angle = 0
-        self.var = tk.IntVar(self, 0)
-        self.title = title
-        self.label = tk.Label(self, text=self.title.replace("_", " "), font="bold")
-        self.label.grid(sticky=tk.NSEW)
-
-        self.gauge = tk.Canvas(self, width=220, height=110, borderwidth=2, relief='sunken', bg='white')
-        self.gauge.grid()
-
-        self.meter = self.gauge.create_line(100, 100, 10, 100, fill='grey', width=3, arrow='last')
-        self.angle = 0
-        self.gauge.lower(self.meter)
-        self.update_meter_line(0.2)
-
-        self.gauge.create_arc(20, 10, 200, 200, extent=108, start=36, style='arc', outline='black')
-
-        self.var.trace('w', self.update_meter)
-
-    def update_meter_line(self, a):
-        oldangle = self.angle
-        self.angle = a
-        x = 112 - 90 * math.cos(a * math.pi)
-        y = 100 - 90 * math.sin(a * math.pi)
-        self.gauge.coords(self.meter, 112, 100, x, y)
-
-    def update_meter(self, name1, name2, op):
-        # Convert variable to angle on trace
-        mini = 0
-        maxi = 100
-        pos = (self.var.get() - mini) / (maxi - mini)
-        self.update_meter_line(pos * 0.6 + 0.2)
-
-    def update(self, inc=0):
-        try:
-            inc = int(DS.r.get("Gauges." + self.title + ".current").decode("utf-8"))
-            inc = (100 * inc) / int(DS.r.get("Gauges." + self.title + ".goal").decode("utf-8"))
-            try:  # WIP
-                current = DS.r.get("Gauges." + self.title + ".current").decode("utf-8")
-                total = DS.r.get("Gauges." + self.title + ".goal").decode("utf-8")
-                self.label.configure(text=self.title.replace("_", " ") + ":" + str(current) + "/" + str(total))
-            except Exception as e:
-                pass
-        except Exception as e:
-            inc = 50
-
-        if inc < 50:
-            self.gauge.configure(bg="red")
-        elif inc < 75:
-            self.gauge.configure(bg="orange")
-        else:
-            self.gauge.configure(
-                bg="green")  # else if  > 100% ? dunno but it can happend if they are ealier than expected
-        self.var.set(inc)
-
-
-# alternative compteur aiguille
 class GaugeTile(Tile):
     GAUGE_MIN = 0.0
     GAUGE_MAX = 100.0
 
-    def __init__(self, master, title, tag=GaugeTag()):
-        Tile.__init__(self, master=master)
+    def __init__(self, *args, title, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
         # public
         self.title = title
-        self.tag = tag
+        self.value = None
+        self.th_orange = 75
+        self.th_red = 50
+        # private
+        self._str_title = tk.StringVar()
+        self._str_title.set(self.title)
+        self._percent = None
         # tk build
-        self.label = tk.Label(self, text=self.title.replace('_', ' '), font='bold')
+        self.label = tk.Label(self, textvariable=self._str_title, font='bold')
         self.label.grid(sticky=tk.NSEW)
         self.can = tk.Canvas(self, width=220, height=110, borderwidth=2, relief='sunken', bg='white')
         self.can.grid()
         self.can_arrow = self.can.create_line(100, 100, 10, 100, fill='grey', width=3, arrow='last')
         self.can.lower(self.can_arrow)
         self.can.create_arc(20, 10, 200, 200, extent=108, start=36, style='arc', outline='black')
-        # subscribe to tag update
-        self.tag.subscribe(self._on_tag_update)
 
-    def _on_tag_update(self, tag):
-        # check tag value
+    @property
+    def percent(self):
+        return self._percent
+
+    @percent.setter
+    def percent(self, value):
+        # check type
         try:
-            var_percent = float(self.tag.gauge)
-        except TypeError:
-            var_percent = float('nan')
+            value = float(value)
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._percent != value:
+            # check range
+            self._percent = value
+            # update widget
+            self._on_data_change()
+
+    def _on_data_change(self):
         # update widget
-        if not math.isnan(var_percent):
+        try:
             # convert value
-            ratio = (var_percent - self.GAUGE_MIN) / (self.GAUGE_MAX - self.GAUGE_MIN)
+            ratio = (self._percent - self.GAUGE_MIN) / (self.GAUGE_MAX - self.GAUGE_MIN)
+            ratio = min(ratio, 1.0)
+            ratio = max(ratio, 0.0)
             # set arrow on widget
             self._set_arrow(ratio)
             # update alarm, warn, fine status
-            if ratio < 0.5:
-                self.can.configure(bg='red')
-            elif ratio < 0.75:
-                self.can.configure(bg='orange')
+            if self._percent < self.th_red:
+                self.can.configure(bg="red")
+            elif self._percent < self.th_orange:
+                self.can.configure(bg="orange")
             else:
-                self.can.configure(bg='green')
-            self.label.configure(text=self.title)
-        else:
+                self.can.configure(bg="green")
+            if self.value is not None:
+                self._str_title.set("%s (%s)" % (self.title, self.value))
+            else:
+                self._str_title.set("%s (%.1f %%)" % (self.title, self.percent))
+        except (TypeError, ZeroDivisionError):
             self._set_arrow(0.0)
-            self.can.configure(bg='white')
-            self.label.configure(text=self.title + ' (N/A)')
-
-    def _set_title(self):
-        self.label.configure(text=self.title)
+            self.can.configure(bg="pink")
+            self._str_title.set("%s (%s)" % (self.title, "N/A"))
 
     def _set_arrow(self, ratio):
         # normalize ratio : 0.2 to 0.8
