@@ -250,7 +250,6 @@ class LiveTab(Tab):
     def __init__(self, *args, **kwargs):
         Tab.__init__(self, *args, **kwargs)
         # create all tiles for this tab here
-
         # traffic Amiens
         self.tl_tf_ami = TrafficDurationTile(self, to_city="Amiens")
         self.tl_tf_ami.set_tile(row=0, column=0)
@@ -266,23 +265,18 @@ class LiveTab(Tab):
         # traffic Valenciennes
         self.tl_tf_vale = TrafficDurationTile(self, to_city="Valenciennes")
         self.tl_tf_vale.set_tile(row=0, column=4)
-
         # traffic map
         self.tl_tf_map = TrafficMapTile(self, file=gmap_img_target, img_ratio=2)
         self.tl_tf_map.set_tile(row=1, column=0, rowspan=3, columnspan=5)
-
-        # Weather
+        # weather
         self.tl_weath = Weather_Tile(self, destination="Loos")
         self.tl_weath.set_tile(row=0, column=13, rowspan=3, columnspan=4)
-
         # clock
         self.tl_clock = Time_Tile(self)
         self.tl_clock.set_tile(row=0, column=5, rowspan=2, columnspan=3)
-
         # news banner
         self.tl_news = News_Banner_Tile(self)
         self.tl_news.set_tile(row=8, column=0, columnspan=17)
-
         # all Gauges
         self.tl_g_veh = GaugeTile(self, title="IGP véhicule")
         self.tl_g_veh.set_tile(row=3, column=13, columnspan=2)
@@ -296,7 +290,6 @@ class LiveTab(Tab):
         self.tl_g_vst.set_tile(row=5, column=13, columnspan=2)
         self.tl_g_qsc = GaugeTile(self, title="1/4h sécurité")
         self.tl_g_qsc.set_tile(row=5, column=15, columnspan=2)
-
         # meeting room
         self.tl_room_prj = Meeting_Room_Tile(self, room="Salle_PROJECT")
         self.tl_room_prj.set_tile(row=5, column=0, columnspan=2)
@@ -308,46 +301,32 @@ class LiveTab(Tab):
         self.tl_room_bur1.set_tile(row=5, column=2, columnspan=2)
         self.tl_room_bur2 = Meeting_Room_Tile(self, room="Bureau_Passage_2")
         self.tl_room_bur2.set_tile(row=6, column=2, columnspan=2)
-
         # acc days stat
         self.tl_acc = DaysFromAccident(self)
         self.tl_acc.set_tile(row=0, column=8, columnspan=5, rowspan=2)
-
         # logo img
         self.tl_img_logo = ImageTile(self, file=IMG_PATH + "logo.png", img_ratio=4)
         self.tl_img_logo.set_tile(row=6, column=13, rowspan=2, columnspan=4)
-
         # caroussel
         self.tl_crl = CarousselTile(self)
         self.tl_crl.set_tile(row=4, column=7, rowspan=4, columnspan=6)
-
-        # update counter
+        # init counter
         self.update_inc = 0
 
     def tab_update(self):
         # some update stuff to do when this tab is mapped
         # every 5 min
         if (self.update_inc % (5 * 60 * 5)) == 0:
-            # traffic map (3s delay for startup init)
-            self.after(3000, self.tl_tf_map.update)
-
             # acc days stat
             self.tl_acc.update()
-
             # weather
             self.tl_weath.update()
-
             # update the information from the base
             self.tl_news.get_information()
-
-            self.tl_room_trn.update()
-            self.tl_room_prj.update()
-            self.tl_room_met.update()
-            self.tl_room_bur1.update()
-            self.tl_room_bur2.update()
-
         # every 20s
         if (self.update_inc % (5 * 20)) == 0:
+            # traffic map
+            self.tl_tf_map.update()
             # Amiens
             self.tl_tf_ami.travel_t = DS.redis_get("Googlemap.Amiens.duration")
             self.tl_tf_ami.traffic_t = DS.redis_get("Googlemap.Amiens.duration_traffic")
@@ -375,14 +354,18 @@ class LiveTab(Tab):
             self.tl_g_vcs.percent = DS.redis_hmget_one("gsheet:grt", "VCS_JAUGE_DTS")
             self.tl_g_vst.percent = DS.redis_hmget_one("gsheet:grt", "VST_JAUGE_DTS")
             self.tl_g_qsc.percent = DS.redis_hmget_one("gsheet:grt", "Q_HRE_JAUGE_DTS")
-
+            # update room status
+            self.tl_room_trn.update()
+            self.tl_room_prj.update()
+            self.tl_room_met.update()
+            self.tl_room_bur1.update()
+            self.tl_room_bur2.update()
         # every 0.2s
         if (self.update_inc % 1) == 0:
             # update clock
             self.tl_clock.update()
             # update news banner
             self.tl_news.update()
-
         self.update_inc += 1
 
 
@@ -406,11 +389,9 @@ class DocTab(Tab):
                     pdf.set_tile(remove=True)
                     pdf.destroy()
                 self.tiles["pdfs"] = list()
-
                 r = 1
                 c = 1
                 for file in current_pdf:
-
                     self.tiles["pdfs"].append(
                         Pdf_Tile(self, file=file))
                     self.tiles["pdfs"][-1].set_tile(row=r, column=c, columnspan=2, rowspan=2)
@@ -428,7 +409,6 @@ class Tile(tk.Frame):
     Source of all the tile here
     Default : a gray, black bordered, case
     """
-
     def __init__(self, *args, **kwargs):
         tk.Frame.__init__(self, *args, **kwargs)
         # force Frame attribute
@@ -646,8 +626,8 @@ class Time_Tile(Tile):
         self.day = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
         self.month = ["Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre",
                       "Novembre", "Decembre"]
-
-        for r in range(3):  # print it in the midle of a 3x3 grid !
+        # print it in the midle of a 3x3 grid !
+        for r in range(3):
             for c in range(3):
                 self.grid_columnconfigure(c, weight=1)
                 tk.Label(self, bg=self.cget("bg")).grid(row=r, column=c)
@@ -665,7 +645,6 @@ class Time_Tile(Tile):
         # 200 ms of refresh, don't put a lot of work here
         tmp = str(datetime.today().date())[
               :10]  # yyyy-mm-dd => dd-mm-yyyy #following 2 lines are about choice in last comment of each
-        # jour=self.day[datetime.today().weekday()] + " " + tmp[-2:] + "-" + self.month[int(tmp[-5:-3])] + "-" + tmp[0:4] #Jeudi 19 Mai 2018
         jour = self.day[datetime.today().weekday()] + " " + tmp[-2:] + "-" + tmp[-5:-3] + "-" + tmp[
                                                                                                 0:4]  # Jeudi 19-04-2018
         self.Day.configure(text=jour)
