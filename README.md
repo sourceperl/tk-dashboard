@@ -39,7 +39,11 @@
 ### Setup supervisor
 
     sudo apt-get install supervisor
-    sudo cp etc/supervisor/conf.d/* /etc/supervisor/conf.d/
+    # for master dashboard (do all external requests and own the redis db)
+    sudo cp etc/supervisor/conf.d/dashboard_master.conf /etc/supervisor/conf.d/
+    # for slave dashboard (connect to master redis db and sync all files with master)
+    sudo cp etc/supervisor/conf.d/dashboard_slave.conf /etc/supervisor/conf.d/
+    # reload conf
     sudo supervisorctl update
 
 ### Setup remote access
@@ -55,7 +59,7 @@
     # create ssh key and copy it to central dashboard (file src at 192.168.0.60)
     ssh-keygen
     ssh-copy-id pi@192.168.0.60
-    # now we can manualy sync hot file (change frequently)
+    # now we can manually sync hot file (change frequently)
     rsync -aAxX --delete --omit-dir-times 192.168.0.60:/media/ramdisk/. /media/ramdisk/.
     # and cold file
     rsync -aAxX --delete 192.168.0.60:/home/pi/dashboard/. /home/pi/dashboard/.
