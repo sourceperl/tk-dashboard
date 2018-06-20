@@ -49,3 +49,14 @@
     x11vnc -storepasswd
     # launch server as you want
     x11vnc -usepw -forever &
+
+### Setup for auto sync files (multi-screen case)
+
+    # create ssh key and copy it to central dashboard (file src at 192.168.0.60)
+    ssh-keygen
+    ssh-copy-id pi@192.168.0.60
+    # now we can manualy sync hot file (change frequently)
+    rsync -aAxX --delete --omit-dir-times 192.168.0.60:/media/ramdisk/. /media/ramdisk/.
+    # and cold file
+    rsync -aAxX --delete 192.168.0.60:/home/pi/dashboard/. /home/pi/dashboard/.
+    # see scripts/dashboard_sync_files.py to automate this
