@@ -148,6 +148,8 @@ class Tags:
 class MainApp(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
+        # remove mouse icon for a dashboard
+        self.config(cursor="none")
         # define style to fix size of tab header
         self.style = ttk.Style()
         self.style.theme_settings("default",
@@ -158,12 +160,8 @@ class MainApp(tk.Tk):
         self.tab2 = DocTab(self.note)
         self.note.add(self.tab1, text="Tableau de bord")
         self.note.add(self.tab2, text="Affichage réglementaire")
-        # default tab
-        # self.note.grid(row=0, column=0, rowspan=1, columnspan=20, sticky=tk.NSEW)
-        # self.note.grid_columnconfigure(0, minsize=1940)
-        # self.note.place(in_=self, anchor="c", relx=.5, rely=.5)
-        #  self.note.pack(fill=tk.BOTH, expand=True)
         self.note.pack()
+        # default tab
         self.note.select(self.tab1)
         # press Esc to quit
         self.bind("<Escape>", lambda e: self.destroy())
@@ -654,9 +652,12 @@ class TrafficMapTile(Tile):  # google map traffic # still need to define
 
 
 class NewsBannerTile(Tile):
+    BAN_MAX_NB_CHAR = 50
+
     def __init__(self, *args, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # public
+        self.ban_nb_char = NewsBannerTile.BAN_MAX_NB_CHAR
         # private
         self._l_titles = []
         self._lbl_ban = tk.StringVar()
@@ -691,22 +692,16 @@ class NewsBannerTile(Tile):
     def update(self):
         # scroll text on screen
         # start a new scroll ?
-        if self._disp_ban_pos >= len(self._disp_ban_str) - self._get_ban_nb_char():
+        if self._disp_ban_pos >= len(self._disp_ban_str) - self.ban_nb_char:
             # update display scroll message
             self._disp_ban_str = self._next_ban_str
             self._disp_ban_pos = 0
-        scroll_view = self._disp_ban_str[self._disp_ban_pos:self._disp_ban_pos + self._get_ban_nb_char()]
+        scroll_view = self._disp_ban_str[self._disp_ban_pos:self._disp_ban_pos + self.ban_nb_char]
         self._lbl_ban.set(scroll_view)
         self._disp_ban_pos += 1
 
-    def _get_ban_nb_char(self):
-        #TODO fix this
-        # get number of char in current display banner
-        # return round(self.winfo_width()/38.36)
-        return 50
-
     def _on_data_change(self):
-        spaces_head = " " * self._get_ban_nb_char()
+        spaces_head = " " * self.ban_nb_char
         try:
             # update banner
             self._next_ban_str = spaces_head
