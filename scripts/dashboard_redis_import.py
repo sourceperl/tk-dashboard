@@ -85,9 +85,9 @@ def openweathermap_job():
     try:
         # init struct
         t_today = None
-        days = {}
+        d_days = {}
         for i in range(0, 5):
-            days[i] = dict(t_min=50.0, t_max=-50.0, mood='', description='', icon='')
+            d_days[i] = dict(t_min=50.0, t_max=-50.0, mood='', description='', icon='')
         # parse json
         for item in ow_d["list"]:
             # for day-0 to day-4
@@ -96,32 +96,20 @@ def openweathermap_job():
                 # search today
                 if txt_date == (datetime.now() + timedelta(days=i_day)).date().strftime('%Y-%m-%d'):
                     # search min/max temp
-                    days[i_day]['t_min'] = min(days[i_day]['t_min'], item['main']['temp_min'])
-                    days[i_day]['t_max'] = max(days[i_day]['t_max'], item['main']['temp_max'])
+                    d_days[i_day]['t_min'] = min(d_days[i_day]['t_min'], item['main']['temp_min'])
+                    d_days[i_day]['t_max'] = max(d_days[i_day]['t_max'], item['main']['temp_max'])
                     # mood and icon in 12h item
                     if txt_time == '12:00:00' or t_today is None:
-                        days[i_day]['mood'] = item['weather'][0]['main']
-                        days[i_day]['icon'] = item['weather'][0]['icon']
-                        days[i_day]['description'] = item['weather'][0]['description']
+                        d_days[i_day]['mood'] = item['weather'][0]['main']
+                        d_days[i_day]['icon'] = item['weather'][0]['icon']
+                        d_days[i_day]['description'] = item['weather'][0]['description']
                         if t_today is None:
                             t_today = item['main']['temp']
+                            d_days[0]['t'] = t_today
         # store to redis
         city_name, _ = ow_city.split(',')
-        for i_day, day in enumerate(days):
-            # Today
-            if i_day == 0:
-                DS.redis_set('Weather.%s.Today.temp' % city_name, t_today)
-                DS.redis_set('Weather.%s.Today.temp_min' % city_name, days[i_day]['t_min'])
-                DS.redis_set('Weather.%s.Today.temp_max' % city_name, days[i_day]['t_max'])
-                DS.redis_set('Weather.%s.Today.mood' % city_name, days[i_day]['mood'])
-                DS.redis_set('Weather.%s.Today.description' % city_name, days[i_day]['description'])
-                DS.redis_set('Weather.%s.Today.icon' % city_name, days[i_day]['icon'])
-            else:
-                # other day
-                DS.redis_set('Weather.%s.Day%d.temp_min' % (city_name, i_day), days[i_day]['t_min'])
-                DS.redis_set('Weather.%s.Day%d.temp_max' % (city_name, i_day), days[i_day]['t_max'])
-                DS.redis_set('Weather.%s.Day%d.mood' % (city_name, i_day), days[i_day]['mood'])
-                DS.redis_set('Weather.%s.Day%d.icon' % (city_name, i_day), days[i_day]['icon'])
+        print(d_days)
+        DS.redis_set_obj('weather:%s' % city_name.lower(), d_days)
     except Exception:
         logging.error(traceback.format_exc())
 

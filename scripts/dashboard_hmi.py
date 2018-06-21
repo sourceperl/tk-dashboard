@@ -137,6 +137,7 @@ class Tags:
     D_GSHEET_GRT = Tag(cmd_src=lambda: DS.redis_get_obj("gsheet:grt"))
     D_ISWIP_ROOM = Tag(cmd_src=lambda: DS.redis_get_obj("iswip:room_status"))
     D_GMAP_TRAFFIC = Tag(cmd_src=lambda: DS.redis_get_obj("gmap:traffic"))
+    D_WEATHER_LOOS = Tag(cmd_src=lambda: DS.redis_get_obj("weather:loos"))
 
     @classmethod
     def update(cls):
@@ -219,7 +220,6 @@ class LiveTab(Tab):
     First Tab, which is the hottest from all of them
     Damn
     """
-
     def __init__(self, *args, **kwargs):
         Tab.__init__(self, *args, **kwargs)
         # create all tiles for this tab here
@@ -242,7 +242,7 @@ class LiveTab(Tab):
         self.tl_tf_map = TrafficMapTile(self, file=gmap_img_target, img_ratio=2)
         self.tl_tf_map.set_tile(row=1, column=0, rowspan=3, columnspan=5)
         # weather
-        self.tl_weath = Weather_Tile(self, destination="Loos")
+        self.tl_weath = WeatherTile(self)
         self.tl_weath.set_tile(row=0, column=13, rowspan=3, columnspan=4)
         # clock
         self.tl_clock = TimeTile(self)
@@ -294,7 +294,7 @@ class LiveTab(Tab):
             self.tl_acc.acc_date_dts = Tags.D_GSHEET_GRT.get("DATE_ACC_DTS")
             self.tl_acc.acc_date_digne = Tags.D_GSHEET_GRT.get("DATE_ACC_DIGNE")
             # weather
-            self.tl_weath.update()
+            self.tl_weath.weather_dict = Tags.D_WEATHER_LOOS.get()
 
         # every 20s
         if (self.update_inc % (5 * 20)) == 0:
@@ -395,6 +395,7 @@ class Tile(tk.Frame):
     Source of all the tile here
     Default : a gray, black bordered, case
     """
+
     def __init__(self, *args, **kwargs):
         tk.Frame.__init__(self, *args, **kwargs)
         # force Frame attribute
@@ -492,58 +493,45 @@ class TrafficDurationTile(Tile):  # traffic duration #json
         self.configure(bg=tile_color)
 
 
-class Weather_Tile(Tile):  # principal, she own all the day, could be divided if wanted #json
-    def __init__(self, *args, destination="Loos", **kwargs):
+class WeatherTile(Tile):  # principal, she own all the day, could be divided if wanted #json
+    W_COLOR = dict(Thinderstorm="Yellow", Drizzle="light steel blue",
+                   Rain="steel blue", Snow="snow",
+                   Atmosphere="lavender", Clear="deep sky blue",
+                   Clouds="gray", Extreme="red", Additional="green")
+
+    def __init__(self, *args, **kwargs):
         Tile.__init__(self, *args, **kwargs)
-
-        # here lay the color background in function of the main weather
-        self.weathercolor = {"Thinderstorm": "Yellow",
-                             "Drizzle": "light steel blue",
-                             "Rain": "steel blue",
-                             "Snow": "snow",
-                             "Atmosphere": "lavender",
-                             "Clear": "deep sky blue",
-                             "Clouds": "gray",
-                             "Extreme": "red",
-                             "Additional": "green"}
-        self.destination = destination
-
-        ### other 4 days of the week ###
-        ## init ##
-        self.days = list()  # LabelFrame x4 (des jours de la semaine)
-        self.dayslabel = list()  # Label x4 (le descriptif des jours de la semaine)
-        self.daysicone = list()  # PhotoImage x4 (les images / icones des journées ex:Soleil -> ../images/01d.png)
-        self.daysiconelabel = list()  # Label x4  (les label qui contiennent les image )
-        # end init
-
-        for c in range(4):  # pour chaque colonne
-            for r in range(3):  # pour chaque ligne
-                # Create Labels to space all of it:
-                self.grid_rowconfigure(r, weight=1)  # auto ajust all the rows
+        # public
+        # private
+        self._weather_dict = None
+        self._days = list()
+        self._days_lbl = list()
+        self._days_icon = list()
+        self._days_icon_lbl = list()
+        # tk stuff
+        # build 4x3 grid
+        for c in range(4):
+            for r in range(3):
+                self.grid_rowconfigure(r, weight=1)
                 tk.Label(master=self, pady=0, padx=0, background="gray").grid(column=c, row=r)
-
-            self.grid_columnconfigure(c, weight=1)  # auto ajust all the columns
-            ## creation ##
-            self.days.append(tk.LabelFrame(master=self, text="dd/mm/yyyy", bg="yellow", font=("bold", 10)))
-            self.dayslabel.append(
-                tk.Label(master=self.days[c], text="empty", font='bold', anchor=tk.W, justify=tk.LEFT))
-            self.daysicone.append(tk.PhotoImage())
-            self.daysiconelabel.append(tk.Label(master=self.days[c], image=self.daysicone[c]))
+            self.grid_columnconfigure(c, weight=1)
+            # creation
+            self._days.append(tk.LabelFrame(master=self, text="dd/mm/yyyy", bg="yellow", font=("bold", 10)))
+            self._days_lbl.append(
+                tk.Label(master=self._days[c], text="n/a", font='bold', anchor=tk.W, justify=tk.LEFT))
+            self._days_icon.append(tk.PhotoImage())
+            self._days_icon_lbl.append(tk.Label(master=self._days[c], image=self._days_icon[c]))
             # end creation
-            ## impression ##
-            self.days[c].grid(row=2, column=c, sticky=tk.NSEW)
-            self.days[c].grid_propagate(False)
+            # impression
+            self._days[c].grid(row=2, column=c, sticky=tk.NSEW)
+            self._days[c].grid_propagate(False)
+            self._days_lbl[c].grid(sticky=tk.NSEW)
+            self._days_lbl[c].grid_propagate(False)
+            self._days_icon_lbl[c].grid(sticky=tk.NSEW)
 
-            self.dayslabel[c].grid(sticky=tk.NSEW)
-            self.dayslabel[c].grid_propagate(False)  # idem
-
-            self.daysiconelabel[c].grid(sticky=tk.NSEW)  # on imprime les images
-            # end impression
-            # end other 4 days of the week
-
-        # Today
+        # today frame
         self.todayframe = tk.LabelFrame(master=self, bg="red", text="Today :", font=("bold", 20))  # today title
-        self.todaylabel = tk.Label(master=self.todayframe, text="empty", font=('courier', 18, 'bold'), anchor=tk.W,
+        self.todaylabel = tk.Label(master=self.todayframe, text="n/a", font=('courier', 18, 'bold'), anchor=tk.W,
                                    justify=tk.LEFT)  # today weather
         self.todayicone = tk.PhotoImage()  # today icone
 
@@ -554,54 +542,69 @@ class Weather_Tile(Tile):  # principal, she own all the day, could be divided if
         self.todayiconelabel = tk.Label(master=self.todayframe, image=self.todayicone, bg=self.todayframe.cget("bg"))
         self.todayiconelabel.grid(row=1)
 
-    def update(self):
+    @property
+    def weather_dict(self):
+        return self._weather_dict
+
+    @weather_dict.setter
+    def weather_dict(self, value):
+        # check type
+        try:
+            value = dict(value)
+            # since json fmt doesn't allow this: ensure key are python int (not str)
+            value = {int(k): v for k, v in value.items()}
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._weather_dict != value:
+            self._weather_dict = value
+            self._on_data_change()
+
+    def _on_data_change(self):
         """
         update function, 7200 call per day maximum
         """
-        self.todayframe.configure(text=datetime.now().date())  # le labelframe du jour affiche la bonne date
-
+        # set today date
+        self.todayframe.configure(text=datetime.now().date())
+        # set day 1 to 4 date
         for i in range(4):
-            self.days[i].configure(
-                text=datetime.now().date() + timedelta(days=i + 1))  # chaque tuile des autres jours aussi
-
+            self._days[i].configure(text=datetime.now().date() + timedelta(days=i + 1))
+        # fill labels
         try:
-            # TODAY
-            # text of the Today cell
-            today_mood = str(DS.r.get("Weather." + self.destination + ".Today.mood").decode("utf-8"))
-            today_desc = str(DS.r.get("Weather." + self.destination + ".Today.description").decode("utf-8"))
-            today_t = float(DS.r.get("Weather." + self.destination + ".Today.temp").decode("utf-8"))
-            today_t_min = float(DS.r.get("Weather." + self.destination + ".Today.temp_min").decode("utf-8"))
-            today_t_max = float(DS.r.get("Weather." + self.destination + ".Today.temp_max").decode("utf-8"))
-            message = "Today's mood : %s\nDescription : %s\nTempérature actuelle : %.1f°C\n" + \
+            # today
+            today_mood = self._weather_dict[0]["mood"]
+            today_desc = self._weather_dict[0]["description"]
+            today_t = self._weather_dict[0]["t"]
+            today_t_min = self._weather_dict[0]["t_min"]
+            today_t_max = self._weather_dict[0]["t_max"]
+            today_icon = self._weather_dict[0]["icon"]
+            # today message
+            message = "Situation : %s\nDescription : %s\nTempérature actuelle : %.1f°C\n" + \
                       "            minimale : %.1f°C\n" + \
                       "            maximale : %.1f°C"
             message %= (today_mood, today_desc, today_t, today_t_min, today_t_max)
-            self.todaylabel.configure(text=message)  # stiick the text to the left
-            self.todayframe.configure(
-                bg=self.weathercolor[DS.r.get("Weather." + self.destination + ".Today.mood").decode("utf-8")])
-            self.todaylabel.configure(
-                bg=self.todayframe.cget("bg"))  # to get the TodayFrame bg attribute, to use on the childer frame
-            self.todayiconelabel.configure(bg=self.todayframe.cget("bg"))  # same as befor
-            self.todayicone.configure(
-                file=IMG_PATH + DS.r.get("Weather." + self.destination + ".Today.icon").decode(
-                    "utf-8") + '.png')
-
-            for inc in range(1, 5):  # other 4 days, same structure than befor, but simplier, less information needed
-                day_mood = str(DS.r.get("Weather." + self.destination + ".Day" + str(inc) + ".mood").decode("utf-8"))
-                day_t_min = int(
-                    float(DS.r.get("Weather." + self.destination + ".Day" + str(inc) + ".temp_min").decode("utf-8")))
-                day_t_max = int(
-                    float(DS.r.get("Weather." + self.destination + ".Day" + str(inc) + ".temp_max").decode("utf-8")))
+            self.todaylabel.configure(text=message)  # stick the text to the left
+            # set today color
+            self.todayframe.configure(bg=WeatherTile.W_COLOR[today_mood])
+            self.todaylabel.configure(bg=self.todayframe.cget("bg"))
+            self.todayiconelabel.configure(bg=self.todayframe.cget("bg"))
+            # set today icon
+            self.todayicone.configure(file=IMG_PATH + '%s.png' % today_icon)
+            # for day 1 to 4
+            for d in range(1, 5):
+                day_mood = self._weather_dict[d]["mood"]
+                day_t_min = self._weather_dict[d]["t_min"]
+                day_t_max = self._weather_dict[d]["t_max"]
+                day_icon = self._weather_dict[d]["icon"]
+                # set day message
                 message = "%s\nT mini %d°C\nT maxi %d°C"
                 message %= (day_mood, day_t_min, day_t_max)
-                self.dayslabel[inc - 1].configure(text=message)
-                self.days[inc - 1].configure(bg=self.weathercolor[
-                    DS.r.get("Weather." + self.destination + ".Day" + str(inc) + ".mood").decode("utf-8")])
-                self.dayslabel[inc - 1].configure(bg=self.days[inc - 1].cget("bg"))
-                self.daysicone[inc - 1].configure(file=IMG_PATH + DS.r.get(
-                    "Weather." + self.destination + ".Day" + str(inc) + ".icon").decode("utf-8") + ".png")
-                self.daysiconelabel[inc - 1].configure(bg=self.days[inc - 1].cget("bg"))
-                inc += 1
+                self._days_lbl[d - 1].configure(text=message)
+                # set day color
+                self._days[d - 1].configure(bg=WeatherTile.W_COLOR[day_mood])
+                self._days_lbl[d - 1].configure(bg=self._days[d - 1].cget("bg"))
+                self._days_icon[d - 1].configure(file=IMG_PATH + "%s.png" % day_icon)
+                self._days_icon_lbl[d - 1].configure(bg=self._days[d - 1].cget("bg"))
         except Exception:
             logging.error(traceback.format_exc())
 
@@ -616,20 +619,13 @@ class TimeTile(Tile):
         # set locale (for french day name)
         locale.setlocale(locale.LC_ALL, "fr_FR.UTF-8")
         # tk stuff
-        # init 3x3 grid
-        for r in range(3):
-            for c in range(3):
-                self.grid_columnconfigure(c, weight=1)
-                tk.Label(self, bg=self.cget("bg")).grid(row=r, column=c)
-            self.grid_rowconfigure(r, weight=1)
-        # add labels
-        tk.Label(self, textvariable=self._date_str, font=('bold', 15) , bg=self.cget("bg"), anchor=tk.W,
-                 justify=tk.LEFT).grid(row=0, column=0, columnspan=3, sticky=tk.NSEW)
+        tk.Label(self, textvariable=self._date_str, font=('bold', 15), bg=self.cget("bg"), anchor=tk.W,
+                 justify=tk.LEFT).pack(expand=True)
         tk.Label(self, textvariable=self._time_str, font=('digital-7', 30), bg=self.cget("bg"),
-                 fg='green').grid(row=1, column=1)
+                 fg='green').pack(expand=True)
 
     def update(self):
-        self._date_str.set(datetime.now().strftime('%A %d/%m/%Y'))
+        self._date_str.set(datetime.now().strftime('%A %d %B %Y'))
         self._time_str.set(datetime.now().strftime('%H:%M:%S'))
 
 
@@ -704,8 +700,9 @@ class NewsBannerTile(Tile):
         self._disp_ban_pos += 1
 
     def _get_ban_nb_char(self):
+        #TODO fix this
         # get number of char in current display banner
-        #return round(self.winfo_width()/38.36)
+        # return round(self.winfo_width()/38.36)
         return 50
 
     def _on_data_change(self):
@@ -720,7 +717,6 @@ class NewsBannerTile(Tile):
             logging.error(traceback.format_exc())
 
 
-# clickable pdf luncher
 class Pdf_Tile(Tile):
     def __init__(self, *args, file, **kwargs):
         Tile.__init__(self, *args, **kwargs)
@@ -734,7 +730,7 @@ class Pdf_Tile(Tile):
         self.bind("<Button-1>", self.clicked)
         self.name.bind("<Button-1>", self.clicked)
 
-    def clicked(self, event):
+    def clicked(self, _):
         try:
             subprocess.call(["/usr/bin/xpdf", self.file],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
