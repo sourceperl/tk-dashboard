@@ -39,13 +39,6 @@ class DS:
 
     # redis access method
     @classmethod
-    def redis_get(cls, name):
-        try:
-            return cls.r.get(name)
-        except redis.RedisError:
-            return None
-
-    @classmethod
     def redis_set(cls, name, value):
         try:
             return cls.r.set(name, value)
@@ -53,17 +46,10 @@ class DS:
             return None
 
     @classmethod
-    def redis_hmset(cls, name, mapping):
+    def redis_set_obj(cls, name, obj):
         try:
-            return cls.r.hmset(name, mapping)
-        except (redis.RedisError, TypeError):
-            return None
-
-    @classmethod
-    def redis_hmget_one(cls, name, key):
-        try:
-            return cls.r.hmget(name, key)[0]
-        except (redis.RedisError, TypeError):
+            return cls.r.set(name, json.dumps(obj))
+        except (redis.RedisError, AttributeError, json.decoder.JSONDecodeError):
             return None
 
 
@@ -82,7 +68,7 @@ def gsheet_job():
             tag, value = line.split(',')
             d[tag] = value
         d['UPDATE'] = datetime.now().isoformat("T")
-        DS.redis_hmset("gsheet:grt", d)
+        DS.redis_set_obj("gsheet:grt", d)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -149,6 +135,7 @@ def iswip_job():
         return None
     # decode json
     try:
+        d_dev = {}
         for device in devices_l:
             # device id
             dev_id = str(device['device_description']).replace(' ', '_')
@@ -159,7 +146,8 @@ def iswip_job():
                 if name == 'TypeMessage':
                     dev_msg = value
             # update redis
-            DS.redis_set('Widget_salle.' + dev_id, dev_msg)
+            d_dev[dev_id] = dev_msg
+        DS.redis_set_obj('iswip:room_status', d_dev)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -176,6 +164,7 @@ def local_info_job():
 
 
 def gmap_travel_time_job():
+    d_traffic = {}
     for gm_dest in ("Arras", "Amiens", "Dunkerque", "Maubeuge", "Valenciennes"):
         # build url
         gm_url_origin = urllib.parse.quote_plus(gmap_origin)
@@ -193,11 +182,10 @@ def gmap_travel_time_job():
         try:
             duration_abs = gm_json["routes"][0]["legs"][0]["duration"]["value"]
             duration_with_traffic = gm_json["routes"][0]["legs"][0]["duration_in_traffic"]["value"]
-            # update redis
-            DS.redis_set('Googlemap.%s.duration' % gm_dest, duration_abs)
-            DS.redis_set('Googlemap.%s.duration_traffic' % gm_dest, duration_with_traffic)
+            d_traffic[gm_dest] = dict(duration=duration_abs, duration_traffic=duration_with_traffic)
         except Exception:
             logging.error(traceback.format_exc())
+    DS.redis_set('gmap:traffic', json.dumps(d_traffic))
 
 
 def gmap_traffic_img_job():
@@ -219,11 +207,11 @@ if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s %(message)s')
 
     # init scheduler
-    schedule.every(5).minutes.do(gmap_traffic_img_job)
+    schedule.every(1).minute.do(iswip_job)
+    schedule.every(2).minutes.do(gmap_traffic_img_job)
+    schedule.every(5).minutes.do(local_info_job)
     schedule.every(5).minutes.do(gsheet_job)
     schedule.every(5).minutes.do(openweathermap_job)
-    schedule.every(5).minutes.do(local_info_job)
-    schedule.every(5).minutes.do(iswip_job)
     schedule.every(5).minutes.do(gmap_travel_time_job)
     # first call
     gmap_traffic_img_job()

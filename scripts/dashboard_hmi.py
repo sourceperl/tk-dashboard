@@ -11,10 +11,12 @@ except ImportError:
 
 from configparser import ConfigParser
 import json
+import locale
 import logging
 import traceback
 import redis
 from datetime import datetime, timedelta
+import threading
 import glob
 import os
 import subprocess
@@ -64,21 +66,14 @@ class DS:
             return None
 
     @classmethod
-    def redis_hgetall(cls, name):
+    def redis_get_obj(cls, name):
         try:
-            return cls.r.hgetall(name)
-        except (redis.RedisError, TypeError):
-            return None
-
-    @classmethod
-    def redis_hmget_one(cls, name, key):
-        try:
-            return cls.r.hmget(name, key)[0].decode("utf-8")
-        except (redis.RedisError, AttributeError):
+            return json.loads(cls.r.get(name).decode('utf-8'))
+        except (redis.RedisError, AttributeError, json.decoder.JSONDecodeError):
             return None
 
 
-class Tag_:
+class Tag:
     all_tags = []
 
     def __init__(self, init=None, cmd_src=None):
@@ -89,7 +84,7 @@ class Tag_:
         # first update
         self.update()
         # record the tag in tags list
-        Tag_.all_tags.append(self)
+        Tag.all_tags.append(self)
 
     def __repr__(self):
         return repr(self._var)
@@ -120,55 +115,33 @@ class Tag_:
         for tag in cls.all_tags:
             tag.update()
 
+    def get(self, path=None):
+        if path:
+            if not type(path) in (tuple, list):
+                path = [path]
+            try:
+                data = self._var
+                for i in range(0, len(path)):
+                    data = data[path[i]]
+                return data
+            except:
+                return None
+        else:
+            return self._var
+
     def set(self, *args):
         self._var.set(*args)
 
 
-class Tag:
-    all_tags = []
-
-    def __init__(self):
-        # private
-        self._subscribers = []
-        # record the tag in tags list
-        Tag.all_tags.append(self)
-
-    def update(self):
-        pass
-
-    def set(self):
-        pass
-
-    def is_update(self):
-        for callback in self._subscribers:
-            callback(self)
-
-    def subscribe(self, callback):
-        # first value
-        callback(self)
-        # subscribe
-        self._subscribers.append(callback)
-
-    @classmethod
-    def update_all(cls):
-        for tag in cls.all_tags:
-            tag.update()
-
-
 class Tags:
-    # IGP_VEH_JAUGE = Tag_(cmd_src=lambda: DS.redis_hmget_one('grt:gsheet:import', 'IGP_VEH_JAUGE_DTS'))
-    # IGP_VEH_REAL = Tag_(cmd_src=lambda: DS.redis_hmget_one('grt:gsheet:import', 'IGP_VEH_REAL_DTS'))
-    # IGP_VEH_OBJ = Tag_(cmd_src=lambda: DS.redis_hmget_one('grt:gsheet:import', 'IGP_VEH_OBJ_DTS'))
+    D_GSHEET_GRT = Tag(cmd_src=lambda: DS.redis_get_obj("gsheet:grt"))
+    D_ISWIP_ROOM = Tag(cmd_src=lambda: DS.redis_get_obj("iswip:room_status"))
+    D_GMAP_TRAFFIC = Tag(cmd_src=lambda: DS.redis_get_obj("gmap:traffic"))
 
     @classmethod
-    def update_tags(cls):
+    def update(cls):
         # for tag auto-update method (with cmd_srv)
-        Tag_.update_all()
-        # read google sheet infos
-        d_gsheet = DS.redis_hgetall('gsheet:grt')
-        # if d_gsheet:
-        #     # IGP_VEH
-        #     cls.IGP_VEH.var.real = d_gsheet.get('IGP_VEH_REAL_DTS', 0.0)
+        Tag.update_all()
 
 
 class MainApp(tk.Tk):
@@ -272,10 +245,10 @@ class LiveTab(Tab):
         self.tl_weath = Weather_Tile(self, destination="Loos")
         self.tl_weath.set_tile(row=0, column=13, rowspan=3, columnspan=4)
         # clock
-        self.tl_clock = Time_Tile(self)
+        self.tl_clock = TimeTile(self)
         self.tl_clock.set_tile(row=0, column=5, rowspan=2, columnspan=3)
         # news banner
-        self.tl_news = News_Banner_Tile(self)
+        self.tl_news = NewsBannerTile(self)
         self.tl_news.set_tile(row=8, column=0, columnspan=17)
         # all Gauges
         self.tl_g_veh = GaugeTile(self, title="IGP véhicule")
@@ -291,21 +264,21 @@ class LiveTab(Tab):
         self.tl_g_qsc = GaugeTile(self, title="1/4h sécurité")
         self.tl_g_qsc.set_tile(row=5, column=15, columnspan=2)
         # meeting room
-        self.tl_room_prj = Meeting_Room_Tile(self, room="Salle_PROJECT")
+        self.tl_room_prj = MeetingRoomTile(self, room="Salle project")
         self.tl_room_prj.set_tile(row=5, column=0, columnspan=2)
-        self.tl_room_trn = Meeting_Room_Tile(self, room="Salle_TRAINNING")
+        self.tl_room_trn = MeetingRoomTile(self, room="Salle trainning")
         self.tl_room_trn.set_tile(row=6, column=0, columnspan=2)
-        self.tl_room_met = Meeting_Room_Tile(self, room="Salle_MEETING")
+        self.tl_room_met = MeetingRoomTile(self, room="Salle meeting")
         self.tl_room_met.set_tile(row=7, column=0, columnspan=2)
-        self.tl_room_bur1 = Meeting_Room_Tile(self, room="Bureau_Passage_1")
+        self.tl_room_bur1 = MeetingRoomTile(self, room="Bureau passage 1")
         self.tl_room_bur1.set_tile(row=5, column=2, columnspan=2)
-        self.tl_room_bur2 = Meeting_Room_Tile(self, room="Bureau_Passage_2")
+        self.tl_room_bur2 = MeetingRoomTile(self, room="Bureau passage 2")
         self.tl_room_bur2.set_tile(row=6, column=2, columnspan=2)
         # acc days stat
         self.tl_acc = DaysFromAccident(self)
         self.tl_acc.set_tile(row=0, column=8, columnspan=5, rowspan=2)
         # logo img
-        self.tl_img_logo = ImageTile(self, file=IMG_PATH + "logo.png", img_ratio=4)
+        self.tl_img_logo = ImageTile(self, file=IMG_PATH + "logo.png")
         self.tl_img_logo.set_tile(row=6, column=13, rowspan=2, columnspan=4)
         # caroussel
         self.tl_crl = CarousselTile(self)
@@ -318,48 +291,61 @@ class LiveTab(Tab):
         # every 5 min
         if (self.update_inc % (5 * 60 * 5)) == 0:
             # acc days stat
-            self.tl_acc.update()
+            self.tl_acc.acc_date_dts = Tags.D_GSHEET_GRT.get("DATE_ACC_DTS")
+            self.tl_acc.acc_date_digne = Tags.D_GSHEET_GRT.get("DATE_ACC_DIGNE")
             # weather
             self.tl_weath.update()
-            # update the information from the base
-            self.tl_news.get_information()
+
         # every 20s
         if (self.update_inc % (5 * 20)) == 0:
+            # update all defined tags
+            Tags.update()
             # traffic map
             self.tl_tf_map.update()
             # Amiens
-            self.tl_tf_ami.travel_t = DS.redis_get("Googlemap.Amiens.duration")
-            self.tl_tf_ami.traffic_t = DS.redis_get("Googlemap.Amiens.duration_traffic")
+            self.tl_tf_ami.travel_t = Tags.D_GMAP_TRAFFIC.get(("Amiens", "duration"))
+            self.tl_tf_ami.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Amiens", "duration_traffic"))
             # Arras
-            self.tl_tf_arr.travel_t = DS.redis_get("Googlemap.Arras.duration")
-            self.tl_tf_arr.traffic_t = DS.redis_get("Googlemap.Arras.duration_traffic")
+            self.tl_tf_arr.travel_t = Tags.D_GMAP_TRAFFIC.get(("Arras", "duration"))
+            self.tl_tf_arr.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Arras", "duration_traffic"))
             # Dunkerque
-            self.tl_tf_dunk.travel_t = DS.redis_get("Googlemap.Dunkerque.duration")
-            self.tl_tf_dunk.traffic_t = DS.redis_get("Googlemap.Dunkerque.duration_traffic")
+            self.tl_tf_dunk.travel_t = Tags.D_GMAP_TRAFFIC.get(("Dunkerque", "duration"))
+            self.tl_tf_dunk.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Dunkerque", "duration_traffic"))
             # Maubeuge
-            self.tl_tf_maub.travel_t = DS.redis_get("Googlemap.Maubeuge.duration")
-            self.tl_tf_maub.traffic_t = DS.redis_get("Googlemap.Maubeuge.duration_traffic")
+            self.tl_tf_maub.travel_t = Tags.D_GMAP_TRAFFIC.get(("Maubeuge", "duration"))
+            self.tl_tf_maub.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Maubeuge", "duration_traffic"))
             # Valenciennes
-            self.tl_tf_vale.travel_t = DS.redis_get("Googlemap.Valenciennes.duration")
-            self.tl_tf_vale.traffic_t = DS.redis_get("Googlemap.Valenciennes.duration_traffic")
+            self.tl_tf_vale.travel_t = Tags.D_GMAP_TRAFFIC.get(("Valenciennes", "duration"))
+            self.tl_tf_vale.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Valenciennes", "duration_traffic"))
+            # update news widget
+            self.tl_news.l_titles = DS.redis_get_obj("news:local")
             # carousel update
             self.tl_crl.update()
-            # update all defined tags
-            Tags.update_tags()
             # gauges update
-            self.tl_g_veh.percent = DS.redis_hmget_one("gsheet:grt", "IGP_VEH_JAUGE_DTS")
-            self.tl_g_veh.value = DS.redis_hmget_one("gsheet:grt", "IGP_VEH_REAL_DTS")
-            self.tl_g_loc.percent = DS.redis_hmget_one("gsheet:grt", "IGP_LOC_JAUGE_DTS")
-            self.tl_g_req.percent = DS.redis_hmget_one("gsheet:grt", "R_EQU_JAUGE_DTS")
-            self.tl_g_vcs.percent = DS.redis_hmget_one("gsheet:grt", "VCS_JAUGE_DTS")
-            self.tl_g_vst.percent = DS.redis_hmget_one("gsheet:grt", "VST_JAUGE_DTS")
-            self.tl_g_qsc.percent = DS.redis_hmget_one("gsheet:grt", "Q_HRE_JAUGE_DTS")
+            self.tl_g_veh.percent = Tags.D_GSHEET_GRT.get("IGP_VEH_JAUGE_DTS")
+            self.tl_g_veh.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("IGP_VEH_REAL_DTS"),
+                                                  Tags.D_GSHEET_GRT.get("IGP_VEH_OBJ_DTS"))
+            self.tl_g_loc.percent = Tags.D_GSHEET_GRT.get("IGP_LOC_JAUGE_DTS")
+            self.tl_g_loc.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("IGP_LOC_REAL_DTS"),
+                                                  Tags.D_GSHEET_GRT.get("IGP_LOC_OBJ_DTS"))
+            self.tl_g_req.percent = Tags.D_GSHEET_GRT.get("R_EQU_JAUGE_DTS")
+            self.tl_g_req.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("R_EQU_REAL_DTS"),
+                                                  Tags.D_GSHEET_GRT.get("R_EQU_OBJ_DTS"))
+            self.tl_g_vcs.percent = Tags.D_GSHEET_GRT.get("VCS_JAUGE_DTS")
+            self.tl_g_vcs.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("VCS_REAL_DTS"),
+                                                  Tags.D_GSHEET_GRT.get("VCS_OBJ_DTS"))
+            self.tl_g_vst.percent = Tags.D_GSHEET_GRT.get("VST_JAUGE_DTS")
+            self.tl_g_vst.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("VST_REAL_DTS"),
+                                                  Tags.D_GSHEET_GRT.get("VST_OBJ_DTS"))
+            self.tl_g_qsc.percent = Tags.D_GSHEET_GRT.get("Q_HRE_JAUGE_DTS")
+            self.tl_g_qsc.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("Q_HRE_REAL_DTS"),
+                                                  Tags.D_GSHEET_GRT.get("Q_HRE_OBJ_DTS"))
             # update room status
-            self.tl_room_trn.update()
-            self.tl_room_prj.update()
-            self.tl_room_met.update()
-            self.tl_room_bur1.update()
-            self.tl_room_bur2.update()
+            self.tl_room_trn.status = Tags.D_ISWIP_ROOM.get("Salle_TRAINNING")
+            self.tl_room_prj.status = Tags.D_ISWIP_ROOM.get("Salle_PROJECT")
+            self.tl_room_met.status = Tags.D_ISWIP_ROOM.get("Salle_MEETING")
+            self.tl_room_bur1.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_1")
+            self.tl_room_bur2.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_2")
         # every 0.2s
         if (self.update_inc % 1) == 0:
             # update clock
@@ -417,7 +403,7 @@ class Tile(tk.Frame):
         self.configure(highlightthickness=3)
         self.configure(bd=0)
 
-    def set_tile(self, row=0, column=0, rowspan=1, columnspan=1, sticky=tk.NSEW, remove=None):
+    def set_tile(self, row=0, column=0, rowspan=1, columnspan=1, remove=None):
         # function to print a tile on the screen at the given coordonates
         if remove:
             self.grid_remove()
@@ -496,7 +482,7 @@ class TrafficDurationTile(Tile):  # traffic duration #json
             self._t_inc_str.set("%+.0f mn" % (t_increase / 60))
             # choose tile color
             tile_color = "green"
-            if t_increase_ratio > 0.25:
+            if t_increase_ratio > 0.35:
                 tile_color = "red"
             elif t_increase_ratio > 0.10:
                 tile_color = "orange"
@@ -555,7 +541,7 @@ class Weather_Tile(Tile):  # principal, she own all the day, could be divided if
             # end impression
             # end other 4 days of the week
 
-            ### Today ###
+        # Today
         self.todayframe = tk.LabelFrame(master=self, bg="red", text="Today :", font=("bold", 20))  # today title
         self.todaylabel = tk.Label(master=self.todayframe, text="empty", font=('courier', 18, 'bold'), anchor=tk.W,
                                    justify=tk.LEFT)  # today weather
@@ -568,7 +554,7 @@ class Weather_Tile(Tile):  # principal, she own all the day, could be divided if
         self.todayiconelabel = tk.Label(master=self.todayframe, image=self.todayicone, bg=self.todayframe.cget("bg"))
         self.todayiconelabel.grid(row=1)
 
-    def update(self):  # foreache self.Labels[destination][api url] bla bla bla
+    def update(self):
         """
         update function, 7200 call per day maximum
         """
@@ -620,36 +606,31 @@ class Weather_Tile(Tile):  # principal, she own all the day, could be divided if
             logging.error(traceback.format_exc())
 
 
-class Time_Tile(Tile):
-    def __init__(self, master=None):
-        Tile.__init__(self, master=master)
-        self.day = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
-        self.month = ["Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre",
-                      "Novembre", "Decembre"]
-        # print it in the midle of a 3x3 grid !
+class TimeTile(Tile):
+    def __init__(self, *args, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
+        # public
+        # private
+        self._date_str = tk.StringVar()
+        self._time_str = tk.StringVar()
+        # set locale (for french day name)
+        locale.setlocale(locale.LC_ALL, "fr_FR.UTF-8")
+        # tk stuff
+        # init 3x3 grid
         for r in range(3):
             for c in range(3):
                 self.grid_columnconfigure(c, weight=1)
                 tk.Label(self, bg=self.cget("bg")).grid(row=r, column=c)
             self.grid_rowconfigure(r, weight=1)
-
-        self.clock = tk.Label(self, font=('digital-7', 30), bg=self.cget("bg"), fg='green')
-        self.clock.grid(row=1, column=1)
-        self.Day = tk.Label(self, bg=self.cget("bg"), text=self.day[datetime.today().weekday()], anchor=tk.W,
-                            justify=tk.LEFT, font=('bold', 15))
-        self.Day.grid(row=0, column=0, columnspan=3, sticky=tk.NSEW)
-
-        self.time = ""
+        # add labels
+        tk.Label(self, textvariable=self._date_str, font=('bold', 15) , bg=self.cget("bg"), anchor=tk.W,
+                 justify=tk.LEFT).grid(row=0, column=0, columnspan=3, sticky=tk.NSEW)
+        tk.Label(self, textvariable=self._time_str, font=('digital-7', 30), bg=self.cget("bg"),
+                 fg='green').grid(row=1, column=1)
 
     def update(self):
-        # 200 ms of refresh, don't put a lot of work here
-        tmp = str(datetime.today().date())[
-              :10]  # yyyy-mm-dd => dd-mm-yyyy #following 2 lines are about choice in last comment of each
-        jour = self.day[datetime.today().weekday()] + " " + tmp[-2:] + "-" + tmp[-5:-3] + "-" + tmp[
-                                                                                                0:4]  # Jeudi 19-04-2018
-        self.Day.configure(text=jour)
-        heure = str(datetime.now().time())[:8]
-        self.clock.configure(text=heure)
+        self._date_str.set(datetime.now().strftime('%A %d/%m/%Y'))
+        self._time_str.set(datetime.now().strftime('%H:%M:%S'))
 
 
 class TrafficMapTile(Tile):  # google map traffic # still need to define
@@ -676,41 +657,66 @@ class TrafficMapTile(Tile):  # google map traffic # still need to define
             logging.error(traceback.format_exc())
 
 
-class News_Banner_Tile(Tile):  # 1 * x "header" or "footer" #still need to define
+class NewsBannerTile(Tile):
     def __init__(self, *args, **kwargs):
         Tile.__init__(self, *args, **kwargs)
+        # public
+        # private
+        self._l_titles = []
+        self._lbl_ban = tk.StringVar()
+        self._next_ban_str = ""
+        self._disp_ban_str = ""
+        self._disp_ban_pos = 0
+        # tk stuff
+        # set yellow background for this tile
         self.configure(bg="yellow")
-        # width --> width in chars, height --> lines of text
-        self.text_width = 50  # number of space to fill the all text area, user friendlier
-        self.text = tk.Label(self, height=1, bg='yellow')
-        self.columnconfigure(0, weight=1)  # to take all the weight of the bottom screen
-        # self.text.grid(row=0, column=0, sticky=tk.NSEW)
-        self.text.pack(expand=True)
-        # use a proportional font to handle spaces correctly
-        self.text.config(font=('courier', 51, 'bold'))
-        self.banner = ""
-        self.banner_off = 0  # inc which will count the number of char show, so the number of char to shown
+        # use a proportional font to handle spaces correctly, height is nb of lines
+        tk.Label(self, textvariable=self._lbl_ban, height=1,
+                 bg=self.cget("bg"), font=('courier', 51, 'bold')).pack(expand=True)
+
+    @property
+    def l_titles(self):
+        return self._l_titles
+
+    @l_titles.setter
+    def l_titles(self, value):
+        # check type
+        try:
+            value = list(value)
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._l_titles != value:
+            # check range
+            self._l_titles = value
+            # update widget
+            self._on_data_change()
 
     def update(self):
-        # update the text on the screen
-        if self.banner_off >= (len(self.banner) - (self.text_width // 2)):
-            self.banner_off = 0
-        # use string slicing to do the trick
-        self.ticker_text = self.banner[self.banner_off:self.banner_off + self.text_width]  # the "k"ey of the trick ....
-        # print (self.ticker_text)#test
-        self.text.configure(text=self.ticker_text)
-        self.banner_off += 1
+        # scroll text on screen
+        # start a new scroll ?
+        if self._disp_ban_pos >= len(self._disp_ban_str) - self._get_ban_nb_char():
+            # update display scroll message
+            self._disp_ban_str = self._next_ban_str
+            self._disp_ban_pos = 0
+        scroll_view = self._disp_ban_str[self._disp_ban_pos:self._disp_ban_pos + self._get_ban_nb_char()]
+        self._lbl_ban.set(scroll_view)
+        self._disp_ban_pos += 1
 
-    def get_information(self):
-        HEAD = " " * 20
+    def _get_ban_nb_char(self):
+        # get number of char in current display banner
+        #return round(self.winfo_width()/38.36)
+        return 50
+
+    def _on_data_change(self):
+        spaces_head = " " * self._get_ban_nb_char()
         try:
-            l_titles = json.loads(DS.redis_get("news:local"))
             # update banner
-            self.banner = ""
-            for title in l_titles:
-                self.banner += HEAD + title + HEAD
+            self._next_ban_str = spaces_head
+            for title in self._l_titles:
+                self._next_ban_str += title + spaces_head
         except:
-            self.banner = " " * self.text_width + "error redis" + " " * self.text_width
+            self._next_ban_str = spaces_head + "n/a" + spaces_head
             logging.error(traceback.format_exc())
 
 
@@ -736,53 +742,62 @@ class Pdf_Tile(Tile):
             logging.error(traceback.format_exc())
 
 
-class Meeting_Room_Tile(Tile):
+class MeetingRoomTile(Tile):
     def __init__(self, *args, room, **kwargs):
         Tile.__init__(self, *args, **kwargs)
-        self.room_name = room
-        # print it in the midle of a 3x3 grid !
+        # public
+
+        # private
+        self._status = None
+        self._status_str = tk.StringVar()
+        self._status_str.set('n/a')
+        # tk stuff
+        # init a 3x3 grid
         for r in range(3):
             for c in range(3):
                 self.grid_columnconfigure(c, weight=1)
                 tk.Label(self, bg=self.cget("bg")).grid(row=r, column=c)
             self.grid_rowconfigure(r, weight=1)
+        # set labels
+        tk.Label(self, text=room, bg=self.cget("bg"), font="bold",
+                 justify="left", anchor="w").grid(row=1, column=0, sticky=tk.NSEW)
+        tk.Label(self, textvariable=self._status_str, bg=self.cget("bg"), font="bold", justify="left",
+                 anchor="w").grid(row=2, column=0, sticky=tk.NSEW)
+        self.tk_img = tk.PhotoImage()
+        tk.Label(self, image=self.tk_img, bg=self.cget("bg")).grid(row=0, column=2, rowspan=3)
 
-        self.salle = tk.Label(self, text=self.room_name.replace("_", " "), bg=self.cget("bg"), font="bold",
-                              justify="left", anchor="w")
-        self.salle.grid(row=1, column=0, sticky=tk.NSEW)
-        self.status = "Unocc"
-        self.salle_status = tk.Label(self, text="UnOccuped", bg=self.cget("bg"), font="bold", justify="left",
-                                     anchor="w")
-        self.salle_status.grid(row=2, column=0, sticky=tk.NSEW)
+    @property
+    def status(self):
+        return self._status
 
+    @status.setter
+    def status(self, value):
+        # check type
         try:
-            self.image_Orange = tk.PhotoImage(file=IMG_PATH + "TraficLight_Orange.png").subsample(10)
-            self.image_Green = tk.PhotoImage(file=IMG_PATH + "TraficLight_Green.png").subsample(10)
-            self.image_Red = tk.PhotoImage(file=IMG_PATH + "TraficLight_Red.png").subsample(10)
-        except:
-            self.image_Orange = tk.PhotoImage()
-            self.image_Green = tk.PhotoImage()
-            self.image_Red = tk.PhotoImage()
+            value = str(value)
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._status != value:
+            # check range
+            self._status = value
+            # update widget
+            self._on_data_change()
 
-        self.image = tk.Label(self, image=self.image_Orange, bg=self.cget("bg"))
-        self.image.grid(row=0, column=2, rowspan=3)
-
-    def update(self):
-        old = self.status
-        self.status = DS.r.get("Widget_salle." + self.room_name).decode("utf-8")
-        if old != self.status:
-            print(datetime.now(), self.room_name, old, " => ", self.status)
-
-        self.salle_status.configure(text=self.status)
-
-        if self.status == "Occ" or self.status == "OccPeriod":
-            self.image.configure(image=self.image_Red)
-        elif self.status == "Unocc":
-            self.image.configure(image=self.image_Orange)
-        elif self.status == "UnoccRepeat":
-            self.image.configure(image=self.image_Green)
-        else:
-            print("wrong status :", self.status)
+    def _on_data_change(self):
+        if self._status is not None:
+            # set status on screen
+            self._status_str.set(self._status)
+            try:
+                # set traffic light image
+                if self._status == "Occ" or self._status == "OccPeriod":
+                    self.tk_img.configure(file=IMG_PATH + "tf_red.png")
+                elif self._status == "Unocc":
+                    self.tk_img.configure(file=IMG_PATH + "tf_orange.png")
+                elif self._status == "UnoccRepeat":
+                    self.tk_img.configure(file=IMG_PATH + "tf_green.png")
+            except Exception:
+                logging.error(traceback.format_exc())
 
 
 class GaugeTile(Tile):
@@ -793,12 +808,12 @@ class GaugeTile(Tile):
         Tile.__init__(self, *args, **kwargs)
         # public
         self.title = title
-        self.value = None
-        self.th_orange = 75
-        self.th_red = 50
+        self.th_orange = 70
+        self.th_red = 40
         # private
         self._str_title = tk.StringVar()
         self._str_title.set(self.title)
+        self._head_str = ""
         self._percent = None
         # tk build
         self.label = tk.Label(self, textvariable=self._str_title, font='bold')
@@ -827,6 +842,24 @@ class GaugeTile(Tile):
             # update widget
             self._on_data_change()
 
+    @property
+    def header_str(self):
+        return self._head_str
+
+    @header_str.setter
+    def header_str(self, value):
+        # check type
+        try:
+            value = str(value)
+        except (TypeError, ValueError):
+            value = ""
+        # check change
+        if self._head_str != value:
+            # check range
+            self._head_str = value
+            # update widget
+            self._on_data_change()
+
     def _on_data_change(self):
         # update widget
         try:
@@ -843,8 +876,8 @@ class GaugeTile(Tile):
                 self.can.configure(bg="orange")
             else:
                 self.can.configure(bg="green")
-            if self.value is not None:
-                self._str_title.set("%s (%s)" % (self.title, self.value))
+            if self._head_str:
+                self._str_title.set("%s (%s)" % (self.title, self._head_str))
             else:
                 self._str_title.set("%s (%.1f %%)" % (self.title, self.percent))
         except (TypeError, ZeroDivisionError):
@@ -863,54 +896,94 @@ class GaugeTile(Tile):
 
 
 class DaysFromAccident(Tile):
-    def __init__(self, master=None):
-        Tile.__init__(self, master=master)
-        tk.LabelFrame.__init__(self, master=master, text="Safety is number one priority !",
-                               font=('courier', 20, 'bold'), bg="white")
+    def __init__(self, *args, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
+        # public
+        # private
+        self._acc_date_dts = None
+        self._acc_date_digne = None
+        self._days_dts_str = tk.StringVar()
+        self._days_digne_str = tk.StringVar()
+        # tk stuff
+        self.configure(bg="white")
         # populate tile with blank grid parts
-        for c in range(5):
+        for c in range(3):
             for r in range(3):
                 self.grid_rowconfigure(r, weight=1)
                 if c > 0:
                     tk.Label(self, bg="white").grid(row=r, column=c, )
             self.columnconfigure(c, weight=1)
+        # add label
+        tk.Label(self, text="Safety is number one priority !",
+                 font=('courier', 20, 'bold'), bg="white").grid(row=0, column=0, columnspan=2)
         # DTS
-        self.lbl_days_dts = tk.Label(self, text="N/A", font=('courier', 24, 'bold'), fg=FUSHIA, bg=self.cget("bg"))
-        self.lbl_days_dts.grid(row=1, column=0, columnspan=2)
+        tk.Label(self, textvariable=self._days_dts_str, font=('courier', 24, 'bold'),
+                 fg=FUSHIA, bg=self.cget("bg")).grid(row=1, column=0)
         tk.Label(self, text="Jours sans accident DTS",
-                 font=('courier', 18, 'bold'), bg=self.cget("bg")).grid(row=1, column=2, columnspan=3, sticky=tk.W)
+                 font=('courier', 18, 'bold'), bg=self.cget("bg")).grid(row=1, column=1, sticky=tk.W)
         # DIGNE
-        self.lbl_days_digne = tk.Label(self, text="N/A", font=('courier', 24, 'bold'), fg=FUSHIA, bg=self.cget("bg"))
-        self.lbl_days_digne.grid(row=2, column=0, columnspan=2)
+        tk.Label(self, textvariable=self._days_digne_str, font=('courier', 24, 'bold'),
+                 fg=FUSHIA, bg=self.cget("bg")).grid(row=2, column=0)
         tk.Label(self, text="Jours sans accident DIGNE",
-                 font=('courier', 18, 'bold'), bg=self.cget("bg")).grid(row=2, column=2, columnspan=3, sticky=tk.W)
+                 font=('courier', 18, 'bold'), bg=self.cget("bg")).grid(row=2, column=1, sticky=tk.W)
 
-    def update(self):
-        # retrieve data
-        d_gsheet = DS.redis_hgetall("gsheet:grt")
-        # DTS acc update
+    @property
+    def acc_date_dts(self):
+        return self._acc_date_dts
+
+    @acc_date_dts.setter
+    def acc_date_dts(self, value):
+        # check type
         try:
-            day, month, year = map(int, d_gsheet[b'DATE_ACC_DTS'].decode("utf-8").split('/'))
-            self.lbl_days_dts.configure(text=str((datetime.now() - datetime(year, month, day)).days))
-        except Exception:
-            logging.error(traceback.format_exc())
-            self.lbl_days_dts.configure(text="N/A")
-        # DIGNE acc update
+            value = str(value)
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._acc_date_dts != value:
+            # check range
+            self._acc_date_dts = value
+            # update widget
+            self._on_data_change()
+
+    @property
+    def acc_date_digne(self):
+        return self._acc_date_digne
+
+    @acc_date_digne.setter
+    def acc_date_digne(self, value):
+        # check type
         try:
-            day, month, year = map(int, d_gsheet[b'DATE_ACC_DIGNE'].decode("utf-8").split('/'))
-            self.lbl_days_digne.configure(text=str((datetime.now() - datetime(year, month, day)).days))
+            value = str(value)
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._acc_date_digne != value:
+            # check range
+            self._acc_date_digne = value
+            # update widget
+            self._on_data_change()
+
+    def _on_data_change(self):
+        self._days_dts_str.set(self.day_from_now(self._acc_date_dts))
+        self._days_digne_str.set(self.day_from_now(self._acc_date_digne))
+
+    @staticmethod
+    def day_from_now(date_str):
+        try:
+            day, month, year = map(int, str(date_str).split('/'))
+            return str((datetime.now() - datetime(year, month, day)).days)
         except Exception:
-            logging.error(traceback.format_exc())
-            self.lbl_days_digne.configure(text="N/A")
+            return "n/a"
 
 
 class ImageTile(Tile):
     def __init__(self, *args, file=IMG_PATH + "logo.png", img_ratio=1, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # tk job
+        self.configure(bg='white')
         self.tk_img = tk.PhotoImage()
-        self.lbl_img = tk.Label(self, bg="#FFFFFF")
-        self.lbl_img.grid()
+        self.lbl_img = tk.Label(self, bg=self.cget("bg"))
+        self.lbl_img.pack(expand=True)
         # display current image file
         try:
             # set file path
@@ -923,12 +996,13 @@ class ImageTile(Tile):
 
 
 class CarousselTile(Tile):
-    def __init__(self, master=None):
-        Tile.__init__(self, master=master, bg="white")
+    def __init__(self, *args, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
         # private
         self._img_index = 0
         self._img_files = list()
         # tk job
+        self.configure(bg="white")
         self.tk_img = tk.PhotoImage()
         self.lbl_img = tk.Label(self, image=self.tk_img)
         self.lbl_img.grid()
