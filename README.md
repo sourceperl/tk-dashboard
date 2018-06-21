@@ -33,8 +33,6 @@
 
     # add shortcut
     cp home/pi/Desktop/* /home/pi/Desktop/
-    # add autostart
-    ln -s /home/pi/Desktop/dashboard.desktop /home/pi/.config/autostart/
 
 ### Setup supervisor
 
