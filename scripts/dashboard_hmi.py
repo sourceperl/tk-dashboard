@@ -142,7 +142,8 @@ class Tags:
     D_GSHEET_GRT = Tag(cmd_src=lambda: DS.redis_get_obj("gsheet:grt"))
     D_ISWIP_ROOM = Tag(cmd_src=lambda: DS.redis_get_obj("iswip:room_status"))
     D_GMAP_TRAFFIC = Tag(cmd_src=lambda: DS.redis_get_obj("gmap:traffic"))
-    D_WEATHER_LOOS = Tag(cmd_src=lambda: DS.redis_get_obj("weather:loos"))
+    D_WEATHER_LOOS = Tag(cmd_src=lambda: DS.redis_get_obj("weather:forecast:loos"))
+    D_WEATHER_VIG = Tag(cmd_src=lambda: DS.redis_get_obj("weather:vigilance"))
     D_NEWS_LOCAL = Tag(cmd_src=lambda: DS.redis_get_obj("news:local"))
 
     @classmethod
@@ -490,7 +491,7 @@ class TrafficDurationTile(Tile):
             self._t_inc_str.set("%+.0f mn" % (t_increase / 60))
             # choose tile color
             tile_color = "green"
-            if t_increase_ratio > 0.35:
+            if t_increase_ratio > 0.40:
                 tile_color = "red"
             elif t_increase_ratio > 0.10:
                 tile_color = "orange"

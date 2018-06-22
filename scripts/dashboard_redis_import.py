@@ -13,6 +13,8 @@ import requests
 import schedule
 import shutil
 import urllib.parse
+import pytz
+from xml.dom import minidom
 
 # read config
 cnf = ConfigParser()
@@ -108,7 +110,47 @@ def openweathermap_job():
                             d_days[0]['t'] = t_today
         # store to redis
         city_name, _ = ow_city.split(',')
-        DS.redis_set_obj('weather:%s' % city_name.lower(), d_days)
+        DS.redis_set_obj('weather:forecast:%s' % city_name.lower(), d_days)
+    except Exception:
+        logging.error(traceback.format_exc())
+
+
+def vigilance_job():
+    try:
+        # request XML data from server
+        r = requests.get('http://vigilance.meteofrance.com/data/NXFR34_LFPW_.xml')
+        # check error
+        if r.status_code == 200:
+            # dom parsing (convert UTF-8 r.text to XML char)
+            dom = minidom.parseString(r.text.encode('ascii', 'xmlcharrefreplace'))
+            # set dict for dep data
+            vig_data = {'update': "", 'department': {}}
+            # map build date
+            tz = pytz.timezone('Europe/Paris')
+            map_date = str(dom.getElementsByTagName('entetevigilance')[0].getAttribute('dateinsert'))
+            map_dt = tz.localize(datetime(int(map_date[0:4]), int(map_date[4:6]),
+                                          int(map_date[6:8]), int(map_date[8:10]),
+                                          int(map_date[10:12])))
+            vig_data['update'] = map_dt.isoformat()
+            # parse every departments
+            for items in dom.getElementsByTagName('datavigilance'):
+                # current "department"
+                dep_code = str(items.attributes['dep'].value)
+                # get risk ID  if exist
+                risk_id = None
+                for risk in items.getElementsByTagName('risque'):
+                    risk_id = int(risk.attributes['valeur'].value)
+                # get flood ID if exist
+                flood_id = None
+                for flood in items.getElementsByTagName('crue'):
+                    flood_id = int(flood.attributes['valeur'].value)
+                # get color ID
+                color_id = int(items.attributes['couleur'].value)
+                # build vig_data
+                vig_data['department'][dep_code] = {'vig_level': color_id,
+                                                    'flood_level': flood_id,
+                                                    'risk_id': risk_id}
+            DS.redis_set_obj('weather:vigilance', vig_data)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -203,11 +245,13 @@ if __name__ == '__main__':
     schedule.every(5).minutes.do(local_info_job)
     schedule.every(5).minutes.do(gsheet_job)
     schedule.every(5).minutes.do(openweathermap_job)
+    schedule.every(5).minutes.do(vigilance_job)
     schedule.every(5).minutes.do(gmap_travel_time_job)
     # first call
     gmap_traffic_img_job()
     gsheet_job()
     openweathermap_job()
+    vigilance_job()
     local_info_job()
     iswip_job()
     gmap_travel_time_job()
