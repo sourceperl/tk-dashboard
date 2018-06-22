@@ -108,7 +108,6 @@ def openweathermap_job():
                             d_days[0]['t'] = t_today
         # store to redis
         city_name, _ = ow_city.split(',')
-        print(d_days)
         DS.redis_set_obj('weather:%s' % city_name.lower(), d_days)
     except Exception:
         logging.error(traceback.format_exc())
@@ -181,9 +180,13 @@ def gmap_traffic_img_job():
     try:
         r = requests.get(gmap_img_url, stream=True)
         if r.status_code == 200:
-            with open(gmap_img_target, 'wb') as f:
+            # download as *.dwl file
+            download_file = "%s.dwl" % gmap_img_target
+            with open(download_file, 'wb') as f:
                 r.raw.decode_content = True
                 shutil.copyfileobj(r.raw, f)
+            # replace target file with *.dwl version
+            shutil.move(download_file, gmap_img_target)
     except requests.exceptions.RequestException:
         logging.error(traceback.format_exc())
         return None

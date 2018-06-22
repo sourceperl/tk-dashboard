@@ -15,6 +15,7 @@ import locale
 import logging
 import traceback
 import redis
+import time
 from datetime import datetime, timedelta
 import threading
 import glob
@@ -55,7 +56,7 @@ gmap_img_target = cnf.get("gmap_img", "img_target")
 
 class DS:
     # create connector
-    r = redis.StrictRedis(host="192.168.0.60", socket_timeout=5, socket_keepalive=True)
+    r = redis.StrictRedis(host="192.168.0.60", socket_timeout=4, socket_keepalive=True)
 
     # redis access method
     @classmethod
@@ -78,11 +79,10 @@ class Tag:
 
     def __init__(self, init=None, cmd_src=None):
         # private
+        self._var_lock = threading.Lock()
         self._var = init
         self._subscribers = []
         self._cmd_src = cmd_src
-        # first update
-        self.update()
         # record the tag in tags list
         Tag.all_tags.append(self)
 
@@ -95,14 +95,16 @@ class Tag:
 
     @property
     def var(self):
-        return self._var
+        with self._var_lock:
+            return self._var
 
     @var.setter
     def var(self, value):
-        if value != self._var:
-            self._var = value
-            for callback in self._subscribers:
-                callback(self._var)
+        with self._var_lock:
+            if value != self._var:
+                self._var = value
+                for callback in self._subscribers:
+                    callback(self._var)
 
     def subscribe(self, callback):
         # first value
@@ -134,15 +136,21 @@ class Tag:
 
 
 class Tags:
+    # create all tag here
+    # WARNs: -> all tag are manage by an IO thread
+    #        -> tag subscriber callback code are call by IO thread (not by tkinter main thread)
     D_GSHEET_GRT = Tag(cmd_src=lambda: DS.redis_get_obj("gsheet:grt"))
     D_ISWIP_ROOM = Tag(cmd_src=lambda: DS.redis_get_obj("iswip:room_status"))
     D_GMAP_TRAFFIC = Tag(cmd_src=lambda: DS.redis_get_obj("gmap:traffic"))
     D_WEATHER_LOOS = Tag(cmd_src=lambda: DS.redis_get_obj("weather:loos"))
+    D_NEWS_LOCAL = Tag(cmd_src=lambda: DS.redis_get_obj("news:local"))
 
     @classmethod
-    def update(cls):
+    def tags_io_thread(cls):
         # for tag auto-update method (with cmd_srv)
-        Tag.update_all()
+        while True:
+            Tag.update_all()
+            time.sleep(2.0)
 
 
 class MainApp(tk.Tk):
@@ -177,40 +185,39 @@ class Tab(tk.Frame):
 
     def __init__(self, *args, **kwargs):
         tk.Frame.__init__(self, *args, **kwargs)
-        self.screen_width = self.winfo_screenwidth()
-        self.number_of_tile_width = 17
-        self.screen_height = self.winfo_screenheight() - 60
-        self.number_of_tile_height = 9
-        self.general_padx = round(self.screen_width / (self.number_of_tile_width * 2))
-        self.general_pady = round((self.screen_height - TAB_PAD_HEIGHT) / (self.number_of_tile_height * 2))
-
+        # public
+        self._update_ms = None
+        self.nb_tile_w = 17
+        self.nb_tile_h = 9
+        # private
+        self._screen_w = self.winfo_screenwidth()
+        self._screen_h = self.winfo_screenheight() - 60
+        self._lbl__padx = round(self._screen_w / (self.nb_tile_w * 2))
+        self._lbl_pady = round((self._screen_h - TAB_PAD_HEIGHT) / (self.nb_tile_h * 2))
+        # tk stuff
         # populate the grid with all tiles
-        for c in range(0, self.number_of_tile_width):
-            for r in range(0, self.number_of_tile_height):
+        for c in range(0, self.nb_tile_w):
+            for r in range(0, self.nb_tile_h):
                 self.grid_rowconfigure(r, weight=1)
-                # Create Labels to space all of it:
-                tk.Label(self, pady=self.general_pady, padx=self.general_padx).grid(column=c, row=r)
-                Tile(self).set_tile(row=r, column=c)  # see ? we can print simple time
-            self.grid_columnconfigure(c, weight=1)  # auto ajust all the columns
+                # create Labels to space all of it
+                tk.Label(self, pady=self._lbl_pady, padx=self._lbl__padx).grid(column=c, row=r)
+                Tile(self).set_tile(row=r, column=c)
+            self.grid_columnconfigure(c, weight=1)
+        # init tab update
+        self.bind('<Visibility>', lambda evt: self.update())
 
-        # bind the visibility event, if you clik on the tab to show it, you get the consequences
-        self.bind('<Visibility>', lambda evt: self.tab_update())
+    def start_cyclic_update(self, update_ms=500):
+        self._update_ms = update_ms
+        # init loop
+        self._do_cyclic_update()
 
-        self.update_inc = 0
-        self.tick = 200
-        self._tab_update()
-
-    def _tab_update(self):
+    def _do_cyclic_update(self):
         if self.winfo_ismapped():
-            self.tab_update()
-        self.after(self.tick, self._tab_update)
+            self.update()
+        self.after(self._update_ms, self._do_cyclic_update)
 
-    def tab_update(self):
-        if self.winfo_ismapped():
-            self.update_inc += 1
-
-        if self.update_inc >= 5 * 60 * 1:  # 5 minutes
-            pass
+    def update(self):
+        pass
 
 
 class LiveTab(Tab):
@@ -278,79 +285,60 @@ class LiveTab(Tab):
         # logo img
         self.tl_img_logo = ImageTile(self, file=IMG_PATH + "logo.png")
         self.tl_img_logo.set_tile(row=6, column=13, rowspan=2, columnspan=4)
-        # caroussel
-        self.tl_crl = CarousselTile(self)
+        # carousel
+        self.tl_crl = CarouselTile(self)
         self.tl_crl.set_tile(row=4, column=7, rowspan=4, columnspan=6)
-        # init counter
-        self.update_inc = 0
+        # auto-update clock
+        self.start_cyclic_update(update_ms=5000)
 
-    def tab_update(self):
-        # some update stuff to do when this tab is mapped
-        # every 5 min
-        if (self.update_inc % (5 * 60 * 5)) == 0:
-            # acc days stat
-            self.tl_acc.acc_date_dts = Tags.D_GSHEET_GRT.get("DATE_ACC_DTS")
-            self.tl_acc.acc_date_digne = Tags.D_GSHEET_GRT.get("DATE_ACC_DIGNE")
-            # weather
-            self.tl_weath.weather_dict = Tags.D_WEATHER_LOOS.get()
-
-        # every 20s
-        if (self.update_inc % (5 * 20)) == 0:
-            # update all defined tags
-            Tags.update()
-            # traffic map
-            self.tl_tf_map.update()
-            # Amiens
-            self.tl_tf_ami.travel_t = Tags.D_GMAP_TRAFFIC.get(("Amiens", "duration"))
-            self.tl_tf_ami.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Amiens", "duration_traffic"))
-            # Arras
-            self.tl_tf_arr.travel_t = Tags.D_GMAP_TRAFFIC.get(("Arras", "duration"))
-            self.tl_tf_arr.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Arras", "duration_traffic"))
-            # Dunkerque
-            self.tl_tf_dunk.travel_t = Tags.D_GMAP_TRAFFIC.get(("Dunkerque", "duration"))
-            self.tl_tf_dunk.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Dunkerque", "duration_traffic"))
-            # Maubeuge
-            self.tl_tf_maub.travel_t = Tags.D_GMAP_TRAFFIC.get(("Maubeuge", "duration"))
-            self.tl_tf_maub.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Maubeuge", "duration_traffic"))
-            # Valenciennes
-            self.tl_tf_vale.travel_t = Tags.D_GMAP_TRAFFIC.get(("Valenciennes", "duration"))
-            self.tl_tf_vale.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Valenciennes", "duration_traffic"))
-            # update news widget
-            self.tl_news.l_titles = DS.redis_get_obj("news:local")
-            # carousel update
-            self.tl_crl.update()
-            # gauges update
-            self.tl_g_veh.percent = Tags.D_GSHEET_GRT.get("IGP_VEH_JAUGE_DTS")
-            self.tl_g_veh.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("IGP_VEH_REAL_DTS"),
-                                                  Tags.D_GSHEET_GRT.get("IGP_VEH_OBJ_DTS"))
-            self.tl_g_loc.percent = Tags.D_GSHEET_GRT.get("IGP_LOC_JAUGE_DTS")
-            self.tl_g_loc.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("IGP_LOC_REAL_DTS"),
-                                                  Tags.D_GSHEET_GRT.get("IGP_LOC_OBJ_DTS"))
-            self.tl_g_req.percent = Tags.D_GSHEET_GRT.get("R_EQU_JAUGE_DTS")
-            self.tl_g_req.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("R_EQU_REAL_DTS"),
-                                                  Tags.D_GSHEET_GRT.get("R_EQU_OBJ_DTS"))
-            self.tl_g_vcs.percent = Tags.D_GSHEET_GRT.get("VCS_JAUGE_DTS")
-            self.tl_g_vcs.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("VCS_REAL_DTS"),
-                                                  Tags.D_GSHEET_GRT.get("VCS_OBJ_DTS"))
-            self.tl_g_vst.percent = Tags.D_GSHEET_GRT.get("VST_JAUGE_DTS")
-            self.tl_g_vst.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("VST_REAL_DTS"),
-                                                  Tags.D_GSHEET_GRT.get("VST_OBJ_DTS"))
-            self.tl_g_qsc.percent = Tags.D_GSHEET_GRT.get("Q_HRE_JAUGE_DTS")
-            self.tl_g_qsc.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("Q_HRE_REAL_DTS"),
-                                                  Tags.D_GSHEET_GRT.get("Q_HRE_OBJ_DTS"))
-            # update room status
-            self.tl_room_trn.status = Tags.D_ISWIP_ROOM.get("Salle_TRAINNING")
-            self.tl_room_prj.status = Tags.D_ISWIP_ROOM.get("Salle_PROJECT")
-            self.tl_room_met.status = Tags.D_ISWIP_ROOM.get("Salle_MEETING")
-            self.tl_room_bur1.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_1")
-            self.tl_room_bur2.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_2")
-        # every 0.2s
-        if (self.update_inc % 1) == 0:
-            # update clock
-            self.tl_clock.update()
-            # update news banner
-            self.tl_news.update()
-        self.update_inc += 1
+    def update(self):
+        # acc days stat
+        self.tl_acc.acc_date_dts = Tags.D_GSHEET_GRT.get("DATE_ACC_DTS")
+        self.tl_acc.acc_date_digne = Tags.D_GSHEET_GRT.get("DATE_ACC_DIGNE")
+        # weather
+        self.tl_weath.weather_dict = Tags.D_WEATHER_LOOS.get()
+        # Amiens
+        self.tl_tf_ami.travel_t = Tags.D_GMAP_TRAFFIC.get(("Amiens", "duration"))
+        self.tl_tf_ami.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Amiens", "duration_traffic"))
+        # Arras
+        self.tl_tf_arr.travel_t = Tags.D_GMAP_TRAFFIC.get(("Arras", "duration"))
+        self.tl_tf_arr.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Arras", "duration_traffic"))
+        # Dunkerque
+        self.tl_tf_dunk.travel_t = Tags.D_GMAP_TRAFFIC.get(("Dunkerque", "duration"))
+        self.tl_tf_dunk.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Dunkerque", "duration_traffic"))
+        # Maubeuge
+        self.tl_tf_maub.travel_t = Tags.D_GMAP_TRAFFIC.get(("Maubeuge", "duration"))
+        self.tl_tf_maub.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Maubeuge", "duration_traffic"))
+        # Valenciennes
+        self.tl_tf_vale.travel_t = Tags.D_GMAP_TRAFFIC.get(("Valenciennes", "duration"))
+        self.tl_tf_vale.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Valenciennes", "duration_traffic"))
+        # update news widget
+        self.tl_news.l_titles = Tags.D_NEWS_LOCAL.get()
+        # gauges update
+        self.tl_g_veh.percent = Tags.D_GSHEET_GRT.get("IGP_VEH_JAUGE_DTS")
+        self.tl_g_veh.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("IGP_VEH_REAL_DTS"),
+                                              Tags.D_GSHEET_GRT.get("IGP_VEH_OBJ_DTS"))
+        self.tl_g_loc.percent = Tags.D_GSHEET_GRT.get("IGP_LOC_JAUGE_DTS")
+        self.tl_g_loc.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("IGP_LOC_REAL_DTS"),
+                                              Tags.D_GSHEET_GRT.get("IGP_LOC_OBJ_DTS"))
+        self.tl_g_req.percent = Tags.D_GSHEET_GRT.get("R_EQU_JAUGE_DTS")
+        self.tl_g_req.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("R_EQU_REAL_DTS"),
+                                              Tags.D_GSHEET_GRT.get("R_EQU_OBJ_DTS"))
+        self.tl_g_vcs.percent = Tags.D_GSHEET_GRT.get("VCS_JAUGE_DTS")
+        self.tl_g_vcs.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("VCS_REAL_DTS"),
+                                              Tags.D_GSHEET_GRT.get("VCS_OBJ_DTS"))
+        self.tl_g_vst.percent = Tags.D_GSHEET_GRT.get("VST_JAUGE_DTS")
+        self.tl_g_vst.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("VST_REAL_DTS"),
+                                              Tags.D_GSHEET_GRT.get("VST_OBJ_DTS"))
+        self.tl_g_qsc.percent = Tags.D_GSHEET_GRT.get("Q_HRE_JAUGE_DTS")
+        self.tl_g_qsc.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("Q_HRE_REAL_DTS"),
+                                              Tags.D_GSHEET_GRT.get("Q_HRE_OBJ_DTS"))
+        # update room status
+        self.tl_room_trn.status = Tags.D_ISWIP_ROOM.get("Salle_TRAINNING")
+        self.tl_room_prj.status = Tags.D_ISWIP_ROOM.get("Salle_PROJECT")
+        self.tl_room_met.status = Tags.D_ISWIP_ROOM.get("Salle_MEETING")
+        self.tl_room_bur1.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_1")
+        self.tl_room_bur2.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_2")
 
 
 class DocTab(Tab):
@@ -358,11 +346,11 @@ class DocTab(Tab):
         Tab.__init__(self, *args, **kwargs)
         self.tiles = dict()
         self.tiles["pdfs"] = list()
-        self.bind('<Visibility>', lambda evt: self.tab_update())
+        self.bind('<Visibility>', lambda evt: self.update())
         self.old = ""
 
     # dynamic update of the pdf files in the cold page
-    def tab_update(self):
+    def update(self):
         try:
             # list all PDF availables
             current_pdf = glob.glob(PDF_PATH + "*.pdf")
@@ -380,7 +368,7 @@ class DocTab(Tab):
                         Pdf_Tile(self, file=file))
                     self.tiles["pdfs"][-1].set_tile(row=r, column=c, columnspan=2, rowspan=2)
                     c = (c + 2)
-                    if c >= self.number_of_tile_width - 1:
+                    if c >= self.nb_tile_w - 1:
                         r += 2
                         c = 1
             self.old = current_pdf
@@ -396,7 +384,10 @@ class Tile(tk.Frame):
 
     def __init__(self, *args, **kwargs):
         tk.Frame.__init__(self, *args, **kwargs)
-        # force Frame attribute
+        # public
+        # private
+        self._update_ms = None
+        # tk stuff
         self.configure(bg=VERT)
         self.configure(highlightbackground=ARDOISE)
         self.configure(highlightthickness=3)
@@ -411,11 +402,29 @@ class Tile(tk.Frame):
             # deny frame resize
             self.grid_propagate(False)
 
+    def start_cyclic_update(self, update_ms=500):
+        self._update_ms = update_ms
+        # first update
+        self.update()
+        # init loop
+        self._do_cyclic_update()
+
+    def _do_cyclic_update(self):
+        if self.winfo_ismapped():
+            self.update()
+        self.after(self._update_ms, self._do_cyclic_update)
+
     def update(self):
         pass
 
 
-class TrafficDurationTile(Tile):  # traffic duration #json
+class TwitterTile(Tile):
+    def __init__(self, *args, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
+        pass
+
+
+class TrafficDurationTile(Tile):
     def __init__(self, *args, to_city, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # public
@@ -604,6 +613,7 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
                 self._days_icon[d - 1].configure(file=IMG_PATH + "%s.png" % day_icon)
                 self._days_icon_lbl[d - 1].configure(bg=self._days[d - 1].cget("bg"))
         except Exception:
+            self.todaylabel.configure(text="n/a")
             logging.error(traceback.format_exc())
 
 
@@ -621,6 +631,8 @@ class TimeTile(Tile):
                  justify=tk.LEFT).pack(expand=True)
         tk.Label(self, textvariable=self._time_str, font=('digital-7', 30), bg=self.cget("bg"),
                  fg='green').pack(expand=True)
+        # auto-update clock
+        self.start_cyclic_update(update_ms=500)
 
     def update(self):
         self._date_str.set(datetime.now().strftime('%A %d %B %Y'))
@@ -638,6 +650,8 @@ class TrafficMapTile(Tile):  # google map traffic # still need to define
         self.tk_img = tk.PhotoImage()
         self.lbl_img = tk.Label(self, bg="#FFFFFF")
         self.lbl_img.grid()
+        # auto-update clock
+        self.start_cyclic_update(update_ms=5000)
 
     def update(self):
         # display current image file
@@ -670,6 +684,8 @@ class NewsBannerTile(Tile):
         # use a proportional font to handle spaces correctly, height is nb of lines
         tk.Label(self, textvariable=self._lbl_ban, height=1,
                  bg=self.cget("bg"), font=('courier', 51, 'bold')).pack(expand=True)
+        # auto-update clock
+        self.start_cyclic_update(update_ms=200)
 
     @property
     def l_titles(self):
@@ -707,6 +723,8 @@ class NewsBannerTile(Tile):
             self._next_ban_str = spaces_head
             for title in self._l_titles:
                 self._next_ban_str += title + spaces_head
+        except TypeError:
+            self._next_ban_str = spaces_head + "n/a" + spaces_head
         except:
             self._next_ban_str = spaces_head + "n/a" + spaces_head
             logging.error(traceback.format_exc())
@@ -986,7 +1004,7 @@ class ImageTile(Tile):
             logging.error(traceback.format_exc())
 
 
-class CarousselTile(Tile):
+class CarouselTile(Tile):
     def __init__(self, *args, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # private
@@ -999,6 +1017,8 @@ class CarousselTile(Tile):
         self.lbl_img.grid()
         # first img load
         self._img_files_reload()
+        # auto-update carousel rotate
+        self.start_cyclic_update(update_ms=20000)
 
     # call every 20s
     def update(self):
@@ -1021,6 +1041,8 @@ class CarousselTile(Tile):
 if __name__ == "__main__":
     # logging setup
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
+    # start IO thread
+    threading.Thread(target=Tags.tags_io_thread, daemon=True).start()
     # start tkinter
     app = MainApp()
     app.title('GRTgaz Dashboard')
