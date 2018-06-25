@@ -242,7 +242,7 @@ class LiveTab(Tab):
         self.tl_tf_maub = TrafficDurationTile(self, to_city="Maubeuge")
         self.tl_tf_maub.set_tile(row=0, column=3)
         # traffic Valenciennes
-        self.tl_tf_vale = TrafficDurationTile(self, to_city="Valenciennes")
+        self.tl_tf_vale = TrafficDurationTile(self, to_city="Reims")
         self.tl_tf_vale.set_tile(row=0, column=4)
         # traffic map
         self.tl_tf_map = TrafficMapTile(self, file=gmap_img_target, img_ratio=2)
@@ -269,6 +269,17 @@ class LiveTab(Tab):
         self.tl_g_vst.set_tile(row=5, column=13, columnspan=2)
         self.tl_g_qsc = GaugeTile(self, title="1/4h sécurité")
         self.tl_g_qsc.set_tile(row=5, column=15, columnspan=2)
+        # weather vigilance
+        self.tl_vig_59 = VigilanceTile(self, department="Nord")
+        self.tl_vig_59.set_tile(row=4, column=0)
+        self.tl_vig_62 = VigilanceTile(self, department="Pas-de-Calais")
+        self.tl_vig_62.set_tile(row=4, column=1)
+        self.tl_vig_80 = VigilanceTile(self, department="Somme")
+        self.tl_vig_80.set_tile(row=4, column=2)
+        self.tl_vig_02 = VigilanceTile(self, department="Aisnes")
+        self.tl_vig_02.set_tile(row=4, column=3)
+        self.tl_vig_60 = VigilanceTile(self, department="Oise")
+        self.tl_vig_60.set_tile(row=4, column=4)
         # meeting room
         self.tl_room_prj = MeetingRoomTile(self, room="Salle project")
         self.tl_room_prj.set_tile(row=5, column=0, columnspan=2)
@@ -311,8 +322,8 @@ class LiveTab(Tab):
         self.tl_tf_maub.travel_t = Tags.D_GMAP_TRAFFIC.get(("Maubeuge", "duration"))
         self.tl_tf_maub.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Maubeuge", "duration_traffic"))
         # Valenciennes
-        self.tl_tf_vale.travel_t = Tags.D_GMAP_TRAFFIC.get(("Valenciennes", "duration"))
-        self.tl_tf_vale.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Valenciennes", "duration_traffic"))
+        self.tl_tf_vale.travel_t = Tags.D_GMAP_TRAFFIC.get(("Reims", "duration"))
+        self.tl_tf_vale.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Reims", "duration_traffic"))
         # update news widget
         self.tl_news.l_titles = Tags.D_NEWS_LOCAL.get()
         # gauges update
@@ -334,6 +345,12 @@ class LiveTab(Tab):
         self.tl_g_qsc.percent = Tags.D_GSHEET_GRT.get("Q_HRE_JAUGE_DTS")
         self.tl_g_qsc.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("Q_HRE_REAL_DTS"),
                                               Tags.D_GSHEET_GRT.get("Q_HRE_OBJ_DTS"))
+        # weather vigilance
+        self.tl_vig_59.vig_level = Tags.D_WEATHER_VIG.get(("department", "59", "vig_level"))
+        self.tl_vig_62.vig_level = Tags.D_WEATHER_VIG.get(("department", "62", "vig_level"))
+        self.tl_vig_80.vig_level = Tags.D_WEATHER_VIG.get(("department", "80", "vig_level"))
+        self.tl_vig_02.vig_level = Tags.D_WEATHER_VIG.get(("department", "02", "vig_level"))
+        self.tl_vig_60.vig_level = Tags.D_WEATHER_VIG.get(("department", "60", "vig_level"))
         # update room status
         self.tl_room_trn.status = Tags.D_ISWIP_ROOM.get("Salle_TRAINNING")
         self.tl_room_prj.status = Tags.D_ISWIP_ROOM.get("Salle_PROJECT")
@@ -491,10 +508,63 @@ class TrafficDurationTile(Tile):
             self._t_inc_str.set("%+.0f mn" % (t_increase / 60))
             # choose tile color
             tile_color = "green"
-            if t_increase_ratio > 0.40:
+            if t_increase_ratio > 0.50:
                 tile_color = "red"
-            elif t_increase_ratio > 0.10:
+            elif t_increase_ratio > 0.15:
                 tile_color = "orange"
+        # update tile and his childs color
+        for w in self.winfo_children():
+            w.configure(bg=tile_color)
+        self.configure(bg=tile_color)
+
+
+class VigilanceTile(Tile):
+    VIG_LVL = ["verte", "jaune", "orange", "rouge"]
+    VIG_COLOR = ["green", "yellow", "orange", "red"]
+
+    def __init__(self, *args, department="", **kwargs):
+        Tile.__init__(self, *args, **kwargs)
+        # public
+        self.department = department
+        # private
+        self._vig_level = None
+        self._level_str = tk.StringVar()
+        self._risk_str = tk.StringVar()
+        self._level_str.set("N/A")
+        self._risk_str.set("")
+        # tk job
+        self.configure(bg="pink")
+        tk.Label(self, text="Vigilance", font="bold", bg="pink").pack()
+        tk.Label(self, text=self.department, font="bold", bg="pink").pack()
+        tk.Label(self, bg="pink").pack()
+        tk.Label(self, textvariable=self._level_str, font="bold", bg="pink").pack()
+        tk.Label(self, textvariable=self._risk_str, bg="pink").pack()
+
+    @property
+    def vig_level(self):
+        return self._vig_level
+
+    @vig_level.setter
+    def vig_level(self, value):
+        # check type
+        try:
+            value = int(value) - 1
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._vig_level != value:
+            self._vig_level = value
+            self._on_data_change()
+
+    def _on_data_change(self):
+        try:
+            self._level_str.set("%s" % VigilanceTile.VIG_LVL[self._vig_level].upper())
+            tile_color = VigilanceTile.VIG_COLOR[self._vig_level]
+        except (IndexError, TypeError):
+            # set tk var
+            self._level_str.set("N/A")
+            # choose tile color
+            tile_color = "pink"
         # update tile and his childs color
         for w in self.winfo_children():
             w.configure(bg=tile_color)
@@ -538,17 +608,17 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
             self._days_icon_lbl[c].grid(sticky=tk.NSEW)
 
         # today frame
-        self.todayframe = tk.LabelFrame(master=self, bg="red", text="Today :", font=("bold", 20))  # today title
-        self.todaylabel = tk.Label(master=self.todayframe, text="n/a", font=('courier', 18, 'bold'), anchor=tk.W,
-                                   justify=tk.LEFT)  # today weather
-        self.todayicone = tk.PhotoImage()  # today icone
+        self.frm_today = tk.LabelFrame(master=self, bg="red", text="n/a", font=("bold", 18))
+        self.lbl_today = tk.Label(master=self.frm_today, text="n/a", font=('courier', 18, 'bold'), anchor=tk.W,
+                                  justify=tk.LEFT)
+        self.img_today = tk.PhotoImage()
 
-        self.todayframe.grid(row=0, column=0, columnspan=4, rowspan=2, sticky=tk.NSEW)
-        self.todayframe.grid_propagate(False)
-        self.todaylabel.grid(column=0)
-        self.todaylabel.grid_propagate(False)
-        self.todayiconelabel = tk.Label(master=self.todayframe, image=self.todayicone, bg=self.todayframe.cget("bg"))
-        self.todayiconelabel.grid(row=1)
+        self.frm_today.grid(row=0, column=0, columnspan=4, rowspan=2, sticky=tk.NSEW)
+        self.frm_today.grid_propagate(False)
+        self.lbl_today.grid(column=0)
+        self.lbl_today.grid_propagate(False)
+        self.lbl_img_today = tk.Label(master=self.frm_today, image=self.img_today, bg=self.frm_today.cget("bg"))
+        self.lbl_img_today.grid(row=1)
 
     @property
     def weather_dict(self):
@@ -573,48 +643,49 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
         update function, 7200 call per day maximum
         """
         # set today date
-        self.todayframe.configure(text=datetime.now().date())
+        self.frm_today.configure(text=datetime.now().date())
         # set day 1 to 4 date
         for i in range(4):
             self._days[i].configure(text=datetime.now().date() + timedelta(days=i + 1))
         # fill labels
         try:
             # today
-            today_mood = self._weather_dict[0]["mood"]
+            today_main = self._weather_dict[0]["main"]
             today_desc = self._weather_dict[0]["description"]
             today_t = self._weather_dict[0]["t"]
             today_t_min = self._weather_dict[0]["t_min"]
             today_t_max = self._weather_dict[0]["t_max"]
             today_icon = self._weather_dict[0]["icon"]
             # today message
-            message = "Situation : %s\nDescription : %s\nTempérature actuelle : %.1f°C\n" + \
+            message = "Situation : %s\n\nTempérature actuelle : %.1f°C\n" + \
                       "            minimale : %.1f°C\n" + \
                       "            maximale : %.1f°C"
-            message %= (today_mood, today_desc, today_t, today_t_min, today_t_max)
-            self.todaylabel.configure(text=message)  # stick the text to the left
+            message %= (today_desc, today_t, today_t_min, today_t_max)
+            self.lbl_today.configure(text=message)  # stick the text to the left
             # set today color
-            self.todayframe.configure(bg=WeatherTile.W_COLOR[today_mood])
-            self.todaylabel.configure(bg=self.todayframe.cget("bg"))
-            self.todayiconelabel.configure(bg=self.todayframe.cget("bg"))
+            self.frm_today.configure(bg=WeatherTile.W_COLOR.get(today_main, "white"))
+            self.lbl_today.configure(bg=self.frm_today.cget("bg"))
+            self.lbl_img_today.configure(bg=self.frm_today.cget("bg"))
             # set today icon
-            self.todayicone.configure(file=IMG_PATH + '%s.png' % today_icon)
+            self.img_today.configure(file=IMG_PATH + '%s.png' % today_icon)
             # for day 1 to 4
             for d in range(1, 5):
-                day_mood = self._weather_dict[d]["mood"]
+                day_main = self._weather_dict[d]["main"]
+                day_desr = self._weather_dict[d]["description"]
                 day_t_min = self._weather_dict[d]["t_min"]
                 day_t_max = self._weather_dict[d]["t_max"]
                 day_icon = self._weather_dict[d]["icon"]
                 # set day message
                 message = "%s\nT mini %d°C\nT maxi %d°C"
-                message %= (day_mood, day_t_min, day_t_max)
+                message %= (day_desr, day_t_min, day_t_max)
                 self._days_lbl[d - 1].configure(text=message)
                 # set day color
-                self._days[d - 1].configure(bg=WeatherTile.W_COLOR[day_mood])
+                self._days[d - 1].configure(bg=WeatherTile.W_COLOR.get(day_main, "white"))
                 self._days_lbl[d - 1].configure(bg=self._days[d - 1].cget("bg"))
                 self._days_icon[d - 1].configure(file=IMG_PATH + "%s.png" % day_icon)
                 self._days_icon_lbl[d - 1].configure(bg=self._days[d - 1].cget("bg"))
         except Exception:
-            self.todaylabel.configure(text="n/a")
+            self.lbl_today.configure(text="n/a")
             logging.error(traceback.format_exc())
 
 

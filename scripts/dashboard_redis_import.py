@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from collections import OrderedDict
 from configparser import ConfigParser
 from datetime import datetime, timedelta
 import feedparser
@@ -8,6 +9,7 @@ import logging
 import os
 import time
 import traceback
+from bs4 import BeautifulSoup
 import redis
 import requests
 import schedule
@@ -78,7 +80,7 @@ def gsheet_job():
 def openweathermap_job():
     # https request
     try:
-        ow_url = "http://api.openweathermap.org/data/2.5/forecast?q=%s&appid=%s&units=metric" % (ow_city, ow_app_id)
+        ow_url = "http://api.openweathermap.org/data/2.5/forecast?q=%s&appid=%s&units=metric&lang=fr" % (ow_city, ow_app_id)
         ow_d = requests.get(ow_url).json()
     except requests.exceptions.RequestException:
         logging.error(traceback.format_exc())
@@ -89,7 +91,7 @@ def openweathermap_job():
         t_today = None
         d_days = {}
         for i in range(0, 5):
-            d_days[i] = dict(t_min=50.0, t_max=-50.0, mood='', description='', icon='')
+            d_days[i] = dict(t_min=50.0, t_max=-50.0, main='', description='', icon='')
         # parse json
         for item in ow_d["list"]:
             # for day-0 to day-4
@@ -100,9 +102,9 @@ def openweathermap_job():
                     # search min/max temp
                     d_days[i_day]['t_min'] = min(d_days[i_day]['t_min'], item['main']['temp_min'])
                     d_days[i_day]['t_max'] = max(d_days[i_day]['t_max'], item['main']['temp_max'])
-                    # mood and icon in 12h item
+                    # main and icon in 12h item
                     if txt_time == '12:00:00' or t_today is None:
-                        d_days[i_day]['mood'] = item['weather'][0]['main']
+                        d_days[i_day]['main'] = item['weather'][0]['main']
                         d_days[i_day]['icon'] = item['weather'][0]['icon']
                         d_days[i_day]['description'] = item['weather'][0]['description']
                         if t_today is None:
@@ -187,14 +189,14 @@ def local_info_job():
         l_titles = []
         for post in feedparser.parse('https://france3-regions.francetvinfo.fr/societe/rss?r=hauts-de-france').entries:
             l_titles.append(post.title)
-        DS.redis_set('news:local', json.dumps(l_titles))
+        DS.redis_set_obj('news:local', l_titles)
     except Exception:
         logging.error(traceback.format_exc())
 
 
 def gmap_travel_time_job():
     d_traffic = {}
-    for gm_dest in ("Arras", "Amiens", "Dunkerque", "Maubeuge", "Valenciennes"):
+    for gm_dest in ("Arras", "Amiens", "Dunkerque", "Maubeuge", "Reims"):
         # build url
         gm_url_origin = urllib.parse.quote_plus(gmap_origin)
         gm_url_destination = urllib.parse.quote_plus(gm_dest)
@@ -214,7 +216,46 @@ def gmap_travel_time_job():
             d_traffic[gm_dest] = dict(duration=duration_abs, duration_traffic=duration_with_traffic)
         except Exception:
             logging.error(traceback.format_exc())
-    DS.redis_set('gmap:traffic', json.dumps(d_traffic))
+    DS.redis_set_obj('gmap:traffic', d_traffic)
+
+
+def sport_l1_job():
+    # http request
+    try:
+        r = requests.get("http://m.lfp.fr/ligue1/classement")
+
+        if r.status_code == 200:
+            od_l1_club = OrderedDict()
+            s = BeautifulSoup(r.content, "html.parser")
+
+            # first table on page
+            t = s.find_all("table")[0]
+
+            # each row in table
+            for row in t.find_all("tr"):
+                name = row.find("td", attrs={"class": "club"})
+                if name:
+                    # club name as dict key
+                    name = name.text.strip()
+                    od_l1_club[name] = OrderedDict()
+                    # find rank
+                    od_l1_club[name]['rank'] = row.find("td").text.strip()
+                    # find points
+                    od_l1_club[name]['pts'] = row.find("td", attrs={"class": "pts"}).text.strip()
+                    # find all stats
+                    l_td_center = row.find_all("td", attrs={"class": "center"})
+                    if l_td_center:
+                        od_l1_club[name]["played"] = l_td_center[0].text.strip()
+                        od_l1_club[name]["wins"] = l_td_center[1].text.strip()
+                        od_l1_club[name]["draws"] = l_td_center[2].text.strip()
+                        od_l1_club[name]["loses"] = l_td_center[3].text.strip()
+                        od_l1_club[name]["for"] = l_td_center[4].text.strip()
+                        od_l1_club[name]["against"] = l_td_center[5].text.strip()
+                        od_l1_club[name]["diff"] = l_td_center[6].text.strip()
+            DS.redis_set_obj('sport:l1', od_l1_club)
+    except requests.exceptions.RequestException:
+        logging.error(traceback.format_exc())
+        return None
 
 
 def gmap_traffic_img_job():
@@ -247,6 +288,7 @@ if __name__ == '__main__':
     schedule.every(5).minutes.do(openweathermap_job)
     schedule.every(5).minutes.do(vigilance_job)
     schedule.every(5).minutes.do(gmap_travel_time_job)
+    schedule.every(30).minutes.do(sport_l1_job)
     # first call
     gmap_traffic_img_job()
     gsheet_job()
@@ -255,6 +297,7 @@ if __name__ == '__main__':
     local_info_job()
     iswip_job()
     gmap_travel_time_job()
+    sport_l1_job()
 
     # main loop
     while True:
