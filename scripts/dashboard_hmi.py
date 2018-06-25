@@ -1086,7 +1086,7 @@ class CarouselTile(Tile):
         self.configure(bg="white")
         self.tk_img = tk.PhotoImage()
         self.lbl_img = tk.Label(self, image=self.tk_img)
-        self.lbl_img.grid()
+        self.lbl_img.pack(expand=True)
         # first img load
         self._img_files_reload()
         # auto-update carousel rotate
