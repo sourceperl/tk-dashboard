@@ -145,6 +145,7 @@ class Tags:
     D_WEATHER_LOOS = Tag(cmd_src=lambda: DS.redis_get_obj("weather:forecast:loos"))
     D_WEATHER_VIG = Tag(cmd_src=lambda: DS.redis_get_obj("weather:vigilance"))
     D_NEWS_LOCAL = Tag(cmd_src=lambda: DS.redis_get_obj("news:local"))
+    D_TWEETS_GRT = Tag(cmd_src=lambda: DS.redis_get_obj("twitter:tweets:grtgaz"))
 
     @classmethod
     def tags_io_thread(cls):
@@ -294,6 +295,9 @@ class LiveTab(Tab):
         # acc days stat
         self.tl_acc = DaysFromAccident(self)
         self.tl_acc.set_tile(row=0, column=8, columnspan=5, rowspan=2)
+        # twitter
+        self.tl_tw_live = TwitterTile(self)
+        self.tl_tw_live.set_tile(row=2, column=8, columnspan=5, rowspan=2)
         # logo img
         self.tl_img_logo = ImageTile(self, file=IMG_PATH + "logo.png")
         self.tl_img_logo.set_tile(row=6, column=13, rowspan=2, columnspan=4)
@@ -305,8 +309,10 @@ class LiveTab(Tab):
 
     def update(self):
         # acc days stat
-        self.tl_acc.acc_date_dts = Tags.D_GSHEET_GRT.get("DATE_ACC_DTS")
-        self.tl_acc.acc_date_digne = Tags.D_GSHEET_GRT.get("DATE_ACC_DIGNE")
+        self.tl_acc.acc_date_dts = Tags.D_GSHEET_GRT.get(("tags", "DATE_ACC_DTS"))
+        self.tl_acc.acc_date_digne = Tags.D_GSHEET_GRT.get(("tags", "DATE_ACC_DIGNE"))
+        # twitter
+        self.tl_tw_live.l_tweet = Tags.D_TWEETS_GRT.get("tweets")
         # weather
         self.tl_weath.weather_dict = Tags.D_WEATHER_LOOS.get()
         # Amiens
@@ -327,24 +333,24 @@ class LiveTab(Tab):
         # update news widget
         self.tl_news.l_titles = Tags.D_NEWS_LOCAL.get()
         # gauges update
-        self.tl_g_veh.percent = Tags.D_GSHEET_GRT.get("IGP_VEH_JAUGE_DTS")
-        self.tl_g_veh.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("IGP_VEH_REAL_DTS"),
-                                              Tags.D_GSHEET_GRT.get("IGP_VEH_OBJ_DTS"))
-        self.tl_g_loc.percent = Tags.D_GSHEET_GRT.get("IGP_LOC_JAUGE_DTS")
-        self.tl_g_loc.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("IGP_LOC_REAL_DTS"),
-                                              Tags.D_GSHEET_GRT.get("IGP_LOC_OBJ_DTS"))
-        self.tl_g_req.percent = Tags.D_GSHEET_GRT.get("R_EQU_JAUGE_DTS")
-        self.tl_g_req.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("R_EQU_REAL_DTS"),
-                                              Tags.D_GSHEET_GRT.get("R_EQU_OBJ_DTS"))
-        self.tl_g_vcs.percent = Tags.D_GSHEET_GRT.get("VCS_JAUGE_DTS")
-        self.tl_g_vcs.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("VCS_REAL_DTS"),
-                                              Tags.D_GSHEET_GRT.get("VCS_OBJ_DTS"))
-        self.tl_g_vst.percent = Tags.D_GSHEET_GRT.get("VST_JAUGE_DTS")
-        self.tl_g_vst.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("VST_REAL_DTS"),
-                                              Tags.D_GSHEET_GRT.get("VST_OBJ_DTS"))
-        self.tl_g_qsc.percent = Tags.D_GSHEET_GRT.get("Q_HRE_JAUGE_DTS")
-        self.tl_g_qsc.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get("Q_HRE_REAL_DTS"),
-                                              Tags.D_GSHEET_GRT.get("Q_HRE_OBJ_DTS"))
+        self.tl_g_veh.percent = Tags.D_GSHEET_GRT.get(("tags", "IGP_VEH_JAUGE_DTS"))
+        self.tl_g_veh.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get(("tag", "IGP_VEH_REAL_DTS")),
+                                              Tags.D_GSHEET_GRT.get(("tag", "IGP_VEH_OBJ_DTS")))
+        self.tl_g_loc.percent = Tags.D_GSHEET_GRT.get(("tags", "IGP_LOC_JAUGE_DTS"))
+        self.tl_g_loc.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get(("tags", "IGP_LOC_REAL_DTS")),
+                                              Tags.D_GSHEET_GRT.get(("tags", "IGP_LOC_OBJ_DTS")))
+        self.tl_g_req.percent = Tags.D_GSHEET_GRT.get(("tags", "R_EQU_JAUGE_DTS"))
+        self.tl_g_req.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get(("tags", "R_EQU_REAL_DTS")),
+                                              Tags.D_GSHEET_GRT.get(("tags", "R_EQU_OBJ_DTS")))
+        self.tl_g_vcs.percent = Tags.D_GSHEET_GRT.get(("tags", "VCS_JAUGE_DTS"))
+        self.tl_g_vcs.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get(("tags", "VCS_REAL_DTS")),
+                                              Tags.D_GSHEET_GRT.get(("tags", "VCS_OBJ_DTS")))
+        self.tl_g_vst.percent = Tags.D_GSHEET_GRT.get(("tags", "VST_JAUGE_DTS"))
+        self.tl_g_vst.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get(("tags", "VST_REAL_DTS")),
+                                              Tags.D_GSHEET_GRT.get(("tags", "VST_OBJ_DTS")))
+        self.tl_g_qsc.percent = Tags.D_GSHEET_GRT.get(("tags", "Q_HRE_JAUGE_DTS"))
+        self.tl_g_qsc.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get(("tags", "Q_HRE_REAL_DTS")),
+                                              Tags.D_GSHEET_GRT.get(("tags", "Q_HRE_OBJ_DTS")))
         # weather vigilance
         self.tl_vig_59.vig_level = Tags.D_WEATHER_VIG.get(("department", "59", "vig_level"))
         self.tl_vig_62.vig_level = Tags.D_WEATHER_VIG.get(("department", "62", "vig_level"))
@@ -410,6 +416,9 @@ class Tile(tk.Frame):
         self.configure(highlightbackground=ARDOISE)
         self.configure(highlightthickness=3)
         self.configure(bd=0)
+        # deny frame resize
+        self.pack_propagate(False)
+        self.grid_propagate(False)
 
     def set_tile(self, row=0, column=0, rowspan=1, columnspan=1, remove=None):
         # function to print a tile on the screen at the given coordonates
@@ -417,8 +426,6 @@ class Tile(tk.Frame):
             self.grid_remove()
         else:
             self.grid(row=row, column=column, rowspan=rowspan, columnspan=columnspan, sticky=tk.NSEW)
-            # deny frame resize
-            self.grid_propagate(False)
 
     def start_cyclic_update(self, update_ms=500):
         self._update_ms = update_ms
@@ -437,9 +444,52 @@ class Tile(tk.Frame):
 
 
 class TwitterTile(Tile):
+    TW_BLUE = "#1dcaff"
+
     def __init__(self, *args, **kwargs):
         Tile.__init__(self, *args, **kwargs)
-        pass
+        # public
+        # private
+        self._l_tweet = None
+        self._tw_text = tk.StringVar()
+        self._tw_text.set("n/a")
+        self._tw_index = 0
+        # tk job
+        self.configure(bg=TwitterTile.TW_BLUE)
+        tk.Label(self, text="live twitter: GRTgaz", bg=self.cget("bg"),
+                 font=("courier", 14, "bold", "underline")).pack()
+        tk.Label(self, textvariable=self._tw_text, bg=self.cget("bg"),
+                 wraplength=550, font=("courier", 14, "bold")).pack(expand=True)
+        # auto-update carousel rotate
+        self.start_cyclic_update(update_ms=12000)
+
+    @property
+    def l_tweet(self):
+        return self._l_tweet
+
+    @l_tweet.setter
+    def l_tweet(self, value):
+        # check type
+        try:
+            value = list(value)
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._l_tweet != value:
+            self._l_tweet = value
+            # priority fart last tweet
+            self._tw_index = 0
+            self.update()
+
+    def update(self):
+        if self.l_tweet:
+            if self._tw_index >= len(self._l_tweet):
+                self._tw_index = 0
+            self._tw_text.set(self._l_tweet[self._tw_index])
+            self._tw_index += 1
+        else:
+            self._tw_index = 0
+            self._tw_text.set("n/a")
 
 
 class TrafficDurationTile(Tile):

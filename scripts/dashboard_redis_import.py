@@ -4,6 +4,7 @@ from collections import OrderedDict
 from configparser import ConfigParser
 from datetime import datetime, timedelta
 import feedparser
+import html
 import json
 import logging
 import os
@@ -12,6 +13,7 @@ import traceback
 from bs4 import BeautifulSoup
 import redis
 import requests
+from requests_oauthlib import OAuth1
 import schedule
 import shutil
 import urllib.parse
@@ -34,6 +36,11 @@ gmap_origin = cnf.get('gmap', 'origin')
 # gmap img traffic
 gmap_img_url = cnf.get("gmap_img", "img_url")
 gmap_img_target = cnf.get("gmap_img", "img_target")
+# twitter
+tw_api_key = cnf.get("twitter", "api_key")
+tw_api_secret = cnf.get("twitter", "api_secret")
+tw_access_token = cnf.get("twitter", "access_token")
+tw_access_token_secret = cnf.get("twitter", "access_token_secret")
 
 
 # dataset access
@@ -56,6 +63,13 @@ class DS:
         except (redis.RedisError, AttributeError, json.decoder.JSONDecodeError):
             return None
 
+    @classmethod
+    def redis_set_ttl(cls, name, ttl=3600):
+        try:
+            return cls.r.expire(name, ttl)
+        except redis.RedisError:
+            return None
+
 
 # some function
 def gsheet_job():
@@ -71,8 +85,9 @@ def gsheet_job():
         for line in response.iter_lines(decode_unicode='utf-8'):
             tag, value = line.split(',')
             d[tag] = value
-        d['UPDATE'] = datetime.now().isoformat("T")
-        DS.redis_set_obj("gsheet:grt", d)
+        redis_d = dict(update=datetime.now().isoformat("T"), tags=d)
+        DS.redis_set_obj("gsheet:grt", redis_d)
+        DS.redis_set_ttl("gsheet:grt", ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -80,7 +95,11 @@ def gsheet_job():
 def openweathermap_job():
     # https request
     try:
-        ow_url = "http://api.openweathermap.org/data/2.5/forecast?q=%s&appid=%s&units=metric&lang=fr" % (ow_city, ow_app_id)
+        # build url
+        ow_url = "http://api.openweathermap.org/data/2.5/forecast?"
+        ow_url += "q=%s&appid=%s&units=metric&lang=fr"
+        ow_url %= (ow_city, ow_app_id)
+        # do request
         ow_d = requests.get(ow_url).json()
     except requests.exceptions.RequestException:
         logging.error(traceback.format_exc())
@@ -113,6 +132,7 @@ def openweathermap_job():
         # store to redis
         city_name, _ = ow_city.split(',')
         DS.redis_set_obj('weather:forecast:%s' % city_name.lower(), d_days)
+        DS.redis_set_ttl('weather:forecast:%s' % city_name.lower(), ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -152,7 +172,8 @@ def vigilance_job():
                 vig_data['department'][dep_code] = {'vig_level': color_id,
                                                     'flood_level': flood_id,
                                                     'risk_id': risk_id}
-            DS.redis_set_obj('weather:vigilance', vig_data)
+            DS.redis_set_obj("weather:vigilance", vig_data)
+            DS.redis_set_ttl("weather:vigilance", ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -179,6 +200,7 @@ def iswip_job():
             # update redis
             d_dev[dev_id] = dev_msg
         DS.redis_set_obj('iswip:room_status', d_dev)
+        DS.redis_set_ttl('iswip:room_status', ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -187,9 +209,10 @@ def local_info_job():
     # http request
     try:
         l_titles = []
-        for post in feedparser.parse('https://france3-regions.francetvinfo.fr/societe/rss?r=hauts-de-france').entries:
+        for post in feedparser.parse("https://france3-regions.francetvinfo.fr/societe/rss?r=hauts-de-france").entries:
             l_titles.append(post.title)
-        DS.redis_set_obj('news:local', l_titles)
+        DS.redis_set_obj("news:local", l_titles)
+        DS.redis_set_ttl("news:local", ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -217,6 +240,48 @@ def gmap_travel_time_job():
         except Exception:
             logging.error(traceback.format_exc())
     DS.redis_set_obj('gmap:traffic', d_traffic)
+    DS.redis_set_ttl('gmap:traffic', ttl=1800)
+
+
+def twitter_job():
+    def tcl_normalize_str(tweet_str):
+        tcl_str = ""
+        for c in tweet_str:
+            if ord(c) < 0xffff:
+                tcl_str += c
+        return html.unescape(tcl_str)
+
+    try:
+        # params
+        tw_username = "grtgaz"
+        tw_count = 5
+        tw_oauth = OAuth1(tw_api_key, tw_api_secret, tw_access_token, tw_access_token_secret)
+        # build url
+        url = "https://api.twitter.com/1.1/statuses/user_timeline.json?"
+        url += "screen_name=%s&count=%i&tweet_mode=extended&exclude_retweets=true"
+        url %= (tw_username, tw_count)
+        # do request
+        r = requests.get(url, auth=tw_oauth)
+        # check error
+        if r.status_code == 200:
+            d_tweets = r.json()
+            tweets_l = []
+            # format all tweet and re-tweet
+            for tw in d_tweets:
+                # re-tweet
+                if tw.get("retweeted_status", None):
+                    rt_user = tw["retweeted_status"]["user"]["screen_name"]
+                    tweets_l.append(tcl_normalize_str("RT @%s: %s" % (rt_user, tw["retweeted_status"]["full_text"])))
+                # tweet
+                else:
+                    tweets_l.append(tcl_normalize_str(tw["full_text"]))
+            # update redis
+            d_redis = dict(tweets=tweets_l, update=datetime.now().isoformat("T"))
+            DS.redis_set_obj("twitter:tweets:grtgaz", d_redis)
+            DS.redis_set_ttl("twitter:tweets:grtgaz", ttl=1800)
+    except Exception:
+        logging.error(traceback.format_exc())
+        return None
 
 
 def sport_l1_job():
@@ -252,7 +317,8 @@ def sport_l1_job():
                         od_l1_club[name]["for"] = l_td_center[4].text.strip()
                         od_l1_club[name]["against"] = l_td_center[5].text.strip()
                         od_l1_club[name]["diff"] = l_td_center[6].text.strip()
-            DS.redis_set_obj('sport:l1', od_l1_club)
+            DS.redis_set_obj("sport:l1", od_l1_club)
+            DS.redis_set_ttl("sport:l1", ttl=7200)
     except requests.exceptions.RequestException:
         logging.error(traceback.format_exc())
         return None
@@ -282,6 +348,7 @@ if __name__ == '__main__':
 
     # init scheduler
     schedule.every(1).minute.do(iswip_job)
+    schedule.every(2).minutes.do(twitter_job)
     schedule.every(2).minutes.do(gmap_traffic_img_job)
     schedule.every(5).minutes.do(local_info_job)
     schedule.every(5).minutes.do(gsheet_job)
@@ -297,6 +364,7 @@ if __name__ == '__main__':
     local_info_job()
     iswip_job()
     gmap_travel_time_job()
+    twitter_job()
     sport_l1_job()
 
     # main loop
