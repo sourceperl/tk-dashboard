@@ -15,7 +15,6 @@ import redis
 import requests
 from requests_oauthlib import OAuth1
 import schedule
-import shutil
 import urllib.parse
 import pytz
 from xml.dom import minidom
@@ -324,23 +323,6 @@ def sport_l1_job():
         return None
 
 
-def gmap_traffic_img_job():
-    # http request
-    try:
-        r = requests.get(gmap_img_url, stream=True)
-        if r.status_code == 200:
-            # download as *.dwl file
-            download_file = "%s.dwl" % gmap_img_target
-            with open(download_file, 'wb') as f:
-                r.raw.decode_content = True
-                shutil.copyfileobj(r.raw, f)
-            # replace target file with *.dwl version
-            shutil.move(download_file, gmap_img_target)
-    except requests.exceptions.RequestException:
-        logging.error(traceback.format_exc())
-        return None
-
-
 # main
 if __name__ == '__main__':
     # logging setup
@@ -349,7 +331,6 @@ if __name__ == '__main__':
     # init scheduler
     schedule.every(1).minute.do(iswip_job)
     schedule.every(2).minutes.do(twitter_job)
-    schedule.every(2).minutes.do(gmap_traffic_img_job)
     schedule.every(5).minutes.do(local_info_job)
     schedule.every(5).minutes.do(gsheet_job)
     schedule.every(5).minutes.do(openweathermap_job)
@@ -357,7 +338,6 @@ if __name__ == '__main__':
     schedule.every(5).minutes.do(gmap_travel_time_job)
     schedule.every(30).minutes.do(sport_l1_job)
     # first call
-    gmap_traffic_img_job()
     gsheet_job()
     openweathermap_job()
     vigilance_job()

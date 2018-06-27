@@ -16,3 +16,4 @@ api_key = <twitter api_key>
 api_secret = <twitter api_secret>
 access_token = <twitter access_token>
 access_token_secret = <twitter access_token_secret>
+cloud_img = /media/ramdisk/grt_cloud.png

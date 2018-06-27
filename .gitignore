@@ -108,3 +108,6 @@ venv.bak/
 
 # Secret file
 home/pi/.dashboard_config
+
+# tests dir
+lab/

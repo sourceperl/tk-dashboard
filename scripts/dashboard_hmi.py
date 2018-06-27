@@ -52,6 +52,8 @@ cnf = ConfigParser()
 cnf.read(os.path.expanduser('~/.dashboard_config'))
 # gmap img traffic
 gmap_img_target = cnf.get("gmap_img", "img_target")
+# twitter cloud img
+tw_cloud_img = cnf.get("twitter", "cloud_img")
 
 
 class DS:
@@ -254,6 +256,9 @@ class LiveTab(Tab):
         # clock
         self.tl_clock = TimeTile(self)
         self.tl_clock.set_tile(row=0, column=5, rowspan=2, columnspan=3)
+        # twitter cloud img
+        self.tl_img_cloud = ImageTile(self, file=tw_cloud_img)
+        self.tl_img_cloud.set_tile(row=2, column=5, rowspan=2, columnspan=3)
         # news banner
         self.tl_news = NewsBannerTile(self)
         self.tl_news.set_tile(row=8, column=0, columnspan=17)
@@ -299,7 +304,7 @@ class LiveTab(Tab):
         self.tl_tw_live = TwitterTile(self)
         self.tl_tw_live.set_tile(row=2, column=8, columnspan=5, rowspan=2)
         # logo img
-        self.tl_img_logo = ImageTile(self, file=IMG_PATH + "logo.png")
+        self.tl_img_logo = ImageTile(self, file=IMG_PATH + "logo.png", bg="white")
         self.tl_img_logo.set_tile(row=6, column=13, rowspan=2, columnspan=4)
         # carousel
         self.tl_crl = CarouselTile(self)
@@ -412,10 +417,12 @@ class Tile(tk.Frame):
         # private
         self._update_ms = None
         # tk stuff
-        self.configure(bg=VERT)
         self.configure(highlightbackground=ARDOISE)
         self.configure(highlightthickness=3)
         self.configure(bd=0)
+        # set background, if current bg is tk default one
+        if self.cget("bg") == "#d9d9d9":
+            self.configure(bg=VERT)
         # deny frame resize
         self.pack_propagate(False)
         self.grid_propagate(False)
@@ -1111,7 +1118,6 @@ class ImageTile(Tile):
     def __init__(self, *args, file=IMG_PATH + "logo.png", img_ratio=1, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # tk job
-        self.configure(bg='white')
         self.tk_img = tk.PhotoImage()
         self.lbl_img = tk.Label(self, bg=self.cget("bg"))
         self.lbl_img.pack(expand=True)
