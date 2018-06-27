@@ -248,16 +248,16 @@ class LiveTab(Tab):
         self.tl_tf_vale = TrafficDurationTile(self, to_city="Reims")
         self.tl_tf_vale.set_tile(row=0, column=4)
         # traffic map
-        self.tl_tf_map = TrafficMapTile(self, file=gmap_img_target, img_ratio=2)
+        self.tl_tf_map = ImageRefreshTile(self, file=gmap_img_target, img_ratio=2, bg="white")
         self.tl_tf_map.set_tile(row=1, column=0, rowspan=3, columnspan=5)
         # weather
         self.tl_weath = WeatherTile(self)
         self.tl_weath.set_tile(row=0, column=13, rowspan=3, columnspan=4)
         # clock
-        self.tl_clock = TimeTile(self)
+        self.tl_clock = ClockTile(self)
         self.tl_clock.set_tile(row=0, column=5, rowspan=2, columnspan=3)
         # twitter cloud img
-        self.tl_img_cloud = ImageTile(self, file=tw_cloud_img)
+        self.tl_img_cloud = ImageRefreshTile(self, file=tw_cloud_img, bg='black')
         self.tl_img_cloud.set_tile(row=2, column=5, rowspan=2, columnspan=3)
         # news banner
         self.tl_news = NewsBannerTile(self)
@@ -298,7 +298,7 @@ class LiveTab(Tab):
         self.tl_room_bur2 = MeetingRoomTile(self, room="Bureau passage 2")
         self.tl_room_bur2.set_tile(row=6, column=2, columnspan=2)
         # acc days stat
-        self.tl_acc = DaysFromAccident(self)
+        self.tl_acc = DaysAccTile(self)
         self.tl_acc.set_tile(row=0, column=8, columnspan=5, rowspan=2)
         # twitter
         self.tl_tw_live = TwitterTile(self)
@@ -307,7 +307,7 @@ class LiveTab(Tab):
         self.tl_img_logo = ImageTile(self, file=IMG_PATH + "logo.png", bg="white")
         self.tl_img_logo.set_tile(row=6, column=13, rowspan=2, columnspan=4)
         # carousel
-        self.tl_crl = CarouselTile(self)
+        self.tl_crl = ImageCarouselTile(self)
         self.tl_crl.set_tile(row=4, column=7, rowspan=4, columnspan=6)
         # auto-update clock
         self.start_cyclic_update(update_ms=5000)
@@ -339,8 +339,8 @@ class LiveTab(Tab):
         self.tl_news.l_titles = Tags.D_NEWS_LOCAL.get()
         # gauges update
         self.tl_g_veh.percent = Tags.D_GSHEET_GRT.get(("tags", "IGP_VEH_JAUGE_DTS"))
-        self.tl_g_veh.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get(("tag", "IGP_VEH_REAL_DTS")),
-                                              Tags.D_GSHEET_GRT.get(("tag", "IGP_VEH_OBJ_DTS")))
+        self.tl_g_veh.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get(("tags", "IGP_VEH_REAL_DTS")),
+                                              Tags.D_GSHEET_GRT.get(("tags", "IGP_VEH_OBJ_DTS")))
         self.tl_g_loc.percent = Tags.D_GSHEET_GRT.get(("tags", "IGP_LOC_JAUGE_DTS"))
         self.tl_g_loc.header_str = "%s/%s" % (Tags.D_GSHEET_GRT.get(("tags", "IGP_LOC_REAL_DTS")),
                                               Tags.D_GSHEET_GRT.get(("tags", "IGP_LOC_OBJ_DTS")))
@@ -746,7 +746,7 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
             logging.error(traceback.format_exc())
 
 
-class TimeTile(Tile):
+class ClockTile(Tile):
     def __init__(self, *args, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # public
@@ -766,32 +766,6 @@ class TimeTile(Tile):
     def update(self):
         self._date_str.set(datetime.now().strftime('%A %d %B %Y'))
         self._time_str.set(datetime.now().strftime('%H:%M:%S'))
-
-
-class TrafficMapTile(Tile):  # google map traffic # still need to define
-    def __init__(self, *args, file, img_ratio=1, **kwargs):
-        Tile.__init__(self, *args, **kwargs)
-        # public
-        self.file = file
-        self.img_ratio = img_ratio
-        # tk job
-        self.configure(bg="white")
-        self.tk_img = tk.PhotoImage()
-        self.lbl_img = tk.Label(self, bg="#FFFFFF")
-        self.lbl_img.grid()
-        # auto-update clock
-        self.start_cyclic_update(update_ms=5000)
-
-    def update(self):
-        # display current image file
-        try:
-            # set file path
-            self.tk_img.configure(file=self.file)
-            # set image with resize ratio (if need)
-            self.tk_img = self.tk_img.subsample(self.img_ratio)
-            self.lbl_img.configure(image=self.tk_img)
-        except Exception:
-            logging.error(traceback.format_exc())
 
 
 class NewsBannerTile(Tile):
@@ -1033,7 +1007,7 @@ class GaugeTile(Tile):
         self.can.coords(self.can_arrow, 112, 100, x, y)
 
 
-class DaysFromAccident(Tile):
+class DaysAccTile(Tile):
     def __init__(self, *args, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # public
@@ -1052,7 +1026,7 @@ class DaysFromAccident(Tile):
                     tk.Label(self, bg="white").grid(row=r, column=c, )
             self.columnconfigure(c, weight=1)
         # add label
-        tk.Label(self, text="Safety is number one priority !",
+        tk.Label(self, text="La sécurité est notre priorité !",
                  font=('courier', 20, 'bold'), bg="white").grid(row=0, column=0, columnspan=2)
         # DTS
         tk.Label(self, textvariable=self._days_dts_str, font=('courier', 24, 'bold'),
@@ -1115,7 +1089,7 @@ class DaysFromAccident(Tile):
 
 
 class ImageTile(Tile):
-    def __init__(self, *args, file=IMG_PATH + "logo.png", img_ratio=1, **kwargs):
+    def __init__(self, *args, file="", img_ratio=1, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # tk job
         self.tk_img = tk.PhotoImage()
@@ -1132,8 +1106,33 @@ class ImageTile(Tile):
             logging.error(traceback.format_exc())
 
 
-class CarouselTile(Tile):
-    def __init__(self, *args, **kwargs):
+class ImageRefreshTile(Tile):
+    def __init__(self, *args, file, img_ratio=1, refresh_rate=5000, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
+        # public
+        self.file = file
+        self.img_ratio = img_ratio
+        # tk job
+        self.tk_img = tk.PhotoImage()
+        self.lbl_img = tk.Label(self, bg=self.cget("bg"))
+        self.lbl_img.pack(expand=True)
+        # auto-update clock
+        self.start_cyclic_update(update_ms=refresh_rate)
+
+    def update(self):
+        # display current image file
+        try:
+            # set file path
+            self.tk_img.configure(file=self.file)
+            # set image with resize ratio (if need)
+            self.tk_img = self.tk_img.subsample(self.img_ratio)
+            self.lbl_img.configure(image=self.tk_img)
+        except Exception:
+            logging.error(traceback.format_exc())
+
+
+class ImageCarouselTile(Tile):
+    def __init__(self, *args, refresh_rate=20000, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # private
         self._img_index = 0
@@ -1146,9 +1145,8 @@ class CarouselTile(Tile):
         # first img load
         self._img_files_reload()
         # auto-update carousel rotate
-        self.start_cyclic_update(update_ms=20000)
+        self.start_cyclic_update(update_ms=refresh_rate)
 
-    # call every 20s
     def update(self):
         # next img file index
         self._img_index += 1

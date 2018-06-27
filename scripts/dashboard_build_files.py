@@ -14,15 +14,6 @@ import shutil
 import urllib.parse
 from wordcloud import WordCloud
 
-# some const
-# GRTgaz Colors
-BLEU = "#007bc2"
-VERT = "#00a984"
-ARDOISE = "#3c4f69"
-MARINE = "#154194"
-FUSHIA = "#e5007d"
-ORANGE = "#f39200"
-JAUNE = "#ffe200"
 
 # read config
 cnf = ConfigParser()
@@ -74,10 +65,10 @@ def twitter2cloud_job():
             if c_hash:
                 # build frequencies dict for generate step
                 d_freq = {}
-                for h_key, score in c_hash.most_common(30):
+                for h_key, score in c_hash.most_common(25):
                     d_freq[d_hash_camel[h_key]] = score
                 # generate a word cloud image
-                word_cloud = WordCloud(margin=5, width=327, height=226, background_color=VERT)
+                word_cloud = WordCloud(margin=5, width=327, height=226)
                 word_cloud.generate_from_frequencies(frequencies=d_freq)
                 tw_cloud_img_build = "%s.build.png" % tw_cloud_img
                 word_cloud.to_file(tw_cloud_img_build)
@@ -116,7 +107,6 @@ if __name__ == '__main__':
     # first call
     gmap_traffic_img_job()
     twitter2cloud_job()
-    print("done")
 
     # main loop
     while True:
