@@ -91,7 +91,7 @@ def gmap_traffic_img_job():
                 shutil.copyfileobj(r.raw, f)
             # replace target file with *.dwl version
             shutil.move(download_file, gmap_img_target)
-    except requests.exceptions.RequestException:
+    except Exception:
         logging.error(traceback.format_exc())
         return None
 

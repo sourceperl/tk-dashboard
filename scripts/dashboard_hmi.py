@@ -160,6 +160,11 @@ class Tags:
 class MainApp(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
+        # public
+        self.user_idle_timeout = 15000
+        # private
+        self._idle_timer = None
+        # tk stuff
         # remove mouse icon for a dashboard
         self.config(cursor="none")
         # define style to fix size of tab header
@@ -169,7 +174,7 @@ class MainApp(tk.Tk):
         # define notebook
         self.note = ttk.Notebook(self)
         self.tab1 = LiveTab(self.note)
-        self.tab2 = DocTab(self.note)
+        self.tab2 = PdfTab(self.note, pdf_path=PDF_PATH)
         self.note.add(self.tab1, text="Tableau de bord")
         self.note.add(self.tab2, text="Affichage réglementaire")
         self.note.pack()
@@ -180,6 +185,20 @@ class MainApp(tk.Tk):
         # bind function keys to tabs
         self.bind("<F1>", lambda evt: self.note.select(self.tab1))
         self.bind("<F2>", lambda evt: self.note.select(self.tab2))
+        # bind function for manage user idle time
+        self.bind_all('<Any-KeyPress>', self._trig_user_idle_t)
+        self.bind_all('<Any-ButtonPress>', self._trig_user_idle_t)
+
+    def _trig_user_idle_t(self, evt=None):
+        # cancel the previous event
+        if self._idle_timer is not None:
+            self.after_cancel(self._idle_timer)
+        # create new timer
+        self._idle_timer = self.after(self.user_idle_timeout, self._on_user_idle)
+
+    def _on_user_idle(self):
+        # select first tab
+        self.note.select(self.tab1)
 
 
 class Tab(tk.Frame):
@@ -229,6 +248,7 @@ class LiveTab(Tab):
     First Tab, which is the hottest from all of them
     Damn
     """
+
     def __init__(self, *args, **kwargs):
         Tab.__init__(self, *args, **kwargs)
         # create all tiles for this tab here
@@ -370,37 +390,39 @@ class LiveTab(Tab):
         self.tl_room_bur2.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_2")
 
 
-class DocTab(Tab):
-    def __init__(self, *args, **kwargs):
+class PdfTab(Tab):
+    def __init__(self, *args, pdf_path="", **kwargs):
         Tab.__init__(self, *args, **kwargs)
-        self.tiles = dict()
-        self.tiles["pdfs"] = list()
+        # public
+        self.pdf_path = pdf_path
+        # private
+        self._l_tl_pdf = list()
+        # tk stuff
+        # bind update in visibility event
         self.bind('<Visibility>', lambda evt: self.update())
-        self.old = ""
 
-    # dynamic update of the pdf files in the cold page
+    # populate (or redo it) the tab with all PdfOpenerTile
     def update(self):
         try:
-            # list all PDF availables
-            current_pdf = glob.glob(PDF_PATH + "*.pdf")
-
+            # list all PDF
+            pdf_file_l = glob.glob(self.pdf_path + "*.pdf")
+            pdf_file_l.sort()
             # if there is any difference in the pdf list, REFRESH, else don't, there is no need
-            if current_pdf != self.old:
-                for pdf in self.tiles["pdfs"]:
-                    pdf.set_tile(remove=True)
-                    pdf.destroy()
-                self.tiles["pdfs"] = list()
-                r = 1
-                c = 1
-                for file in current_pdf:
-                    self.tiles["pdfs"].append(
-                        Pdf_Tile(self, file=file))
-                    self.tiles["pdfs"][-1].set_tile(row=r, column=c, columnspan=2, rowspan=2)
-                    c = (c + 2)
+            if pdf_file_l != [pdf_tl.file for pdf_tl in self._l_tl_pdf]:
+                # remove all old tiles
+                for tl_pdf in self._l_tl_pdf:
+                    tl_pdf.destroy()
+                self._l_tl_pdf = list()
+                # populate with new tiles
+                # start at 1:1 pos
+                (r, c) = (1, 1)
+                for pdf_file in pdf_file_l:
+                    self._l_tl_pdf.append(PdfOpenerTile(self, file=pdf_file))
+                    self._l_tl_pdf[-1].set_tile(row=r, column=c, columnspan=5, rowspan=1)
+                    c += 5
                     if c >= self.nb_tile_w - 1:
-                        r += 2
+                        r += 1
                         c = 1
-            self.old = current_pdf
         except Exception:
             logging.error(traceback.format_exc())
 
@@ -427,12 +449,12 @@ class Tile(tk.Frame):
         self.pack_propagate(False)
         self.grid_propagate(False)
 
-    def set_tile(self, row=0, column=0, rowspan=1, columnspan=1, remove=None):
+    def set_tile(self, row=0, column=0, rowspan=1, columnspan=1):
         # function to print a tile on the screen at the given coordonates
-        if remove:
-            self.grid_remove()
-        else:
-            self.grid(row=row, column=column, rowspan=rowspan, columnspan=columnspan, sticky=tk.NSEW)
+        self.grid(row=row, column=column, rowspan=rowspan, columnspan=columnspan, sticky=tk.NSEW)
+
+    # def del_tile(self):
+    #     self.grid_remove()
 
     def start_cyclic_update(self, update_ms=500):
         self._update_ms = update_ms
@@ -833,25 +855,42 @@ class NewsBannerTile(Tile):
             logging.error(traceback.format_exc())
 
 
-class Pdf_Tile(Tile):
+class PdfOpenerTile(Tile):
     def __init__(self, *args, file, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # public
         self.file = file
         self.filename = os.path.basename(file)
-        # tk build
-        self.name = tk.Label(self, text=self.filename, wraplength=200, bg=self.cget("bg"),
-                             font=("courrier", 20, "bold"))
-        self.name.grid()
-        self.bind("<Button-1>", self.clicked)
-        self.name.bind("<Button-1>", self.clicked)
+        # private
+        self._l_process = list()
+        # tk stuff
+        self.name = tk.Label(self, text=os.path.splitext(self.filename)[0], wraplength=550,
+                             bg=self.cget("bg"), font=("courrier", 20, "bold"))
+        self.name.pack(expand=True)
+        # bind function for open pdf file
+        self.bind("<Button-1>", self._on_click)
+        self.name.bind("<Button-1>", self._on_click)
+        self.bind("<Unmap>", self._on_unmap)
 
-    def clicked(self, _):
+    def _on_click(self, evt=None):
         try:
-            subprocess.call(["/usr/bin/xpdf", self.file],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # start xpdf for this pdf file (max 2 instance)
+            if len(self._l_process) < 2:
+                xpdf_geometry = "-geometry %sx%s" % (self.master.winfo_width(), self.master.winfo_height() - 10)
+                self._l_process.append(subprocess.Popen(["/usr/bin/xpdf", xpdf_geometry, "-z page", "-cont", self.file],
+                                                        stdin=subprocess.DEVNULL,
+                                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                                        close_fds=True))
         except Exception:
             logging.error(traceback.format_exc())
+
+    def _on_unmap(self, evt=None):
+        # clean all running process on tab exit
+        for i, _ in enumerate(self._l_process):
+            self._l_process[i].terminate()
+            # avoid zombie process
+            self._l_process[i].wait()
+            del self._l_process[i]
 
 
 class MeetingRoomTile(Tile):
