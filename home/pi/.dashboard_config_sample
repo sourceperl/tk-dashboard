@@ -1,3 +1,5 @@
+[dashboard]
+master_host = 192.168.0.60
 [gsheet]
 url = <gsheet url>
 [openweathermap]

@@ -2,21 +2,26 @@
 
 # WARN: You must share ssh key before use it (see README)
 
+from configparser import ConfigParser
 import logging
+import os
 import time
 import traceback
 import schedule
 import subprocess
 
-# some const
-IP_MASTER_DASHBOARD = "192.168.0.60"
+# read config
+cnf = ConfigParser()
+cnf.read(os.path.expanduser('~/.dashboard_config'))
+# hostname of master dashboard
+dash_master_host = cnf.get("dashboard", "master_host")
 
 
 def hot_file_sync_job():
     # mirror master dashboard /media/ramdisk/ -> slave /media/ramdisk/
     try:
         cmd = "rsync -aAxX --delete --omit-dir-times %s:/media/ramdisk/. /media/ramdisk/."
-        cmd %= IP_MASTER_DASHBOARD
+        cmd %= dash_master_host
         subprocess.call(cmd.split())
     except Exception:
         logging.error(traceback.format_exc())
@@ -27,7 +32,7 @@ def cold_file_sync_job():
     # mirror master dashboard /home/pi/dashboard/ -> slave /home/pi/dashboard/
     try:
         cmd = "rsync -aAxX --delete %s:/home/pi/dashboard/. /home/pi/dashboard/."
-        cmd %= IP_MASTER_DASHBOARD
+        cmd %= dash_master_host
         subprocess.call(cmd.split())
     except Exception:
         logging.error(traceback.format_exc())

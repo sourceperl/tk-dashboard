@@ -50,6 +50,8 @@ JAUNE = "#ffe200"
 # read config
 cnf = ConfigParser()
 cnf.read(os.path.expanduser('~/.dashboard_config'))
+# hostname of master dashboard
+dash_master_host = cnf.get("dashboard", "master_host")
 # gmap img traffic
 gmap_img_target = cnf.get("gmap_img", "img_target")
 # twitter cloud img
@@ -58,7 +60,7 @@ tw_cloud_img = cnf.get("twitter", "cloud_img")
 
 class DS:
     # create connector
-    r = redis.StrictRedis(host="192.168.0.60", socket_timeout=4, socket_keepalive=True)
+    r = redis.StrictRedis(host=dash_master_host, socket_timeout=4, socket_keepalive=True)
 
     # redis access method
     @classmethod
@@ -161,7 +163,7 @@ class MainApp(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         # public
-        self.user_idle_timeout = 15000
+        self.user_idle_timeout = 120000
         # private
         self._idle_timer = None
         # tk stuff

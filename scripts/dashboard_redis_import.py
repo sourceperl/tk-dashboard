@@ -45,7 +45,7 @@ tw_access_token_secret = cnf.get("twitter", "access_token_secret")
 # dataset access
 class DS:
     # create connector
-    r = redis.StrictRedis(host="192.168.0.60", socket_timeout=5, socket_keepalive=True)
+    r = redis.StrictRedis(host="127.0.0.1", socket_timeout=4, socket_keepalive=True)
 
     # redis access method
     @classmethod
