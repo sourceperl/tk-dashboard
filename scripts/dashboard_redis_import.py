@@ -22,6 +22,8 @@ from xml.dom import minidom
 # read config
 cnf = ConfigParser()
 cnf.read(os.path.expanduser('~/.dashboard_config'))
+# hostname of master dashboard
+dash_master_host = cnf.get("dashboard", "master_host")
 # gsheet
 gsheet_url = cnf.get('gsheet', 'url')
 # openweathermap
@@ -45,7 +47,7 @@ tw_access_token_secret = cnf.get("twitter", "access_token_secret")
 # dataset access
 class DS:
     # create connector
-    r = redis.StrictRedis(host="127.0.0.1", socket_timeout=4, socket_keepalive=True)
+    r = redis.StrictRedis(host=dash_master_host, socket_timeout=4, socket_keepalive=True)
 
     # redis access method
     @classmethod
@@ -75,11 +77,7 @@ def gsheet_job():
     # https request
     try:
         response = requests.get(gsheet_url)
-    except requests.exceptions.RequestException:
-        logging.error(traceback.format_exc())
-        return None
-    # process response
-    try:
+        # process response
         d = dict()
         for line in response.iter_lines(decode_unicode='utf-8'):
             tag, value = line.split(',')
@@ -100,12 +98,7 @@ def openweathermap_job():
         ow_url %= (ow_city, ow_app_id)
         # do request
         ow_d = requests.get(ow_url).json()
-    except requests.exceptions.RequestException:
-        logging.error(traceback.format_exc())
-        return None
-    # decode json
-    try:
-        # init struct
+        # decode json
         t_today = None
         d_days = {}
         for i in range(0, 5):
@@ -178,14 +171,9 @@ def vigilance_job():
 
 
 def iswip_job():
-    # https request
     try:
+        # do request
         devices_l = requests.get(iswip_url).json()
-    except requests.exceptions.RequestException:
-        logging.error(traceback.format_exc())
-        return None
-    # decode json
-    try:
         d_dev = {}
         for device in devices_l:
             # device id
@@ -205,7 +193,7 @@ def iswip_job():
 
 
 def local_info_job():
-    # http request
+    # do request
     try:
         l_titles = []
         for post in feedparser.parse("https://france3-regions.francetvinfo.fr/societe/rss?r=hauts-de-france").entries:
@@ -217,29 +205,25 @@ def local_info_job():
 
 
 def gmap_travel_time_job():
-    d_traffic = {}
-    for gm_dest in ("Arras", "Amiens", "Dunkerque", "Maubeuge", "Reims"):
-        # build url
-        gm_url_origin = urllib.parse.quote_plus(gmap_origin)
-        gm_url_destination = urllib.parse.quote_plus(gm_dest)
-        gm_url = "https://maps.googleapis.com/maps/api/directions/json"
-        gm_url += "?&origin=%s&destination=%s&departure_time=now&key=%s"
-        gm_url %= gm_url_origin, gm_url_destination, gmap_key
-        # http request
-        try:
+    try:
+        d_traffic = {}
+        for gm_dest in ("Arras", "Amiens", "Dunkerque", "Maubeuge", "Reims"):
+            # build url
+            gm_url_origin = urllib.parse.quote_plus(gmap_origin)
+            gm_url_destination = urllib.parse.quote_plus(gm_dest)
+            gm_url = "https://maps.googleapis.com/maps/api/directions/json"
+            gm_url += "?&origin=%s&destination=%s&departure_time=now&key=%s"
+            gm_url %= gm_url_origin, gm_url_destination, gmap_key
+            # http request
             gm_json = requests.get(gm_url).json()
-        except requests.exceptions.RequestException:
-            logging.error(traceback.format_exc())
-            return None
-        # decode json
-        try:
+            # decode json
             duration_abs = gm_json["routes"][0]["legs"][0]["duration"]["value"]
             duration_with_traffic = gm_json["routes"][0]["legs"][0]["duration_in_traffic"]["value"]
             d_traffic[gm_dest] = dict(duration=duration_abs, duration_traffic=duration_with_traffic)
-        except Exception:
-            logging.error(traceback.format_exc())
-    DS.redis_set_obj('gmap:traffic', d_traffic)
-    DS.redis_set_ttl('gmap:traffic', ttl=1800)
+        DS.redis_set_obj('gmap:traffic', d_traffic)
+        DS.redis_set_ttl('gmap:traffic', ttl=1800)
+    except Exception:
+        logging.error(traceback.format_exc())
 
 
 def twitter_job():
@@ -318,7 +302,7 @@ def sport_l1_job():
                         od_l1_club[name]["diff"] = l_td_center[6].text.strip()
             DS.redis_set_obj("sport:l1", od_l1_club)
             DS.redis_set_ttl("sport:l1", ttl=7200)
-    except requests.exceptions.RequestException:
+    except Exception:
         logging.error(traceback.format_exc())
         return None
 

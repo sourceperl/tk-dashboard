@@ -76,7 +76,6 @@ def twitter2cloud_job():
                 shutil.move(tw_cloud_img_build, tw_cloud_img)
     except Exception:
         logging.error(traceback.format_exc())
-        return None
 
 
 def gmap_traffic_img_job():
@@ -93,7 +92,6 @@ def gmap_traffic_img_job():
             shutil.move(download_file, gmap_img_target)
     except Exception:
         logging.error(traceback.format_exc())
-        return None
 
 
 # main
