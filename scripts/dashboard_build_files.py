@@ -44,7 +44,7 @@ def twitter2cloud_job():
         url += "q=%s&count=%i&result_type=recent&tweet_mode=extended"
         url %= (urllib.parse.quote(tw_query), tw_count)
         # do request
-        r = requests.get(url, auth=tw_oauth)
+        r = requests.get(url, auth=tw_oauth, timeout=5.0)
         # check error
         if r.status_code == 200:
             d_tweets = r.json()
@@ -81,7 +81,7 @@ def twitter2cloud_job():
 def gmap_traffic_img_job():
     # http request
     try:
-        r = requests.get(gmap_img_url, stream=True)
+        r = requests.get(gmap_img_url, stream=True, timeout=5.0)
         if r.status_code == 200:
             # download as *.dwl file
             download_file = "%s.dwl" % gmap_img_target

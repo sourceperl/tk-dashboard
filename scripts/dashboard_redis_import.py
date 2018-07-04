@@ -76,7 +76,7 @@ class DS:
 def gsheet_job():
     # https request
     try:
-        response = requests.get(gsheet_url)
+        response = requests.get(gsheet_url, timeout=5.0)
         # process response
         d = dict()
         for line in response.iter_lines(decode_unicode='utf-8'):
@@ -97,7 +97,7 @@ def openweathermap_job():
         ow_url += "q=%s&appid=%s&units=metric&lang=fr"
         ow_url %= (ow_city, ow_app_id)
         # do request
-        ow_d = requests.get(ow_url).json()
+        ow_d = requests.get(ow_url, timeout=5.0).json()
         # decode json
         t_today = None
         d_days = {}
@@ -132,7 +132,7 @@ def openweathermap_job():
 def vigilance_job():
     try:
         # request XML data from server
-        r = requests.get('http://vigilance.meteofrance.com/data/NXFR34_LFPW_.xml')
+        r = requests.get('http://vigilance.meteofrance.com/data/NXFR34_LFPW_.xml', timeout=5.0)
         # check error
         if r.status_code == 200:
             # dom parsing (convert UTF-8 r.text to XML char)
@@ -173,7 +173,7 @@ def vigilance_job():
 def iswip_job():
     try:
         # do request
-        devices_l = requests.get(iswip_url).json()
+        devices_l = requests.get(iswip_url, timeout=5.0).json()
         d_dev = {}
         for device in devices_l:
             # device id
@@ -215,7 +215,7 @@ def gmap_travel_time_job():
             gm_url += "?&origin=%s&destination=%s&departure_time=now&key=%s"
             gm_url %= gm_url_origin, gm_url_destination, gmap_key
             # http request
-            gm_json = requests.get(gm_url).json()
+            gm_json = requests.get(gm_url, timeout=5.0).json()
             # decode json
             duration_abs = gm_json["routes"][0]["legs"][0]["duration"]["value"]
             duration_with_traffic = gm_json["routes"][0]["legs"][0]["duration_in_traffic"]["value"]
@@ -244,7 +244,7 @@ def twitter_job():
         url += "screen_name=%s&count=%i&tweet_mode=extended&exclude_retweets=true"
         url %= (tw_username, tw_count)
         # do request
-        r = requests.get(url, auth=tw_oauth)
+        r = requests.get(url, auth=tw_oauth, timeout=5.0)
         # check error
         if r.status_code == 200:
             d_tweets = r.json()
@@ -270,7 +270,7 @@ def twitter_job():
 def sport_l1_job():
     # http request
     try:
-        r = requests.get("http://m.lfp.fr/ligue1/classement")
+        r = requests.get("http://m.lfp.fr/ligue1/classement", timeout=5.0)
 
         if r.status_code == 200:
             od_l1_club = OrderedDict()
@@ -320,7 +320,7 @@ if __name__ == '__main__':
     schedule.every(5).minutes.do(openweathermap_job)
     schedule.every(5).minutes.do(vigilance_job)
     schedule.every(5).minutes.do(gmap_travel_time_job)
-    schedule.every(30).minutes.do(sport_l1_job)
+    #schedule.every(30).minutes.do(sport_l1_job)
     # first call
     gsheet_job()
     openweathermap_job()
@@ -329,7 +329,7 @@ if __name__ == '__main__':
     iswip_job()
     gmap_travel_time_job()
     twitter_job()
-    sport_l1_job()
+    #sport_l1_job()
 
     # main loop
     while True:
