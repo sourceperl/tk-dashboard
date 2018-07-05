@@ -20,4 +20,5 @@ access_token = <twitter access_token>
 access_token_secret = <twitter access_token_secret>
 cloud_img = /media/ramdisk/grt_cloud.png
 [electric_meter]
-thingspeak_write_key = <TS WRITE API KEY>
+tspeak_pwr_w_key = <TS WRITE API KEY>
+tspeak_idx_w_key = <TS WRITE API KEY>

@@ -12,17 +12,21 @@ import requests
 import schedule
 
 # some const
+LTX_IP = "192.168.0.62"
 # modbus address for IEM 3155 and 2155
-AD_3155_ACT_PWR = 3059
-AD_2155_ACT_PWR = 3053
+AD_3155_LIVE_PWR = 3059
+AD_2155_LIVE_PWR = 3053
+AD_3155_INDEX_PWR = 3205
+AD_2155_INDEX_PWR = 3205
 
 # read config
 cnf = ConfigParser()
-cnf.read(os.path.expanduser('~/.dashboard_config'))
+cnf.read(os.path.expanduser("~/.dashboard_config"))
 # hostname of master dashboard
 dash_master_host = cnf.get("dashboard", "master_host")
 # thingspeak api key
-ts_api_key = cnf.get("electric_meter", "thingspeak_write_key")
+ts_pwr_api_key = cnf.get("electric_meter", "tspeak_pwr_w_key")
+ts_idx_api_key = cnf.get("electric_meter", "tspeak_idx_w_key")
 
 
 class Devices(object):
@@ -30,43 +34,56 @@ class Devices(object):
     rd = RedisDevice(host=dash_master_host)
     # modbus datasource
     # meter "garage"
-    meter_garage = ModbusTCPDevice('192.168.0.62', timeout=2.0, refresh=2.0, unit_id=1)
-    meter_garage.add_floats_table(AD_3155_ACT_PWR)
+    meter_garage = ModbusTCPDevice(LTX_IP, timeout=2.0, refresh=2.0, unit_id=1)
+    meter_garage.add_floats_table(AD_3155_LIVE_PWR)
+    meter_garage.add_longs_table(AD_3155_INDEX_PWR)
     # meter "cold water"
-    meter_cold_water = ModbusTCPDevice('192.168.0.62', timeout=2.0, refresh=2.0, unit_id=2)
-    meter_cold_water.add_floats_table(AD_3155_ACT_PWR)
+    meter_cold_water = ModbusTCPDevice(LTX_IP, timeout=2.0, refresh=2.0, unit_id=2)
+    meter_cold_water.add_floats_table(AD_3155_LIVE_PWR)
+    meter_cold_water.add_longs_table(AD_3155_INDEX_PWR)
     # meter "light"
-    meter_light = ModbusTCPDevice('192.168.0.62', timeout=2.0, refresh=2.0, unit_id=3)
-    meter_light.add_floats_table(AD_3155_ACT_PWR)
+    meter_light = ModbusTCPDevice(LTX_IP, timeout=2.0, refresh=2.0, unit_id=3)
+    meter_light.add_floats_table(AD_3155_LIVE_PWR)
+    meter_light.add_longs_table(AD_3155_INDEX_PWR)
     # meter "tech"
-    meter_tech = ModbusTCPDevice('192.168.0.62', timeout=2.0, refresh=2.0, unit_id=4)
-    meter_tech.add_floats_table(AD_3155_ACT_PWR)
+    meter_tech = ModbusTCPDevice(LTX_IP, timeout=2.0, refresh=2.0, unit_id=4)
+    meter_tech.add_floats_table(AD_3155_LIVE_PWR)
+    meter_tech.add_longs_table(AD_3155_INDEX_PWR)
     # meter "CTA" (air process)
-    meter_cta = ModbusTCPDevice('192.168.0.62', timeout=2.0, refresh=2.0, unit_id=5)
-    meter_cta.add_floats_table(AD_3155_ACT_PWR)
+    meter_cta = ModbusTCPDevice(LTX_IP, timeout=2.0, refresh=2.0, unit_id=5)
+    meter_cta.add_floats_table(AD_3155_LIVE_PWR)
+    meter_cta.add_longs_table(AD_3155_INDEX_PWR)
     # meter "heater room"
-    meter_heat = ModbusTCPDevice('192.168.0.62', timeout=2.0, refresh=2.0, unit_id=6)
-    meter_heat.add_floats_table(AD_2155_ACT_PWR)
+    meter_heat = ModbusTCPDevice(LTX_IP, timeout=2.0, refresh=2.0, unit_id=6)
+    meter_heat.add_floats_table(AD_2155_LIVE_PWR)
+    meter_heat.add_longs_table(AD_2155_INDEX_PWR)
 
 
 class Tags(object):
     # redis tags
-    RD_TOTAL_P_ACT = Tag(0, src=Devices.rd, ref={'type': 'int',
-                                                 'key': 'meters:electric:site:pwr_act',
-                                                 'ttl': 60})
+    RD_TOTAL_PWR = Tag(0, src=Devices.rd, ref={"type": "int",
+                                               "key": "meters:electric:site:pwr_act",
+                                               "ttl": 60})
     # modbus tags
-    GARAGE_P_ACT = Tag(0.0, src=Devices.meter_garage, ref={'type': 'float', 'addr': AD_3155_ACT_PWR, 'span': 1000})
-    COLD_WATER_P_ACT = Tag(0.0, src=Devices.meter_cold_water,
-                           ref={'type': 'float', 'addr': AD_3155_ACT_PWR, 'span': 1000})
-    LIGHT_P_ACT = Tag(0.0, src=Devices.meter_light, ref={'type': 'float', 'addr': AD_3155_ACT_PWR, 'span': 1000})
-    TECH_P_ACT = Tag(0.0, src=Devices.meter_tech, ref={'type': 'float', 'addr': AD_3155_ACT_PWR, 'span': 1000})
-    CTA_P_ACT = Tag(0.0, src=Devices.meter_cta, ref={'type': 'float', 'addr': AD_3155_ACT_PWR, 'span': 1000})
-    HEAT_P_ACT = Tag(0.0, src=Devices.meter_heat, ref={'type': 'float', 'addr': AD_2155_ACT_PWR, 'span': 1000})
+    GARAGE_PWR = Tag(0.0, src=Devices.meter_garage, ref={"type": "float", "addr": AD_3155_LIVE_PWR, "span": 1000})
+    GARAGE_I_PWR = Tag(0, src=Devices.meter_garage, ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1/1000})
+    COLD_WATER_PWR = Tag(0.0, src=Devices.meter_cold_water,
+                         ref={"type": "float", "addr": AD_3155_LIVE_PWR, "span": 1000})
+    COLD_WATER_I_PWR = Tag(0, src=Devices.meter_cold_water,
+                           ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1/1000})
+    LIGHT_PWR = Tag(0.0, src=Devices.meter_light, ref={"type": "float", "addr": AD_3155_LIVE_PWR, "span": 1000})
+    LIGHT_I_PWR = Tag(0, src=Devices.meter_light, ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1/1000})
+    TECH_PWR = Tag(0.0, src=Devices.meter_tech, ref={"type": "float", "addr": AD_3155_LIVE_PWR, "span": 1000})
+    TECH_I_PWR = Tag(0, src=Devices.meter_tech, ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1/1000})
+    CTA_PWR = Tag(0.0, src=Devices.meter_cta, ref={"type": "float", "addr": AD_3155_LIVE_PWR, "span": 1000})
+    CTA_I_PWR = Tag(0, src=Devices.meter_cta, ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1/1000})
+    HEAT_PWR = Tag(0.0, src=Devices.meter_heat, ref={"type": "float", "addr": AD_2155_LIVE_PWR, "span": 1000})
+    HEAT_I_PWR = Tag(0.0, src=Devices.meter_heat, ref={"type": "long", "addr": AD_2155_INDEX_PWR, "span": 1/1000})
     # virtual tags
     # total power consumption
-    TOTAL_P_ACT = Tag(0.0, get_cmd=lambda: Tags.GARAGE_P_ACT.val + Tags.COLD_WATER_P_ACT.val +
-                                           Tags.LIGHT_P_ACT.val + Tags.TECH_P_ACT.val +
-                                           Tags.CTA_P_ACT.val + Tags.HEAT_P_ACT.val)
+    TOTAL_PWR = Tag(0.0, get_cmd=lambda: Tags.GARAGE_PWR.val + Tags.COLD_WATER_PWR.val +
+                                         Tags.LIGHT_PWR.val + Tags.TECH_PWR.val +
+                                         Tags.CTA_PWR.val + Tags.HEAT_PWR.val)
 
 
 def thingspeak_send(api_key, l_values=list()):
@@ -92,7 +109,7 @@ def thingspeak_send(api_key, l_values=list()):
         else:
             req_try -= 1
         try:
-            r = requests.post('https://api.thingspeak.com/update', data=d_data, timeout=5.0)
+            r = requests.post("https://api.thingspeak.com/update", data=d_data, timeout=5.0)
             logging.debug("thingspeak_send: POST data %s" % d_data)
         except Exception:
             logging.error(traceback.format_exc())
@@ -105,35 +122,48 @@ def thingspeak_send(api_key, l_values=list()):
 
 
 def redis_job():
-    Tags.RD_TOTAL_P_ACT.val = Tags.TOTAL_P_ACT.e_val
+    Tags.RD_TOTAL_PWR.val = Tags.TOTAL_PWR.e_val
 
 
-def thingspeak_job():
+def thingspeak_live_pwr_job():
     l_fields = (
-        round(Tags.TOTAL_P_ACT.val),
-        round(Tags.GARAGE_P_ACT.val),
-        round(Tags.COLD_WATER_P_ACT.val),
-        round(Tags.LIGHT_P_ACT.val),
-        round(Tags.TECH_P_ACT.val),
-        round(Tags.CTA_P_ACT.val),
-        round(Tags.HEAT_P_ACT.val),
+        round(Tags.TOTAL_PWR.val),
+        round(Tags.GARAGE_PWR.val),
+        round(Tags.COLD_WATER_PWR.val),
+        round(Tags.LIGHT_PWR.val),
+        round(Tags.TECH_PWR.val),
+        round(Tags.CTA_PWR.val),
+        round(Tags.HEAT_PWR.val),
     )
-    thingspeak_send(api_key=ts_api_key, l_values=l_fields)
+    thingspeak_send(api_key=ts_pwr_api_key, l_values=l_fields)
 
 
-if __name__ == '__main__':
+def thingspeak_live_index_job():
+    l_fields = (
+        round(Tags.GARAGE_I_PWR.val),
+        round(Tags.COLD_WATER_I_PWR.val),
+        round(Tags.LIGHT_I_PWR.val),
+        round(Tags.TECH_I_PWR.val),
+        round(Tags.CTA_I_PWR.val),
+        round(Tags.HEAT_I_PWR.val),
+    )
+    thingspeak_send(api_key=ts_idx_api_key, l_values=l_fields)
+
+
+if __name__ == "__main__":
     # logging setup
-    logging.basicConfig(format='%(asctime)s %(message)s')
+    logging.basicConfig(format="%(asctime)s %(message)s")
 
     # wait DS_ModbusTCP thread start
     time.sleep(1.0)
 
     # init scheduler
+    schedule.every().day.at("06:00").do(thingspeak_live_index_job)
     schedule.every(5).seconds.do(redis_job)
-    schedule.every(2).minutes.do(thingspeak_job)
+    schedule.every(2).minutes.do(thingspeak_live_pwr_job)
     # first call
     redis_job()
-    thingspeak_job()
+    thingspeak_live_pwr_job()
 
     # main loop
     while True:
