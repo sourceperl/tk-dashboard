@@ -64,21 +64,30 @@ class Tags(object):
     RD_TOTAL_PWR = Tag(0, src=Devices.rd, ref={"type": "int",
                                                "key": "meters:electric:site:pwr_act",
                                                "ttl": 60})
+    RD_TODAY_WH = Tag(0.0, src=Devices.rd, ref={"type": "float",
+                                                "key": "meters:electric:site:today_wh",
+                                                "ttl": 86400})
+    RD_YESTERDAY_WH = Tag(0.0, src=Devices.rd, ref={"type": "float",
+                                                    "key": "meters:electric:site:yesterday_wh",
+                                                    "ttl": 172800})
+    RD_TIMESTAMP_WH = Tag(0.0, src=Devices.rd, ref={"type": "float",
+                                                    "key": "meters:electric:site:timestamp_wh",
+                                                    "ttl": 172800})
     # modbus tags
     GARAGE_PWR = Tag(0.0, src=Devices.meter_garage, ref={"type": "float", "addr": AD_3155_LIVE_PWR, "span": 1000})
-    GARAGE_I_PWR = Tag(0, src=Devices.meter_garage, ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1/1000})
+    GARAGE_I_PWR = Tag(0, src=Devices.meter_garage, ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1 / 1000})
     COLD_WATER_PWR = Tag(0.0, src=Devices.meter_cold_water,
                          ref={"type": "float", "addr": AD_3155_LIVE_PWR, "span": 1000})
     COLD_WATER_I_PWR = Tag(0, src=Devices.meter_cold_water,
-                           ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1/1000})
+                           ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1 / 1000})
     LIGHT_PWR = Tag(0.0, src=Devices.meter_light, ref={"type": "float", "addr": AD_3155_LIVE_PWR, "span": 1000})
-    LIGHT_I_PWR = Tag(0, src=Devices.meter_light, ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1/1000})
+    LIGHT_I_PWR = Tag(0, src=Devices.meter_light, ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1 / 1000})
     TECH_PWR = Tag(0.0, src=Devices.meter_tech, ref={"type": "float", "addr": AD_3155_LIVE_PWR, "span": 1000})
-    TECH_I_PWR = Tag(0, src=Devices.meter_tech, ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1/1000})
+    TECH_I_PWR = Tag(0, src=Devices.meter_tech, ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1 / 1000})
     CTA_PWR = Tag(0.0, src=Devices.meter_cta, ref={"type": "float", "addr": AD_3155_LIVE_PWR, "span": 1000})
-    CTA_I_PWR = Tag(0, src=Devices.meter_cta, ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1/1000})
+    CTA_I_PWR = Tag(0, src=Devices.meter_cta, ref={"type": "long", "addr": AD_3155_INDEX_PWR, "span": 1 / 1000})
     HEAT_PWR = Tag(0.0, src=Devices.meter_heat, ref={"type": "float", "addr": AD_2155_LIVE_PWR, "span": 1000})
-    HEAT_I_PWR = Tag(0.0, src=Devices.meter_heat, ref={"type": "long", "addr": AD_2155_INDEX_PWR, "span": 1/1000})
+    HEAT_I_PWR = Tag(0.0, src=Devices.meter_heat, ref={"type": "long", "addr": AD_2155_INDEX_PWR, "span": 1 / 1000})
     # virtual tags
     # total power consumption
     TOTAL_PWR = Tag(0.0, get_cmd=lambda: Tags.GARAGE_PWR.val + Tags.COLD_WATER_PWR.val +
@@ -109,7 +118,7 @@ def thingspeak_send(api_key, l_values=list()):
         else:
             req_try -= 1
         try:
-            r = requests.post("https://api.thingspeak.com/update", data=d_data, timeout=5.0)
+            r = requests.post("https://api.thingspeak.com/update", data=d_data, timeout=10.0)
             logging.debug("thingspeak_send: POST data %s" % d_data)
         except Exception:
             logging.error(traceback.format_exc())
@@ -121,8 +130,20 @@ def thingspeak_send(api_key, l_values=list()):
     return is_ok
 
 
-def redis_job():
+def redis_publish_job():
+    since_last_integrate = time.time() - Tags.RD_TIMESTAMP_WH.val
+    Tags.RD_TIMESTAMP_WH.val += since_last_integrate
+    # integrate active power for daily index (if time since last integrate is regular)
+    if 0 < since_last_integrate < 7200:
+        Tags.RD_TODAY_WH.val += Tags.TOTAL_PWR.val * since_last_integrate / 3600
+    # publish active power
     Tags.RD_TOTAL_PWR.val = Tags.TOTAL_PWR.e_val
+
+
+def redis_daily_job():
+    # backup daily value to yesterday then reset it for new day start
+    Tags.RD_YESTERDAY_WH.val = Tags.RD_TODAY_WH.val
+    Tags.RD_TODAY_WH.val = 0
 
 
 def thingspeak_live_pwr_job():
@@ -158,11 +179,12 @@ if __name__ == "__main__":
     time.sleep(1.0)
 
     # init scheduler
+    schedule.every().day.at("00:00").do(redis_daily_job)
     schedule.every().day.at("06:00").do(thingspeak_live_index_job)
-    schedule.every(5).seconds.do(redis_job)
+    schedule.every(5).seconds.do(redis_publish_job)
     schedule.every(2).minutes.do(thingspeak_live_pwr_job)
     # first call
-    redis_job()
+    redis_publish_job()
     thingspeak_live_pwr_job()
 
     # main loop
