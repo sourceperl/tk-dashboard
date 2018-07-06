@@ -150,6 +150,9 @@ class Tags:
     D_WEATHER_VIG = Tag(cmd_src=lambda: DS.redis_get_obj("weather:vigilance"))
     D_NEWS_LOCAL = Tag(cmd_src=lambda: DS.redis_get_obj("news:local"))
     D_TWEETS_GRT = Tag(cmd_src=lambda: DS.redis_get_obj("twitter:tweets:grtgaz"))
+    MET_PWR_ACT = Tag(cmd_src=lambda: DS.redis_get_obj("meters:electric:site:pwr_act"))
+    MET_TODAY_WH = Tag(cmd_src=lambda: DS.redis_get_obj("meters:electric:site:today_wh"))
+    MET_YESTERDAY_WH = Tag(cmd_src=lambda: DS.redis_get_obj("meters:electric:site:yesterday_wh"))
 
     @classmethod
     def tags_io_thread(cls):
@@ -308,6 +311,9 @@ class LiveTab(Tab):
         self.tl_vig_02.set_tile(row=4, column=3)
         self.tl_vig_60 = VigilanceTile(self, department="Oise")
         self.tl_vig_60.set_tile(row=4, column=4)
+        # Watts news
+        self.tl_watts = WattsTile(self)
+        self.tl_watts.set_tile(row=4, column=5, columnspan=2)
         # meeting room
         self.tl_room_prj = MeetingRoomTile(self, room="Salle project")
         self.tl_room_prj.set_tile(row=5, column=0, columnspan=2)
@@ -384,6 +390,10 @@ class LiveTab(Tab):
         self.tl_vig_80.vig_level = Tags.D_WEATHER_VIG.get(("department", "80", "vig_level"))
         self.tl_vig_02.vig_level = Tags.D_WEATHER_VIG.get(("department", "02", "vig_level"))
         self.tl_vig_60.vig_level = Tags.D_WEATHER_VIG.get(("department", "60", "vig_level"))
+        # Watts news
+        self.tl_watts.pwr = Tags.MET_PWR_ACT.get()
+        self.tl_watts.today_wh = Tags.MET_TODAY_WH.get()
+        self.tl_watts.yesterday_wh = Tags.MET_YESTERDAY_WH.get()
         # update room status
         self.tl_room_trn.status = Tags.D_ISWIP_ROOM.get("Salle_TRAINNING")
         self.tl_room_prj.status = Tags.D_ISWIP_ROOM.get("Salle_PROJECT")
@@ -650,6 +660,79 @@ class VigilanceTile(Tile):
         for w in self.winfo_children():
             w.configure(bg=tile_color)
         self.configure(bg=tile_color)
+
+
+class WattsTile(Tile):
+    def __init__(self, *args, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
+        # public
+        # private
+        self._pwr = None
+        self._tdy_wh = None
+        self._ydy_wh = None
+        self._pwr_text = tk.StringVar()
+        self._tdy_text = tk.StringVar()
+        self._ydy_text = tk.StringVar()
+        # tk job
+        tk.Label(self, text="Loos Watts news", bg=self.cget("bg"), font=("courier", 14, "bold", "underline")).pack()
+        tk.Label(self, textvariable=self._pwr_text, bg=self.cget("bg"), font=("courier", 14, "bold")).pack(expand=True)
+        tk.Label(self, textvariable=self._tdy_text, bg=self.cget("bg"), font=("courier", 14, "bold")).pack(expand=True)
+        tk.Label(self, textvariable=self._ydy_text, bg=self.cget("bg"), font=("courier", 14, "bold")).pack(expand=True)
+        # public with accessor
+        self.pwr = None
+        self.today_wh = None
+        self.yesterday_wh = None
+
+    @property
+    def pwr(self):
+        return self._pwr
+
+    @pwr.setter
+    def pwr(self, value):
+        # check type
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._pwr != value:
+            self._pwr = value
+        # update tk lbl
+        self._pwr_text.set("  P %5s w  " % ("n/a" if self._pwr is None else self._pwr))
+
+    @property
+    def today_wh(self):
+        return self._tdy_wh
+
+    @today_wh.setter
+    def today_wh(self, value):
+        # check type
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._tdy_wh != value:
+            self._tdy_wh = value
+        # update tk lbl
+        self._tdy_text.set("  J %5s kwh" % ("n/a" if self._tdy_wh is None else round(self._tdy_wh / 1000)))
+
+    @property
+    def yesterday_wh(self):
+        return self._ydy_wh
+
+    @yesterday_wh.setter
+    def yesterday_wh(self, value):
+        # check type
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._ydy_wh != value:
+            self._ydy_wh = value
+        # update tk lbl
+        self._ydy_text.set("J-1 %5s kwh" % ("n/a" if self._ydy_wh is None else round(self._ydy_wh / 1000)))
 
 
 class WeatherTile(Tile):  # principal, she own all the day, could be divided if wanted #json
