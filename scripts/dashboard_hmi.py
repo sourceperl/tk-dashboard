@@ -1162,6 +1162,8 @@ class DaysAccTile(Tile):
                  fg=FUSHIA, bg=self.cget("bg")).grid(row=2, column=0)
         tk.Label(self, text="Jours sans accident DIGNE",
                  font=('courier', 18, 'bold'), bg=self.cget("bg")).grid(row=2, column=1, sticky=tk.W)
+        # auto-update acc day counter
+        self.start_cyclic_update(update_ms=5000)
 
     @property
     def acc_date_dts(self):
@@ -1179,7 +1181,7 @@ class DaysAccTile(Tile):
             # check range
             self._acc_date_dts = value
             # update widget
-            self._on_data_change()
+            self.update()
 
     @property
     def acc_date_digne(self):
@@ -1197,9 +1199,9 @@ class DaysAccTile(Tile):
             # check range
             self._acc_date_digne = value
             # update widget
-            self._on_data_change()
+            self.update()
 
-    def _on_data_change(self):
+    def update(self):
         self._days_dts_str.set(self.day_from_now(self._acc_date_dts))
         self._days_digne_str.set(self.day_from_now(self._acc_date_digne))
 
