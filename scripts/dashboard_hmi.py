@@ -146,7 +146,8 @@ class Tags:
     D_GSHEET_GRT = Tag(cmd_src=lambda: DS.redis_get_obj("gsheet:grt"))
     D_ISWIP_ROOM = Tag(cmd_src=lambda: DS.redis_get_obj("iswip:room_status"))
     D_GMAP_TRAFFIC = Tag(cmd_src=lambda: DS.redis_get_obj("gmap:traffic"))
-    D_WEATHER_LOOS = Tag(cmd_src=lambda: DS.redis_get_obj("weather:forecast:loos"))
+    D_W_TODAY_LOOS = Tag(cmd_src=lambda: DS.redis_get_obj("weather:today:loos"))
+    D_W_FORECAST_LOOS = Tag(cmd_src=lambda: DS.redis_get_obj("weather:forecast:loos"))
     D_WEATHER_VIG = Tag(cmd_src=lambda: DS.redis_get_obj("weather:vigilance"))
     D_NEWS_LOCAL = Tag(cmd_src=lambda: DS.redis_get_obj("news:local"))
     D_TWEETS_GRT = Tag(cmd_src=lambda: DS.redis_get_obj("twitter:tweets:grtgaz"))
@@ -347,7 +348,8 @@ class LiveTab(Tab):
         # twitter
         self.tl_tw_live.l_tweet = Tags.D_TWEETS_GRT.get("tweets")
         # weather
-        self.tl_weath.weather_dict = Tags.D_WEATHER_LOOS.get()
+        self.tl_weath.w_today_dict = Tags.D_W_TODAY_LOOS.get()
+        self.tl_weath.w_forecast_dict = Tags.D_W_FORECAST_LOOS.get()
         # Amiens
         self.tl_tf_ami.travel_t = Tags.D_GMAP_TRAFFIC.get(("Amiens", "duration"))
         self.tl_tf_ami.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Amiens", "duration_traffic"))
@@ -736,60 +738,66 @@ class WattsTile(Tile):
 
 
 class WeatherTile(Tile):  # principal, she own all the day, could be divided if wanted #json
-    W_COLOR = dict(Thinderstorm="Yellow", Drizzle="light steel blue",
-                   Rain="steel blue", Snow="snow",
-                   Atmosphere="lavender", Clear="deep sky blue",
-                   Clouds="gray", Extreme="red", Additional="green")
-
     def __init__(self, *args, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # public
         # private
-        self._weather_dict = None
-        self._days = list()
+        self._w_today_dict = None
+        self._w_forecast_dict = None
+        self._days_f_l = list()
         self._days_lbl = list()
-        self._days_icon = list()
-        self._days_icon_lbl = list()
         # tk stuff
         # build 4x3 grid
         for c in range(4):
             for r in range(3):
                 self.grid_rowconfigure(r, weight=1)
-                tk.Label(master=self, pady=0, padx=0, background="gray").grid(column=c, row=r)
+                tk.Label(master=self, pady=0, padx=0).grid(column=c, row=r)
             self.grid_columnconfigure(c, weight=1)
             # creation
-            self._days.append(tk.LabelFrame(master=self, text="dd/mm/yyyy", bg="yellow", font=("bold", 10)))
+            self._days_f_l.append(
+                tk.LabelFrame(master=self, text="dd/mm/yyyy", bg=self.cget("bg"),
+                              font=("bold", 10)))
             self._days_lbl.append(
-                tk.Label(master=self._days[c], text="n/a", font='bold', anchor=tk.W, justify=tk.LEFT))
-            self._days_icon.append(tk.PhotoImage())
-            self._days_icon_lbl.append(tk.Label(master=self._days[c], image=self._days_icon[c]))
+                tk.Label(master=self._days_f_l[c], text="n/a", bg=self.cget("bg"),
+                         font='bold', anchor=tk.W, justify=tk.LEFT))
             # end creation
             # impression
-            self._days[c].grid(row=2, column=c, sticky=tk.NSEW)
-            self._days[c].grid_propagate(False)
+            self._days_f_l[c].grid(row=2, column=c, sticky=tk.NSEW)
+            self._days_f_l[c].grid_propagate(False)
             self._days_lbl[c].grid(sticky=tk.NSEW)
             self._days_lbl[c].grid_propagate(False)
-            self._days_icon_lbl[c].grid(sticky=tk.NSEW)
 
         # today frame
-        self.frm_today = tk.LabelFrame(master=self, bg="red", text="n/a", font=("bold", 18))
-        self.lbl_today = tk.Label(master=self.frm_today, text="n/a", font=('courier', 18, 'bold'), anchor=tk.W,
-                                  justify=tk.LEFT)
-        self.img_today = tk.PhotoImage()
-
+        self.frm_today = tk.LabelFrame(master=self, bg=self.cget("bg"), text="n/a", font=("bold", 18))
+        self.lbl_today = tk.Label(master=self.frm_today, text="n/a", bg=self.cget("bg"), font=('courier', 18, 'bold'),
+                                  anchor=tk.W, justify=tk.LEFT)
         self.frm_today.grid(row=0, column=0, columnspan=4, rowspan=2, sticky=tk.NSEW)
         self.frm_today.grid_propagate(False)
         self.lbl_today.grid(column=0)
         self.lbl_today.grid_propagate(False)
-        self.lbl_img_today = tk.Label(master=self.frm_today, image=self.img_today, bg=self.frm_today.cget("bg"))
-        self.lbl_img_today.grid(row=1)
 
     @property
-    def weather_dict(self):
-        return self._weather_dict
+    def w_today_dict(self):
+        return self._w_today_dict
 
-    @weather_dict.setter
-    def weather_dict(self, value):
+    @w_today_dict.setter
+    def w_today_dict(self, value):
+        # check type
+        try:
+            value = dict(value)
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._w_today_dict != value:
+            self._w_today_dict = value
+            self._on_today_change()
+
+    @property
+    def w_forecast_dict(self):
+        return self._w_forecast_dict
+
+    @w_forecast_dict.setter
+    def w_forecast_dict(self, value):
         # check type
         try:
             value = dict(value)
@@ -798,58 +806,48 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
         except (TypeError, ValueError):
             value = None
         # check change
-        if self._weather_dict != value:
-            self._weather_dict = value
-            self._on_data_change()
+        if self._w_forecast_dict != value:
+            self._w_forecast_dict = value
+            self._on_forecast_change()
 
-    def _on_data_change(self):
-        """
-        update function, 7200 call per day maximum
-        """
+    def _on_today_change(self):
         # set today date
         self.frm_today.configure(text=datetime.now().date())
-        # set day 1 to 4 date
-        for i in range(4):
-            self._days[i].configure(text=datetime.now().date() + timedelta(days=i + 1))
         # fill labels
         try:
             # today
-            today_main = self._weather_dict[0]["main"]
-            today_desc = self._weather_dict[0]["description"]
-            today_t = self._weather_dict[0]["t"]
-            today_t_min = self._weather_dict[0]["t_min"]
-            today_t_max = self._weather_dict[0]["t_max"]
-            today_icon = self._weather_dict[0]["icon"]
+            today_desc = self._w_today_dict["description"]
+            today_t = self._w_today_dict["t"]
+            today_t_min = self._w_today_dict["t_min"]
+            today_t_max = self._w_today_dict["t_max"]
             # today message
-            message = "Situation : %s\n\nTempérature actuelle : %.1f°C\n" + \
-                      "            minimale : %.1f°C\n" + \
-                      "            maximale : %.1f°C"
+            message = "Situation : %s\n\nTempérature actuelle : %d°C\n" + \
+                      "            minimale : %d°C\n" + \
+                      "            maximale : %d°C"
             message %= (today_desc, today_t, today_t_min, today_t_max)
-            self.lbl_today.configure(text=message)  # stick the text to the left
-            # set today color
-            self.frm_today.configure(bg=WeatherTile.W_COLOR.get(today_main, "white"))
-            self.lbl_today.configure(bg=self.frm_today.cget("bg"))
-            self.lbl_img_today.configure(bg=self.frm_today.cget("bg"))
-            # set today icon
-            self.img_today.configure(file=IMG_PATH + '%s.png' % today_icon)
+            self.lbl_today.configure(text=message)
+        except:
+            self.lbl_today.configure(text="n/a")
+            logging.error(traceback.format_exc())
+
+    def _on_forecast_change(self):
+        # set day 1 to 4 date
+        for i in range(4):
+            self._days_f_l[i].configure(text=datetime.now().date() + timedelta(days=i + 1))
+        try:
             # for day 1 to 4
             for d in range(1, 5):
-                day_main = self._weather_dict[d]["main"]
-                day_desr = self._weather_dict[d]["description"]
-                day_t_min = self._weather_dict[d]["t_min"]
-                day_t_max = self._weather_dict[d]["t_max"]
-                day_icon = self._weather_dict[d]["icon"]
+                day_desr = self._w_forecast_dict[d]["description"]
+                day_t_min = self._w_forecast_dict[d]["t_min"]
+                day_t_max = self._w_forecast_dict[d]["t_max"]
                 # set day message
-                message = "%s\nT mini %d°C\nT maxi %d°C"
+                message = "%s\n\nT min %d°C\nT max %d°C"
                 message %= (day_desr, day_t_min, day_t_max)
                 self._days_lbl[d - 1].configure(text=message)
-                # set day color
-                self._days[d - 1].configure(bg=WeatherTile.W_COLOR.get(day_main, "white"))
-                self._days_lbl[d - 1].configure(bg=self._days[d - 1].cget("bg"))
-                self._days_icon[d - 1].configure(file=IMG_PATH + "%s.png" % day_icon)
-                self._days_icon_lbl[d - 1].configure(bg=self._days[d - 1].cget("bg"))
-        except Exception:
-            self.lbl_today.configure(text="n/a")
+        except:
+            # for day 1 to 4
+            for d in range(1, 5):
+                self._days_lbl[d - 1].configure(text="n/a")
             logging.error(traceback.format_exc())
 
 

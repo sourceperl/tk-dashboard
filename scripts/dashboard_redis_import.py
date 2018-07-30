@@ -19,6 +19,10 @@ import urllib.parse
 import pytz
 from xml.dom import minidom
 
+
+# some const
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:2.0.1) Gecko/20100101 Firefox/4.0.1"
+
 # read config
 cnf = ConfigParser()
 cnf.read(os.path.expanduser('~/.dashboard_config'))
@@ -28,7 +32,6 @@ dash_master_host = cnf.get("dashboard", "master_host")
 gsheet_url = cnf.get('gsheet', 'url')
 # openweathermap
 ow_app_id = cnf.get('openweathermap', 'app_id')
-ow_city = cnf.get('openweathermap', 'city')
 # iswip
 iswip_url = cnf.get('iswip', 'url')
 # gmap (traffic duration)
@@ -89,13 +92,47 @@ def gsheet_job():
         logging.error(traceback.format_exc())
 
 
-def openweathermap_job():
+def weather_today_job():
+    try:
+        # request HTML data from server
+        r = requests.get("https://weather.com/fr-FR/temps/aujour/l/FRXX6464:1:FR", headers={"User-Agent": USER_AGENT})
+        # check error
+        if r.status_code == 200:
+            d_today = {}
+            s = BeautifulSoup(r.content, "html.parser")
+            # temp current
+            try:
+                d_today['t'] = int(s.find("div", attrs={"class": "today_nowcard-temp"}).text.strip()[:-1])
+            except:
+                d_today['t'] = None
+            # weather status str
+            try:
+                d_today['description'] = s.find("div", attrs={"class": "today_nowcard-phrase"}).text.strip().lower()
+            except:
+                d_today['description'] = 'n/a'
+            # temp max/min
+            l_span = s.find_all("span", attrs={"class": "deg-hilo-nowcard"})
+            try:
+                d_today['t_max'] = int(l_span[0].text.strip()[:-1])
+            except:
+                d_today['t_max'] = d_today['t']
+            try:
+                d_today['t_min'] = int(l_span[1].text.strip()[:-1])
+            except:
+                d_today['t_min'] = d_today['t']
+            # store to redis
+            DS.redis_set_obj('weather:today:loos', d_today)
+            DS.redis_set_ttl('weather:today:loos', ttl=3600)
+    except Exception:
+        logging.error(traceback.format_exc())
+
+
+def openweathermap_forecast_job():
     # https request
     try:
         # build url
         ow_url = "http://api.openweathermap.org/data/2.5/forecast?"
-        ow_url += "q=%s&appid=%s&units=metric&lang=fr"
-        ow_url %= (ow_city, ow_app_id)
+        ow_url += "q=Loos,fr&appid=%s&units=metric&lang=fr" % ow_app_id
         # do request
         ow_d = requests.get(ow_url, timeout=5.0).json()
         # decode json
@@ -122,9 +159,8 @@ def openweathermap_job():
                             t_today = item['main']['temp']
                             d_days[0]['t'] = t_today
         # store to redis
-        city_name, _ = ow_city.split(',')
-        DS.redis_set_obj('weather:forecast:%s' % city_name.lower(), d_days)
-        DS.redis_set_ttl('weather:forecast:%s' % city_name.lower(), ttl=3600)
+        DS.redis_set_obj('weather:forecast:loos', d_days)
+        DS.redis_set_ttl('weather:forecast:loos', ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -317,13 +353,15 @@ if __name__ == '__main__':
     schedule.every(2).minutes.do(twitter_job)
     schedule.every(5).minutes.do(local_info_job)
     schedule.every(5).minutes.do(gsheet_job)
-    schedule.every(5).minutes.do(openweathermap_job)
+    schedule.every(5).minutes.do(weather_today_job)
     schedule.every(5).minutes.do(vigilance_job)
     schedule.every(5).minutes.do(gmap_travel_time_job)
+    schedule.every(15).minutes.do(openweathermap_forecast_job)
     #schedule.every(30).minutes.do(sport_l1_job)
     # first call
     gsheet_job()
-    openweathermap_job()
+    weather_today_job()
+    openweathermap_forecast_job()
     vigilance_job()
     local_info_job()
     iswip_job()

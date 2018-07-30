@@ -4,7 +4,6 @@ master_host = 192.168.0.60
 url = <gsheet url>
 [openweathermap]
 app_id = <openweathermap app_id>
-city = Loos, fr
 [iswip]
 url = <url iswip>
 [gmap]
