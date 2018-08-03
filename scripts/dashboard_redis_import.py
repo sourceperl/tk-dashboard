@@ -15,7 +15,6 @@ import redis
 import requests
 from requests_oauthlib import OAuth1
 import schedule
-import urllib.parse
 import pytz
 from xml.dom import minidom
 
@@ -34,9 +33,6 @@ gsheet_url = cnf.get('gsheet', 'url')
 ow_app_id = cnf.get('openweathermap', 'app_id')
 # iswip
 iswip_url = cnf.get('iswip', 'url')
-# gmap (traffic duration)
-gmap_key = cnf.get('gmap', 'key')
-gmap_origin = cnf.get('gmap', 'origin')
 # gmap img traffic
 gmap_img_url = cnf.get("gmap_img", "img_url")
 gmap_img_target = cnf.get("gmap_img", "img_target")
@@ -123,6 +119,37 @@ def weather_today_job():
             # store to redis
             DS.redis_set_obj('weather:today:loos', d_today)
             DS.redis_set_ttl('weather:today:loos', ttl=3600)
+    except Exception:
+        logging.error(traceback.format_exc())
+
+
+def air_quality_atmo_hdf_job():
+    # define class
+    class AtmoHdfBeautifulSoup(BeautifulSoup):
+        def find_ville_id(self, ville_id):
+            try:
+                str_ssindice = '{"indice": "france", "periode": "ajd", "ville_id": "%i"}' % ville_id
+                idx = int(self.find("div", attrs={"data-ssindice": str_ssindice}).find("span").text.strip())
+            except (AttributeError, ValueError):
+                idx = 0
+            return idx
+    # https request
+    try:
+        r = requests.get("http://www.atmo-hdf.fr/")
+        # check error
+        if r.status_code == 200:
+            d_air_quality = {}
+            bs = AtmoHdfBeautifulSoup(r.content, "html.parser")
+            # search today index for some ids
+            d_air_quality["amiens"] = bs.find_ville_id(3)
+            d_air_quality["lille"] = bs.find_ville_id(13)
+            d_air_quality["dunkerque"] = bs.find_ville_id(19)
+            d_air_quality["valenciennes"] = bs.find_ville_id(22)
+            d_air_quality["maubeuge"] = bs.find_ville_id(16)
+            d_air_quality["saint-quentin"] = bs.find_ville_id(109)
+            # update redis
+            DS.redis_set_obj("atmo:quality", d_air_quality)
+            DS.redis_set_ttl("atmo:quality", ttl=1800)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -240,26 +267,27 @@ def local_info_job():
         logging.error(traceback.format_exc())
 
 
-def gmap_travel_time_job():
-    try:
-        d_traffic = {}
-        for gm_dest in ("Arras", "Amiens", "Dunkerque", "Maubeuge", "Reims"):
-            # build url
-            gm_url_origin = urllib.parse.quote_plus(gmap_origin)
-            gm_url_destination = urllib.parse.quote_plus(gm_dest)
-            gm_url = "https://maps.googleapis.com/maps/api/directions/json"
-            gm_url += "?&origin=%s&destination=%s&departure_time=now&key=%s"
-            gm_url %= gm_url_origin, gm_url_destination, gmap_key
-            # http request
-            gm_json = requests.get(gm_url, timeout=5.0).json()
-            # decode json
-            duration_abs = gm_json["routes"][0]["legs"][0]["duration"]["value"]
-            duration_with_traffic = gm_json["routes"][0]["legs"][0]["duration_in_traffic"]["value"]
-            d_traffic[gm_dest] = dict(duration=duration_abs, duration_traffic=duration_with_traffic)
-        DS.redis_set_obj('gmap:traffic', d_traffic)
-        DS.redis_set_ttl('gmap:traffic', ttl=1800)
-    except Exception:
-        logging.error(traceback.format_exc())
+# deprecated
+# def gmap_travel_time_job():
+#     try:
+#         d_traffic = {}
+#         for gm_dest in ("Arras", "Amiens", "Dunkerque", "Maubeuge", "Reims"):
+#             # build url
+#             gm_url_origin = urllib.parse.quote_plus(gmap_origin)
+#             gm_url_destination = urllib.parse.quote_plus(gm_dest)
+#             gm_url = "https://maps.googleapis.com/maps/api/directions/json"
+#             gm_url += "?&origin=%s&destination=%s&departure_time=now&key=%s"
+#             gm_url %= gm_url_origin, gm_url_destination, gmap_key
+#             # http request
+#             gm_json = requests.get(gm_url, timeout=5.0).json()
+#             # decode json
+#             duration_abs = gm_json["routes"][0]["legs"][0]["duration"]["value"]
+#             duration_with_traffic = gm_json["routes"][0]["legs"][0]["duration_in_traffic"]["value"]
+#             d_traffic[gm_dest] = dict(duration=duration_abs, duration_traffic=duration_with_traffic)
+#         DS.redis_set_obj('gmap:traffic', d_traffic)
+#         DS.redis_set_ttl('gmap:traffic', ttl=1800)
+#     except Exception:
+#         logging.error(traceback.format_exc())
 
 
 def twitter_job():
@@ -355,19 +383,17 @@ if __name__ == '__main__':
     schedule.every(5).minutes.do(gsheet_job)
     schedule.every(5).minutes.do(weather_today_job)
     schedule.every(5).minutes.do(vigilance_job)
-    schedule.every(5).minutes.do(gmap_travel_time_job)
+    schedule.every(15).minutes.do(air_quality_atmo_hdf_job)
     schedule.every(15).minutes.do(openweathermap_forecast_job)
-    #schedule.every(30).minutes.do(sport_l1_job)
     # first call
     gsheet_job()
     weather_today_job()
+    air_quality_atmo_hdf_job()
     openweathermap_forecast_job()
     vigilance_job()
     local_info_job()
     iswip_job()
-    gmap_travel_time_job()
     twitter_job()
-    #sport_l1_job()
 
     # main loop
     while True:

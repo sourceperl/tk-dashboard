@@ -145,7 +145,7 @@ class Tags:
     #        -> tag subscriber callback code are call by IO thread (not by tkinter main thread)
     D_GSHEET_GRT = Tag(cmd_src=lambda: DS.redis_get_obj("gsheet:grt"))
     D_ISWIP_ROOM = Tag(cmd_src=lambda: DS.redis_get_obj("iswip:room_status"))
-    D_GMAP_TRAFFIC = Tag(cmd_src=lambda: DS.redis_get_obj("gmap:traffic"))
+    D_ATMO_QUALITY = Tag(cmd_src=lambda: DS.redis_get_obj("atmo:quality"))
     D_W_TODAY_LOOS = Tag(cmd_src=lambda: DS.redis_get_obj("weather:today:loos"))
     D_W_FORECAST_LOOS = Tag(cmd_src=lambda: DS.redis_get_obj("weather:forecast:loos"))
     D_WEATHER_VIG = Tag(cmd_src=lambda: DS.redis_get_obj("weather:vigilance"))
@@ -258,21 +258,21 @@ class LiveTab(Tab):
     def __init__(self, *args, **kwargs):
         Tab.__init__(self, *args, **kwargs)
         # create all tiles for this tab here
-        # traffic Amiens
-        self.tl_tf_ami = TrafficDurationTile(self, to_city="Amiens")
-        self.tl_tf_ami.set_tile(row=0, column=0)
-        # traffic Arras
-        self.tl_tf_arr = TrafficDurationTile(self, to_city="Arras")
-        self.tl_tf_arr.set_tile(row=0, column=1)
-        # traffic Dunkerque
-        self.tl_tf_dunk = TrafficDurationTile(self, to_city="Dunkerque")
-        self.tl_tf_dunk.set_tile(row=0, column=2)
-        # traffic Maubeuge
-        self.tl_tf_maub = TrafficDurationTile(self, to_city="Maubeuge")
-        self.tl_tf_maub.set_tile(row=0, column=3)
-        # traffic Valenciennes
-        self.tl_tf_vale = TrafficDurationTile(self, to_city="Reims")
-        self.tl_tf_vale.set_tile(row=0, column=4)
+        # logo Atmo HDF
+        self.tl_img_atmo = ImageTile(self, file=IMG_PATH + "logo_atmo_hdf.png", bg="white")
+        self.tl_img_atmo.set_tile(row=0, column=0)
+        # air quality Dunkerque
+        self.tl_atmo_dunk = AirQualityTile(self, city="Dunkerque")
+        self.tl_atmo_dunk.set_tile(row=0, column=1)
+        # air quality Lille
+        self.tl_atmo_lil = AirQualityTile(self, city="Lille")
+        self.tl_atmo_lil.set_tile(row=0, column=2)
+        # air quality Maubeuge
+        self.tl_atmo_maub = AirQualityTile(self, city="Maubeuge")
+        self.tl_atmo_maub.set_tile(row=0, column=3)
+        # air quality Saint-Quentin
+        self.tl_atmo_sque = AirQualityTile(self, city="Saint-Quentin")
+        self.tl_atmo_sque.set_tile(row=0, column=4)
         # traffic map
         self.tl_tf_map = ImageRefreshTile(self, file=gmap_img_target, img_ratio=2, bg="white")
         self.tl_tf_map.set_tile(row=1, column=0, rowspan=3, columnspan=5)
@@ -350,21 +350,14 @@ class LiveTab(Tab):
         # weather
         self.tl_weath.w_today_dict = Tags.D_W_TODAY_LOOS.get()
         self.tl_weath.w_forecast_dict = Tags.D_W_FORECAST_LOOS.get()
-        # Amiens
-        self.tl_tf_ami.travel_t = Tags.D_GMAP_TRAFFIC.get(("Amiens", "duration"))
-        self.tl_tf_ami.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Amiens", "duration_traffic"))
-        # Arras
-        self.tl_tf_arr.travel_t = Tags.D_GMAP_TRAFFIC.get(("Arras", "duration"))
-        self.tl_tf_arr.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Arras", "duration_traffic"))
-        # Dunkerque
-        self.tl_tf_dunk.travel_t = Tags.D_GMAP_TRAFFIC.get(("Dunkerque", "duration"))
-        self.tl_tf_dunk.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Dunkerque", "duration_traffic"))
-        # Maubeuge
-        self.tl_tf_maub.travel_t = Tags.D_GMAP_TRAFFIC.get(("Maubeuge", "duration"))
-        self.tl_tf_maub.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Maubeuge", "duration_traffic"))
-        # Valenciennes
-        self.tl_tf_vale.travel_t = Tags.D_GMAP_TRAFFIC.get(("Reims", "duration"))
-        self.tl_tf_vale.traffic_t = Tags.D_GMAP_TRAFFIC.get(("Reims", "duration_traffic"))
+        # air Dunkerque
+        self.tl_atmo_dunk.qlt_index = Tags.D_ATMO_QUALITY.get("dunkerque")
+        # air Lille
+        self.tl_atmo_lil.qlt_index = Tags.D_ATMO_QUALITY.get("lille")
+        # air Maubeuge
+        self.tl_atmo_maub.qlt_index = Tags.D_ATMO_QUALITY.get("maubeuge")
+        # air Saint-Quentin
+        self.tl_atmo_sque.qlt_index = Tags.D_ATMO_QUALITY.get("saint-quentin")
         # update news widget
         self.tl_news.l_titles = Tags.D_NEWS_LOCAL.get()
         # gauges update
@@ -535,75 +528,135 @@ class TwitterTile(Tile):
             self._tw_text.set("n/a")
 
 
-class TrafficDurationTile(Tile):
-    def __init__(self, *args, to_city, **kwargs):
+# deprecated
+# class TrafficDurationTile(Tile):
+#     def __init__(self, *args, to_city, **kwargs):
+#         Tile.__init__(self, *args, **kwargs)
+#         # public
+#         self.to_city = to_city
+#         # private
+#         self._travel_t = 0
+#         self._traffic_t = 0
+#         self._traffic_str = tk.StringVar()
+#         self._t_inc_str = tk.StringVar()
+#         self._traffic_str.set("N/A")
+#         self._t_inc_str.set("N/A")
+#         # tk job
+#         tk.Label(self, text=to_city, font="bold").pack()
+#         tk.Label(self).pack()
+#         tk.Label(self, textvariable=self._traffic_str).pack()
+#         tk.Label(self, textvariable=self._t_inc_str).pack()
+#
+#     @property
+#     def travel_t(self):
+#         return self._travel_t
+#
+#     @travel_t.setter
+#     def travel_t(self, value):
+#         # check type
+#         try:
+#             value = int(value)
+#         except (TypeError, ValueError):
+#             value = None
+#         # check change
+#         if self._travel_t != value:
+#             self._travel_t = value
+#             self._on_data_change()
+#
+#     @property
+#     def traffic_t(self):
+#         return self._travel_t
+#
+#     @traffic_t.setter
+#     def traffic_t(self, value):
+#         # check type
+#         try:
+#             value = int(value)
+#         except (TypeError, ValueError):
+#             value = None
+#         # check change
+#         if self._traffic_t != value:
+#             self._traffic_t = value
+#             self._on_data_change()
+#
+#     def _on_data_change(self):
+#         try:
+#             t_increase = self._traffic_t - self._travel_t
+#             t_increase_ratio = t_increase / self._travel_t
+#         except (TypeError, ZeroDivisionError):
+#             # set tk var
+#             self._traffic_str.set("N/A")
+#             self._t_inc_str.set("N/A")
+#             # choose tile color
+#             tile_color = "pink"
+#         else:
+#             # set tk var
+#             self._traffic_str.set("%.0f mn" % (self._traffic_t / 60))
+#             self._t_inc_str.set("%+.0f mn" % (t_increase / 60))
+#             # choose tile color
+#             tile_color = "green"
+#             if t_increase_ratio > 0.50:
+#                 tile_color = "red"
+#             elif t_increase_ratio > 0.15:
+#                 tile_color = "orange"
+#         # update tile and his childs color
+#         for w in self.winfo_children():
+#             w.configure(bg=tile_color)
+#         self.configure(bg=tile_color)
+
+
+class AirQualityTile(Tile):
+    QUALITY_LVL = ("n/a", "très bon", "très bon", "bon", "bon", "moyen",
+                   "médiocre", "médiocre", "mauvais", "mauvais", "très mauvais")
+
+    def __init__(self, *args, city, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # public
-        self.to_city = to_city
+        self.city = city
         # private
-        self._travel_t = 0
-        self._traffic_t = 0
-        self._traffic_str = tk.StringVar()
-        self._t_inc_str = tk.StringVar()
-        self._traffic_str.set("N/A")
-        self._t_inc_str.set("N/A")
+        self._qlt_index = 0
+        self._index_str = tk.StringVar()
+        self._status_str = tk.StringVar()
+        self._index_str.set("N/A")
+        self._status_str.set("N/A")
         # tk job
-        tk.Label(self, text=to_city, font="bold").pack()
+        tk.Label(self, text=city, font="bold").pack()
         tk.Label(self).pack()
-        tk.Label(self, textvariable=self._traffic_str).pack()
-        tk.Label(self, textvariable=self._t_inc_str).pack()
+        tk.Label(self, textvariable=self._index_str).pack()
+        tk.Label(self, textvariable=self._status_str).pack()
 
     @property
-    def travel_t(self):
-        return self._travel_t
+    def qlt_index(self):
+        return self._qlt_index
 
-    @travel_t.setter
-    def travel_t(self, value):
+    @qlt_index.setter
+    def qlt_index(self, value):
         # check type
         try:
             value = int(value)
         except (TypeError, ValueError):
             value = None
         # check change
-        if self._travel_t != value:
-            self._travel_t = value
-            self._on_data_change()
-
-    @property
-    def traffic_t(self):
-        return self._travel_t
-
-    @traffic_t.setter
-    def traffic_t(self, value):
-        # check type
-        try:
-            value = int(value)
-        except (TypeError, ValueError):
-            value = None
-        # check change
-        if self._traffic_t != value:
-            self._traffic_t = value
+        if self._qlt_index != value:
+            self._qlt_index = value
             self._on_data_change()
 
     def _on_data_change(self):
         try:
-            t_increase = self._traffic_t - self._travel_t
-            t_increase_ratio = t_increase / self._travel_t
+            self._index_str.set("%d/10" % self._qlt_index)
+            self._status_str.set(AirQualityTile.QUALITY_LVL[self._qlt_index])
         except (TypeError, ZeroDivisionError):
             # set tk var
-            self._traffic_str.set("N/A")
-            self._t_inc_str.set("N/A")
+            self._index_str.set("N/A")
+            self._status_str.set("N/A")
             # choose tile color
             tile_color = "pink"
         else:
-            # set tk var
-            self._traffic_str.set("%.0f mn" % (self._traffic_t / 60))
-            self._t_inc_str.set("%+.0f mn" % (t_increase / 60))
             # choose tile color
             tile_color = "green"
-            if t_increase_ratio > 0.50:
-                tile_color = "red"
-            elif t_increase_ratio > 0.15:
+            if self._qlt_index > 7:
+                tile_color = "firebrick"
+            elif self._qlt_index > 4:
                 tile_color = "orange"
         # update tile and his childs color
         for w in self.winfo_children():
@@ -613,7 +666,7 @@ class TrafficDurationTile(Tile):
 
 class VigilanceTile(Tile):
     VIG_LVL = ["verte", "jaune", "orange", "rouge"]
-    VIG_COLOR = ["green", "yellow", "orange", "red"]
+    VIG_COLOR = ["green", "yellow", "orange", "firebrick"]
 
     def __init__(self, *args, department="", **kwargs):
         Tile.__init__(self, *args, **kwargs)
