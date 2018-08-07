@@ -381,10 +381,15 @@ class LiveTab(Tab):
                                               Tags.D_GSHEET_GRT.get(("tags", "Q_HRE_OBJ_DTS")))
         # weather vigilance
         self.tl_vig_59.vig_level = Tags.D_WEATHER_VIG.get(("department", "59", "vig_level"))
+        self.tl_vig_59.risk_ids = Tags.D_WEATHER_VIG.get(("department", "59", "risk_id"))
         self.tl_vig_62.vig_level = Tags.D_WEATHER_VIG.get(("department", "62", "vig_level"))
+        self.tl_vig_62.risk_ids = Tags.D_WEATHER_VIG.get(("department", "62", "risk_id"))
         self.tl_vig_80.vig_level = Tags.D_WEATHER_VIG.get(("department", "80", "vig_level"))
+        self.tl_vig_80.risk_ids = Tags.D_WEATHER_VIG.get(("department", "80", "risk_id"))
         self.tl_vig_02.vig_level = Tags.D_WEATHER_VIG.get(("department", "02", "vig_level"))
+        self.tl_vig_02.risk_ids = Tags.D_WEATHER_VIG.get(("department", "02", "risk_id"))
         self.tl_vig_60.vig_level = Tags.D_WEATHER_VIG.get(("department", "60", "vig_level"))
+        self.tl_vig_60.risk_ids = Tags.D_WEATHER_VIG.get(("department", "60", "risk_id"))
         # Watts news
         self.tl_watts.pwr = Tags.MET_PWR_ACT.get()
         self.tl_watts.today_wh = Tags.MET_TODAY_WH.get()
@@ -667,6 +672,8 @@ class AirQualityTile(Tile):
 class VigilanceTile(Tile):
     VIG_LVL = ["verte", "jaune", "orange", "rouge"]
     VIG_COLOR = ["green", "yellow", "orange", "firebrick"]
+    ID_RISK = ["n/a", "vent", "pluie", "orage", "inondation", "neige", "canicule", "grand froid", "avalanche",
+               "submersion"]
 
     def __init__(self, *args, department="", **kwargs):
         Tile.__init__(self, *args, **kwargs)
@@ -674,6 +681,7 @@ class VigilanceTile(Tile):
         self.department = department
         # private
         self._vig_level = None
+        self._risk_ids = []
         self._level_str = tk.StringVar()
         self._risk_str = tk.StringVar()
         self._level_str.set("N/A")
@@ -682,9 +690,9 @@ class VigilanceTile(Tile):
         self.configure(bg="pink")
         tk.Label(self, text="Vigilance", font="bold", bg="pink").pack()
         tk.Label(self, text=self.department, font="bold", bg="pink").pack()
-        tk.Label(self, bg="pink").pack()
+        tk.Label(self, font=("", 6), bg="pink").pack()
         tk.Label(self, textvariable=self._level_str, font="bold", bg="pink").pack()
-        tk.Label(self, textvariable=self._risk_str, bg="pink").pack()
+        tk.Label(self, textvariable=self._risk_str, font=("", 8), bg="pink").pack()
 
     @property
     def vig_level(self):
@@ -702,6 +710,22 @@ class VigilanceTile(Tile):
             self._vig_level = value
             self._on_data_change()
 
+    @property
+    def risk_ids(self):
+        return self._risk_ids
+
+    @risk_ids.setter
+    def risk_ids(self, value):
+        # check type
+        try:
+            value = [int(i) for i in list(value)]
+        except (TypeError, ValueError):
+            value = []
+        # check change
+        if self._risk_ids != value:
+            self._risk_ids = value
+            self._on_data_change()
+
     def _on_data_change(self):
         try:
             self._level_str.set("%s" % VigilanceTile.VIG_LVL[self._vig_level].upper())
@@ -711,6 +735,14 @@ class VigilanceTile(Tile):
             self._level_str.set("N/A")
             # choose tile color
             tile_color = "pink"
+        try:
+            str_risk = " "
+            for id_risk in self._risk_ids[:2]:
+                str_risk += VigilanceTile.ID_RISK[id_risk] + " "
+            self._risk_str.set("%s" % str_risk)
+        except (IndexError, TypeError):
+            # set tk var
+            self._risk_str.set("n/a")
         # update tile and his childs color
         for w in self.winfo_children():
             w.configure(bg=tile_color)

@@ -214,9 +214,9 @@ def vigilance_job():
                 # current "department"
                 dep_code = str(items.attributes['dep'].value)
                 # get risk ID  if exist
-                risk_id = None
+                risk_id = []
                 for risk in items.getElementsByTagName('risque'):
-                    risk_id = int(risk.attributes['valeur'].value)
+                    risk_id.append(int(risk.attributes['valeur'].value))
                 # get flood ID if exist
                 flood_id = None
                 for flood in items.getElementsByTagName('crue'):
