@@ -672,8 +672,8 @@ class AirQualityTile(Tile):
 class VigilanceTile(Tile):
     VIG_LVL = ["verte", "jaune", "orange", "rouge"]
     VIG_COLOR = ["green", "yellow", "orange", "firebrick"]
-    ID_RISK = ["n/a", "vent", "pluie", "orage", "inondation", "neige", "canicule", "grand froid", "avalanche",
-               "submersion"]
+    ID_RISK = ["n/a", "vent", "pluie", "orages", "inondation", "neige verglas",
+               "canicule", "grand froid", "avalanches", "submersion"]
 
     def __init__(self, *args, department="", **kwargs):
         Tile.__init__(self, *args, **kwargs)
