@@ -52,30 +52,32 @@ cnf = ConfigParser()
 cnf.read(os.path.expanduser('~/.dashboard_config'))
 # hostname of master dashboard
 dash_master_host = cnf.get("dashboard", "master_host")
+# hostname of bridge server
+bridge_host = cnf.get("bridge", "bridge_host")
 # gmap img traffic
 gmap_img_target = cnf.get("gmap_img", "img_target")
 # twitter cloud img
 tw_cloud_img = cnf.get("twitter", "cloud_img")
 
 
-class DS:
-    # create connector
-    r = redis.StrictRedis(host=dash_master_host, socket_timeout=4, socket_keepalive=True)
-
-    # redis access method
-    @classmethod
-    def redis_get(cls, name):
+class CustomRedis(redis.StrictRedis):
+    def get_str(self, name):
         try:
-            return cls.r.get(name).decode('utf-8')
+            return self.get(name).decode('utf-8')
         except (redis.RedisError, AttributeError):
             return None
 
-    @classmethod
-    def redis_get_obj(cls, name):
+    def get_obj(self, name):
         try:
-            return json.loads(cls.r.get(name).decode('utf-8'))
+            return json.loads(self.get(name).decode('utf-8'))
         except (redis.RedisError, AttributeError, json.decoder.JSONDecodeError):
             return None
+
+
+class DB:
+    # create connector
+    master = CustomRedis(host=dash_master_host, socket_timeout=4, socket_keepalive=True)
+    bridge = CustomRedis(host=bridge_host, socket_timeout=4, socket_keepalive=True)
 
 
 class Tag:
@@ -143,17 +145,17 @@ class Tags:
     # create all tag here
     # WARNs: -> all tag are manage by an IO thread
     #        -> tag subscriber callback code are call by IO thread (not by tkinter main thread)
-    D_GSHEET_GRT = Tag(cmd_src=lambda: DS.redis_get_obj("gsheet:grt"))
-    D_ISWIP_ROOM = Tag(cmd_src=lambda: DS.redis_get_obj("iswip:room_status"))
-    D_ATMO_QUALITY = Tag(cmd_src=lambda: DS.redis_get_obj("atmo:quality"))
-    D_W_TODAY_LOOS = Tag(cmd_src=lambda: DS.redis_get_obj("weather:today:loos"))
-    D_W_FORECAST_LOOS = Tag(cmd_src=lambda: DS.redis_get_obj("weather:forecast:loos"))
-    D_WEATHER_VIG = Tag(cmd_src=lambda: DS.redis_get_obj("weather:vigilance"))
-    D_NEWS_LOCAL = Tag(cmd_src=lambda: DS.redis_get_obj("news:local"))
-    D_TWEETS_GRT = Tag(cmd_src=lambda: DS.redis_get_obj("twitter:tweets:grtgaz"))
-    MET_PWR_ACT = Tag(cmd_src=lambda: DS.redis_get_obj("meters:electric:site:pwr_act"))
-    MET_TODAY_WH = Tag(cmd_src=lambda: DS.redis_get_obj("meters:electric:site:today_wh"))
-    MET_YESTERDAY_WH = Tag(cmd_src=lambda: DS.redis_get_obj("meters:electric:site:yesterday_wh"))
+    D_GSHEET_GRT = Tag(cmd_src=lambda: DB.master.get_obj("gsheet:grt"))
+    D_ISWIP_ROOM = Tag(cmd_src=lambda: DB.master.get_obj("iswip:room_status"))
+    D_ATMO_QUALITY = Tag(cmd_src=lambda: DB.master.get_obj("atmo:quality"))
+    D_W_TODAY_LOOS = Tag(cmd_src=lambda: DB.master.get_obj("weather:today:loos"))
+    D_W_FORECAST_LOOS = Tag(cmd_src=lambda: DB.master.get_obj("weather:forecast:loos"))
+    D_WEATHER_VIG = Tag(cmd_src=lambda: DB.master.get_obj("weather:vigilance"))
+    D_NEWS_LOCAL = Tag(cmd_src=lambda: DB.master.get_obj("news:local"))
+    D_TWEETS_GRT = Tag(cmd_src=lambda: DB.master.get_obj("twitter:tweets:grtgaz"))
+    MET_PWR_ACT = Tag(cmd_src=lambda: DB.master.get_obj("meters:electric:site:pwr_act"))
+    MET_TODAY_WH = Tag(cmd_src=lambda: DB.master.get_obj("meters:electric:site:today_wh"))
+    MET_YESTERDAY_WH = Tag(cmd_src=lambda: DB.master.get_obj("meters:electric:site:yesterday_wh"))
 
     @classmethod
     def tags_io_thread(cls):

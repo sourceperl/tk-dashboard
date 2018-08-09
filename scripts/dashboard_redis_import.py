@@ -43,32 +43,41 @@ tw_access_token = cnf.get("twitter", "access_token")
 tw_access_token_secret = cnf.get("twitter", "access_token_secret")
 
 
-# dataset access
-class DS:
-    # create connector
-    r = redis.StrictRedis(host=dash_master_host, socket_timeout=4, socket_keepalive=True)
-
-    # redis access method
-    @classmethod
-    def redis_set(cls, name, value):
+class CustomRedis(redis.StrictRedis):
+    def get_str(self, name):
         try:
-            return cls.r.set(name, value)
-        except redis.RedisError:
+            return self.get(name).decode('utf-8')
+        except (redis.RedisError, AttributeError):
             return None
 
-    @classmethod
-    def redis_set_obj(cls, name, obj):
+    def get_obj(self, name):
         try:
-            return cls.r.set(name, json.dumps(obj))
+            return json.loads(self.get(name).decode('utf-8'))
         except (redis.RedisError, AttributeError, json.decoder.JSONDecodeError):
             return None
 
-    @classmethod
-    def redis_set_ttl(cls, name, ttl=3600):
+    def set_str(self, name, value):
         try:
-            return cls.r.expire(name, ttl)
+            return self.set(name, value)
         except redis.RedisError:
             return None
+
+    def set_obj(self, name, obj):
+        try:
+            return self.set(name, json.dumps(obj))
+        except (redis.RedisError, AttributeError, json.decoder.JSONDecodeError):
+            return None
+
+    def set_ttl(self, name, ttl=3600):
+        try:
+            return self.expire(name, ttl)
+        except redis.RedisError:
+            return None
+
+
+class DB:
+    # create connector
+    master = CustomRedis(host=dash_master_host, socket_timeout=4, socket_keepalive=True)
 
 
 # some function
@@ -82,8 +91,8 @@ def gsheet_job():
             tag, value = line.split(',')
             d[tag] = value
         redis_d = dict(update=datetime.now().isoformat("T"), tags=d)
-        DS.redis_set_obj("gsheet:grt", redis_d)
-        DS.redis_set_ttl("gsheet:grt", ttl=3600)
+        DB.master.set_obj("gsheet:grt", redis_d)
+        DB.master.set_ttl("gsheet:grt", ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -117,8 +126,8 @@ def weather_today_job():
             except:
                 d_today['t_min'] = d_today['t']
             # store to redis
-            DS.redis_set_obj('weather:today:loos', d_today)
-            DS.redis_set_ttl('weather:today:loos', ttl=3600)
+            DB.master.set_obj('weather:today:loos', d_today)
+            DB.master.set_ttl('weather:today:loos', ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -148,8 +157,8 @@ def air_quality_atmo_hdf_job():
             d_air_quality["maubeuge"] = bs.find_ville_id(16)
             d_air_quality["saint-quentin"] = bs.find_ville_id(109)
             # update redis
-            DS.redis_set_obj("atmo:quality", d_air_quality)
-            DS.redis_set_ttl("atmo:quality", ttl=1800)
+            DB.master.set_obj("atmo:quality", d_air_quality)
+            DB.master.set_ttl("atmo:quality", ttl=1800)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -186,8 +195,8 @@ def openweathermap_forecast_job():
                             t_today = item['main']['temp']
                             d_days[0]['t'] = t_today
         # store to redis
-        DS.redis_set_obj('weather:forecast:loos', d_days)
-        DS.redis_set_ttl('weather:forecast:loos', ttl=3600)
+        DB.master.set_obj('weather:forecast:loos', d_days)
+        DB.master.set_ttl('weather:forecast:loos', ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -227,8 +236,8 @@ def vigilance_job():
                 vig_data['department'][dep_code] = {'vig_level': color_id,
                                                     'flood_level': flood_id,
                                                     'risk_id': risk_id}
-            DS.redis_set_obj("weather:vigilance", vig_data)
-            DS.redis_set_ttl("weather:vigilance", ttl=3600)
+            DB.master.set_obj("weather:vigilance", vig_data)
+            DB.master.set_ttl("weather:vigilance", ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -249,8 +258,8 @@ def iswip_job():
                     dev_msg = value
             # update redis
             d_dev[dev_id] = dev_msg
-        DS.redis_set_obj('iswip:room_status', d_dev)
-        DS.redis_set_ttl('iswip:room_status', ttl=3600)
+        DB.master.set_obj('iswip:room_status', d_dev)
+        DB.master.set_ttl('iswip:room_status', ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -261,8 +270,8 @@ def local_info_job():
         l_titles = []
         for post in feedparser.parse("https://france3-regions.francetvinfo.fr/societe/rss?r=hauts-de-france").entries:
             l_titles.append(post.title)
-        DS.redis_set_obj("news:local", l_titles)
-        DS.redis_set_ttl("news:local", ttl=3600)
+        DB.master.set_obj("news:local", l_titles)
+        DB.master.set_ttl("news:local", ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -324,8 +333,8 @@ def twitter_job():
                     tweets_l.append(tcl_normalize_str(tw["full_text"]))
             # update redis
             d_redis = dict(tweets=tweets_l, update=datetime.now().isoformat("T"))
-            DS.redis_set_obj("twitter:tweets:grtgaz", d_redis)
-            DS.redis_set_ttl("twitter:tweets:grtgaz", ttl=1800)
+            DB.master.set_obj("twitter:tweets:grtgaz", d_redis)
+            DB.master.set_ttl("twitter:tweets:grtgaz", ttl=1800)
     except Exception:
         logging.error(traceback.format_exc())
         return None
@@ -364,8 +373,8 @@ def sport_l1_job():
                         od_l1_club[name]["for"] = l_td_center[4].text.strip()
                         od_l1_club[name]["against"] = l_td_center[5].text.strip()
                         od_l1_club[name]["diff"] = l_td_center[6].text.strip()
-            DS.redis_set_obj("sport:l1", od_l1_club)
-            DS.redis_set_ttl("sport:l1", ttl=7200)
+            DB.master.set_obj("sport:l1", od_l1_club)
+            DB.master.set_ttl("sport:l1", ttl=7200)
     except Exception:
         logging.error(traceback.format_exc())
         return None
