@@ -156,6 +156,7 @@ class Tags:
     MET_PWR_ACT = Tag(cmd_src=lambda: DB.master.get_obj("meters:electric:site:pwr_act"))
     MET_TODAY_WH = Tag(cmd_src=lambda: DB.master.get_obj("meters:electric:site:today_wh"))
     MET_YESTERDAY_WH = Tag(cmd_src=lambda: DB.master.get_obj("meters:electric:site:yesterday_wh"))
+    L_FLYSPRAY_RSS = Tag(cmd_src=lambda: DB.bridge.get_obj("rx:bur:flyspray_rss"))
 
     @classmethod
     def tags_io_thread(cls):
@@ -317,17 +318,20 @@ class LiveTab(Tab):
         # Watts news
         self.tl_watts = WattsTile(self)
         self.tl_watts.set_tile(row=4, column=5, columnspan=2)
+        # flyspray
+        self.tl_fly = FlysprayTile(self)
+        self.tl_fly.set_tile(row=5, column=0,  rowspan=3, columnspan=5)
         # meeting room
         self.tl_room_prj = MeetingRoomTile(self, room="Salle project")
-        self.tl_room_prj.set_tile(row=5, column=0, columnspan=2)
+        self.tl_room_prj.set_tile(row=5, column=5,columnspan=2)
         self.tl_room_trn = MeetingRoomTile(self, room="Salle trainning")
-        self.tl_room_trn.set_tile(row=6, column=0, columnspan=2)
+        self.tl_room_trn.set_tile(row=6, column=5, columnspan=2)
         self.tl_room_met = MeetingRoomTile(self, room="Salle meeting")
-        self.tl_room_met.set_tile(row=7, column=0, columnspan=2)
-        self.tl_room_bur1 = MeetingRoomTile(self, room="Bureau passage 1")
-        self.tl_room_bur1.set_tile(row=5, column=2, columnspan=2)
-        self.tl_room_bur2 = MeetingRoomTile(self, room="Bureau passage 2")
-        self.tl_room_bur2.set_tile(row=6, column=2, columnspan=2)
+        self.tl_room_met.set_tile(row=7, column=5, columnspan=2)
+        # self.tl_room_bur1 = MeetingRoomTile(self, room="Bureau passage 1")
+        # self.tl_room_bur1.set_tile(row=5, column=2, columnspan=2)
+        # self.tl_room_bur2 = MeetingRoomTile(self, room="Bureau passage 2")
+        # self.tl_room_bur2.set_tile(row=6, column=2, columnspan=2)
         # acc days stat
         self.tl_acc = DaysAccTile(self)
         self.tl_acc.set_tile(row=0, column=8, columnspan=5, rowspan=2)
@@ -400,8 +404,10 @@ class LiveTab(Tab):
         self.tl_room_trn.status = Tags.D_ISWIP_ROOM.get("Salle_TRAINNING")
         self.tl_room_prj.status = Tags.D_ISWIP_ROOM.get("Salle_PROJECT")
         self.tl_room_met.status = Tags.D_ISWIP_ROOM.get("Salle_MEETING")
-        self.tl_room_bur1.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_1")
-        self.tl_room_bur2.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_2")
+        # self.tl_room_bur1.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_1")
+        # self.tl_room_bur2.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_2")
+        # flyspray
+        self.tl_fly.l_items = Tags.L_FLYSPRAY_RSS.get()
 
 
 class PdfTab(Tab):
@@ -534,6 +540,45 @@ class TwitterTile(Tile):
             self._tw_index = 0
             self._tw_text.set("n/a")
 
+
+class FlysprayTile(Tile):
+    def __init__(self, *args, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
+        # public
+        # private
+        self._l_items = None
+        self._msg_text = tk.StringVar()
+        self._msg_text.set("n/a")
+        # tk job
+        tk.Label(self, text="live Flyspray DTS Nord", bg=self.cget("bg"),
+                 font=("courier", 14, "bold", "underline")).pack()
+        tk.Label(self, textvariable=self._msg_text, bg=self.cget("bg"),
+                 wraplength=550, justify=tk.LEFT, font=("courier", 11)).pack(expand=True)
+
+    @property
+    def l_items(self):
+        return self._l_items
+
+    @l_items.setter
+    def l_items(self, value):
+        # check type
+        try:
+            value = list(value)
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._l_items != value:
+            self._l_items = value
+            self._on_data_change()
+
+    def _on_data_change(self):
+        try:
+            msg = ""
+            for item in self._l_items[:12]:
+                msg += "%s\n" % item['title']
+            self._msg_text.set(msg)
+        except Exception:
+            self._msg_text.set("n/a")
 
 # deprecated
 # class TrafficDurationTile(Tile):
