@@ -33,9 +33,6 @@ gsheet_url = cnf.get('gsheet', 'url')
 ow_app_id = cnf.get('openweathermap', 'app_id')
 # iswip
 iswip_url = cnf.get('iswip', 'url')
-# gmap img traffic
-gmap_img_url = cnf.get("gmap_img", "img_url")
-gmap_img_target = cnf.get("gmap_img", "img_target")
 # twitter
 tw_api_key = cnf.get("twitter", "api_key")
 tw_api_secret = cnf.get("twitter", "api_secret")

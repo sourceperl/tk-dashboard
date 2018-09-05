@@ -31,9 +31,6 @@ Step : file independant, can be used without pdf and images
 """
 
 # some const
-IMG_PATH = "/home/pi/dashboard/images/"
-PDF_PATH = "/home/pi/dashboard/pdf_reglementation/"
-DOC_PATH = "/home/pi/dashboard/Document_affichage/"
 # Geometry
 TAB_PAD_HEIGHT = 17
 TAB_PAD_WIDTH = 17
@@ -54,10 +51,16 @@ cnf.read(os.path.expanduser('~/.dashboard_config'))
 dash_master_host = cnf.get("dashboard", "master_host")
 # hostname of bridge server
 bridge_host = cnf.get("bridge", "bridge_host")
+# paths
+dashboard_ramdisk = cnf.get("paths", "dashboard_ramdisk")
+dashboard_root_path = cnf.get("paths", "dashboard_root_path")
+dashboard_img_path = dashboard_root_path + cnf.get("paths", "dashboard_img_dir")
+reglement_doc_path = dashboard_root_path + cnf.get("paths", "reglement_doc_dir")
+carousel_img_path = dashboard_root_path + cnf.get("paths", "carousel_img_dir")
 # gmap img traffic
-gmap_img_target = cnf.get("gmap_img", "img_target")
+gmap_img_target = dashboard_ramdisk + cnf.get("gmap_img", "img_target")
 # twitter cloud img
-tw_cloud_img = cnf.get("twitter", "cloud_img")
+tw_cloud_img = dashboard_ramdisk + cnf.get("twitter", "cloud_img")
 
 
 class CustomRedis(redis.StrictRedis):
@@ -183,7 +186,7 @@ class MainApp(tk.Tk):
         # define notebook
         self.note = ttk.Notebook(self)
         self.tab1 = LiveTab(self.note)
-        self.tab2 = PdfTab(self.note, pdf_path=PDF_PATH)
+        self.tab2 = PdfTab(self.note, pdf_path=reglement_doc_path)
         self.note.add(self.tab1, text="Tableau de bord")
         self.note.add(self.tab2, text="Affichage réglementaire")
         self.note.pack()
@@ -262,7 +265,7 @@ class LiveTab(Tab):
         Tab.__init__(self, *args, **kwargs)
         # create all tiles for this tab here
         # logo Atmo HDF
-        self.tl_img_atmo = ImageTile(self, file=IMG_PATH + "logo_atmo_hdf.png", bg="white")
+        self.tl_img_atmo = ImageTile(self, file=dashboard_img_path + "logo_atmo_hdf.png", bg="white")
         self.tl_img_atmo.set_tile(row=0, column=0)
         # air quality Dunkerque
         self.tl_atmo_dunk = AirQualityTile(self, city="Dunkerque")
@@ -339,7 +342,7 @@ class LiveTab(Tab):
         self.tl_tw_live = TwitterTile(self)
         self.tl_tw_live.set_tile(row=2, column=8, columnspan=5, rowspan=2)
         # logo img
-        self.tl_img_logo = ImageTile(self, file=IMG_PATH + "logo.png", bg="white")
+        self.tl_img_logo = ImageTile(self, file=dashboard_img_path + "logo.png", bg="white")
         self.tl_img_logo.set_tile(row=6, column=13, rowspan=2, columnspan=4)
         # carousel
         self.tl_crl = ImageCarouselTile(self)
@@ -1157,11 +1160,11 @@ class MeetingRoomTile(Tile):
             try:
                 # set traffic light image
                 if self._status == "Occ" or self._status == "OccPeriod":
-                    self.tk_img.configure(file=IMG_PATH + "tf_red.png")
+                    self.tk_img.configure(file=dashboard_img_path + "tf_red.png")
                 elif self._status == "Unocc":
-                    self.tk_img.configure(file=IMG_PATH + "tf_orange.png")
+                    self.tk_img.configure(file=dashboard_img_path + "tf_orange.png")
                 elif self._status == "UnoccRepeat":
-                    self.tk_img.configure(file=IMG_PATH + "tf_green.png")
+                    self.tk_img.configure(file=dashboard_img_path + "tf_green.png")
             except Exception:
                 logging.error(traceback.format_exc())
 
@@ -1416,7 +1419,7 @@ class ImageCarouselTile(Tile):
             logging.error(traceback.format_exc())
 
     def _img_files_reload(self):
-        self._img_files = glob.glob(DOC_PATH + "*.png")
+        self._img_files = glob.glob(carousel_img_path + "*.png")
 
 
 # main

@@ -15,13 +15,15 @@ cnf = ConfigParser()
 cnf.read(os.path.expanduser('~/.dashboard_config'))
 # hostname of master dashboard
 dash_master_host = cnf.get("dashboard", "master_host")
+dashboard_ramdisk = cnf.get("paths", "dashboard_ramdisk")
+dashboard_root_path = cnf.get("paths", "dashboard_root_path")
 
 
 def hot_file_sync_job():
-    # mirror master dashboard /media/ramdisk/ -> slave /media/ramdisk/
+    # mirror master dashboard ramdisk (like /media/ramdisk/) -> slave ramdisk
     try:
-        cmd = "rsync -aAxX --delete --omit-dir-times %s:/media/ramdisk/. /media/ramdisk/."
-        cmd %= dash_master_host
+        cmd = "rsync -aAxX --delete --omit-dir-times %s:%s. %s."
+        cmd %= dash_master_host, dashboard_ramdisk, dashboard_ramdisk
         subprocess.call(cmd.split())
     except Exception:
         logging.error(traceback.format_exc())
@@ -29,10 +31,10 @@ def hot_file_sync_job():
 
 
 def cold_file_sync_job():
-    # mirror master dashboard /home/pi/dashboard/ -> slave /home/pi/dashboard/
+    # mirror master dashboard root path (like /home/pi/dashboard/) -> to slave one
     try:
-        cmd = "rsync -aAxX --delete %s:/home/pi/dashboard/. /home/pi/dashboard/."
-        cmd %= dash_master_host
+        cmd = "rsync -aAxX --delete %s:%s. %s."
+        cmd %= dash_master_host, dashboard_root_path, dashboard_root_path
         subprocess.call(cmd.split())
     except Exception:
         logging.error(traceback.format_exc())

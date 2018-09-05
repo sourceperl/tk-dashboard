@@ -18,15 +18,17 @@ from wordcloud import WordCloud
 # read config
 cnf = ConfigParser()
 cnf.read(os.path.expanduser('~/.dashboard_config'))
+# paths
+dashboard_ramdisk = cnf.get("paths", "dashboard_ramdisk")
 # gmap img traffic
 gmap_img_url = cnf.get("gmap_img", "img_url")
-gmap_img_target = cnf.get("gmap_img", "img_target")
+gmap_img_target = dashboard_ramdisk + cnf.get("gmap_img", "img_target")
 # twitter
 tw_api_key = cnf.get("twitter", "api_key")
 tw_api_secret = cnf.get("twitter", "api_secret")
 tw_access_token = cnf.get("twitter", "access_token")
 tw_access_token_secret = cnf.get("twitter", "access_token_secret")
-tw_cloud_img = cnf.get("twitter", "cloud_img")
+tw_cloud_img = dashboard_ramdisk + cnf.get("twitter", "cloud_img")
 
 
 # some function
