@@ -437,8 +437,8 @@ class PdfTab(Tab):
                     tl_pdf.destroy()
                 self._l_tl_pdf = list()
                 # populate with new tiles
-                # start at 1:1 pos
-                (r, c) = (1, 1)
+                # start at 0:1 pos
+                (r, c) = (0, 1)
                 for pdf_file in pdf_file_l:
                     self._l_tl_pdf.append(PdfOpenerTile(self, file=pdf_file))
                     self._l_tl_pdf[-1].set_tile(row=r, column=c, columnspan=5, rowspan=1)
