@@ -1396,29 +1396,48 @@ class ImageCarouselTile(Tile):
         # private
         self._img_index = 0
         self._img_files = list()
+        self._skip_update_cnt = 0
         # tk job
         self.configure(bg="white")
         self.tk_img = tk.PhotoImage()
         self.lbl_img = tk.Label(self, image=self.tk_img)
         self.lbl_img.pack(expand=True)
         # first img load
-        self._img_files_reload()
+        self._img_files_load()
+        # bind function for skip update
+        self.bind("<Button-1>", self._on_click)
+        self.lbl_img.bind("<Button-1>", self._on_click)
         # auto-update carousel rotate
         self.start_cyclic_update(update_ms=refresh_rate)
 
     def update(self):
+        # display next image or skip this if skip counter is set
+        if self._skip_update_cnt > 0:
+            self._skip_update_cnt -= 1
+        else:
+            self._load_next_img()
+
+    def _on_click(self, evt=None):
+        # on first click: skip the 4 next auto update cycle
+        # on second one or more: load the next image
+        if not self._skip_update_cnt > 0:
+            self._skip_update_cnt = 4
+        else:
+            self._load_next_img()
+
+    def _load_next_img(self):
         # next img file index
         self._img_index += 1
         if self._img_index >= len(self._img_files):
             self._img_index = 0
-            self._img_files_reload()
+            self._img_files_load()
         # display current image file
         try:
             self.tk_img.configure(file=self._img_files[self._img_index])
         except Exception:
             logging.error(traceback.format_exc())
 
-    def _img_files_reload(self):
+    def _img_files_load(self):
         self._img_files = glob.glob(carousel_img_path + "*.png")
 
 
