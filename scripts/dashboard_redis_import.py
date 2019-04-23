@@ -97,7 +97,7 @@ def gsheet_job():
 def weather_today_job():
     try:
         # request HTML data from server
-        r = requests.get("https://weather.com/fr-FR/temps/aujour/l/FRXX6464:1:FR", headers={"User-Agent": USER_AGENT})
+        r = requests.get("https://weather.com/fr-FR/temps/aujour/l/FRXX6464:1:FR", timeout=5.0, headers={"User-Agent": USER_AGENT})
         # check error
         if r.status_code == 200:
             d_today = {}
@@ -141,7 +141,7 @@ def air_quality_atmo_hdf_job():
             return idx
     # https request
     try:
-        r = requests.get("http://www.atmo-hdf.fr/")
+        r = requests.get("http://www.atmo-hdf.fr/", timeout=5.0)
         # check error
         if r.status_code == 200:
             d_air_quality = {}
@@ -155,7 +155,7 @@ def air_quality_atmo_hdf_job():
             d_air_quality["saint-quentin"] = bs.find_ville_id(109)
             # update redis
             DB.master.set_obj("atmo:quality", d_air_quality)
-            DB.master.set_ttl("atmo:quality", ttl=1800)
+            DB.master.set_ttl("atmo:quality", ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
