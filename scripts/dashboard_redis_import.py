@@ -130,32 +130,40 @@ def weather_today_job():
 
 
 def air_quality_atmo_hdf_job():
-    # define class
-    class AtmoHdfBeautifulSoup(BeautifulSoup):
-        def find_ville_id(self, ville_id):
-            try:
-                str_ssindice = '{"indice": "france", "periode": "ajd", "ville_id": "%i"}' % ville_id
-                idx = int(self.find("div", attrs={"data-ssindice": str_ssindice}).find("span").text.strip())
-            except (AttributeError, ValueError):
-                idx = 0
-            return idx
+    url = 'https://services8.arcgis.com/rxZzohbySMKHTNcy/arcgis/rest/services/ind_hdf_agglo/FeatureServer/0/query' \
+          '?where=1%3D1&outFields=date_ech,valeur,source,qualif,couleur,lib_zone,code_zone,type_zone' \
+          '&returnGeometry=false&resultRecordCount=48&orderByFields=date_ech%20DESC&outSR=4326&f=json'
+    today_dt_date = datetime.today().date()
     # https request
     try:
-        r = requests.get("http://www.atmo-hdf.fr/", timeout=5.0)
+        r = requests.get(url, timeout=5.0)
         # check error
         if r.status_code == 200:
+            # decode json message
+            atmo_raw_d = r.json()
+            # populate zones dict with receive values
+            zones_d = {}
+            for record in atmo_raw_d['features']:
+                # load record data
+                r_lib_zone = record['attributes']['lib_zone']
+                r_code_zone = record['attributes']['code_zone']
+                r_ts = int(record['attributes']['date_ech'])
+                r_dt = datetime.utcfromtimestamp(r_ts / 1000)
+                r_value = record['attributes']['valeur']
+                # retain today value
+                if r_dt.date() == today_dt_date:
+                    zones_d[r_code_zone] = r_value
+            # create and populate result dict
             d_air_quality = {}
-            bs = AtmoHdfBeautifulSoup(r.content, "html.parser")
-            # search today index for some ids
-            d_air_quality["amiens"] = bs.find_ville_id(3)
-            d_air_quality["lille"] = bs.find_ville_id(13)
-            d_air_quality["dunkerque"] = bs.find_ville_id(19)
-            d_air_quality["valenciennes"] = bs.find_ville_id(22)
-            d_air_quality["maubeuge"] = bs.find_ville_id(16)
-            d_air_quality["saint-quentin"] = bs.find_ville_id(109)
+            d_air_quality['amiens'] = zones_d.get('80021', 0)
+            d_air_quality['lille'] = zones_d.get('59350', 0)
+            d_air_quality['dunkerque'] = zones_d.get('59183', 0)
+            d_air_quality['valenciennes'] = zones_d.get('59606', 0)
+            d_air_quality['maubeuge'] = zones_d.get('59392', 0)
+            d_air_quality['saint-quentin'] = zones_d.get('02691', 0)
             # update redis
-            DB.master.set_obj("atmo:quality", d_air_quality)
-            DB.master.set_ttl("atmo:quality", ttl=3600)
+            DB.master.set_obj('atmo:quality', d_air_quality)
+            DB.master.set_ttl('atmo:quality', ttl=3600*4)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -389,8 +397,8 @@ if __name__ == '__main__':
     schedule.every(5).minutes.do(gsheet_job)
     schedule.every(5).minutes.do(weather_today_job)
     schedule.every(5).minutes.do(vigilance_job)
-    schedule.every(15).minutes.do(air_quality_atmo_hdf_job)
     schedule.every(15).minutes.do(openweathermap_forecast_job)
+    schedule.every(60).minutes.do(air_quality_atmo_hdf_job)
     # first call
     gsheet_job()
     weather_today_job()
