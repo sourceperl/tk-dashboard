@@ -391,7 +391,7 @@ if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s %(message)s')
 
     # init scheduler
-    schedule.every(1).minute.do(iswip_job)
+    #schedule.every(1).minute.do(iswip_job)
     schedule.every(2).minutes.do(twitter_job)
     schedule.every(5).minutes.do(local_info_job)
     schedule.every(5).minutes.do(gsheet_job)
@@ -406,7 +406,7 @@ if __name__ == '__main__':
     openweathermap_forecast_job()
     vigilance_job()
     local_info_job()
-    iswip_job()
+    #iswip_job()
     twitter_job()
 
     # main loop
