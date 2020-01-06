@@ -46,6 +46,7 @@ def ls_files(path, ext=""):
     return [join(path, file) for file in os.listdir(path) if isfile(join(path, file)) and file.endswith(ext)]
 
 
+# format carousel files (PDF, PNG, JPG) to match dashboard requirements
 def update_img_carousel_job():
     try:
         # log sync start
@@ -94,6 +95,7 @@ def update_img_carousel_job():
         return None
 
 
+# sync owncloud carousel directory with local
 def owncloud_sync_carousel_job():
     try:
         # log sync start
@@ -138,6 +140,7 @@ def owncloud_sync_carousel_job():
         return None
 
 
+# sync owncloud document directory with local
 def owncloud_sync_doc_job():
     try:
         # log sync start
@@ -173,6 +176,7 @@ def owncloud_sync_doc_job():
         return None
 
 
+# check if the owncloud directories has been updated by users (start sync jobs with redis publish if need)
 def check_owncloud_update_job():
     propfind_request = '<?xml version="1.0" encoding="utf-8" ?>' \
                        '<d:propfind xmlns:d="DAV:"><d:prop><d:getlastmodified/></d:prop></d:propfind>'
