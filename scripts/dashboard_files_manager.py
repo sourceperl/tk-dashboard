@@ -9,12 +9,21 @@ import time
 import traceback
 import shutil
 import subprocess
+from xml.dom import minidom
+import urllib3
+import urllib.parse
+import dateutil.parser
 import schedule
 import redis
+import requests
 import webdav.client as wc
+
+# configure package (disable warning for self-signed certificate)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # some const
 HASH_BUF_SIZE = 64 * 1024
+HTTP_MULTI_STATUS = 207
 
 # read config
 cnf = ConfigParser()
@@ -37,7 +46,7 @@ def ls_files(path, ext=""):
     return [join(path, file) for file in os.listdir(path) if isfile(join(path, file)) and file.endswith(ext)]
 
 
-def manage_carousel_job():
+def update_img_carousel_job():
     try:
         # log sync start
         logging.debug("start of carousel job")
@@ -96,15 +105,18 @@ def owncloud_sync_carousel_job():
         # list owncloud files
         ownc_files_l = wdc.list(webdav_carousel_img_dir)
         ownc_files_l = [f for f in ownc_files_l if not f.endswith('/')]
+        ownc_change = False
 
         # exist only on local
         for f in list(set(local_files_l) - set(ownc_files_l)):
             logging.debug('"%s" exist only on local -> remove it' % f)
             os.remove(join(carousel_upload_dir, f))
+            ownc_change = True
         # exist only on remote
         for f in list(set(ownc_files_l) - set(local_files_l)):
             logging.debug('"%s" exist only on remote -> download it' % f)
             wdc.download(join(webdav_carousel_img_dir, f), local_path=join(carousel_upload_dir, f))
+            ownc_change = True
         # exist at both side (update only if file size change)
         for f in list(set(local_files_l).intersection(ownc_files_l)):
             local_size = int(getsize(join(carousel_upload_dir, f)))
@@ -113,12 +125,13 @@ def owncloud_sync_carousel_job():
             if local_size != remote_size:
                 logging.debug('"%s" size mismatch -> download it' % f)
                 wdc.download(join(webdav_carousel_img_dir, f), local_path=join(carousel_upload_dir, f))
+                ownc_change = True
 
         # log sync end
         logging.debug('end of sync for owncloud carousel')
 
         # notify carousel manager
-        if ownc_files_l:
+        if ownc_change:
             r.publish("dashboard:trigger", "carousel_update")
     except Exception:
         logging.error(traceback.format_exc())
@@ -160,16 +173,49 @@ def owncloud_sync_doc_job():
         return None
 
 
-def check_requests_job():
+def check_owncloud_update_job():
+    propfind_request = '<?xml version="1.0" encoding="utf-8" ?>' \
+                       '<d:propfind xmlns:d="DAV:"><d:prop><d:getlastmodified/></d:prop></d:propfind>'
     try:
-        # request owncloud document update
-        if r.get('requests:owc_document:update') == b'1':
-            r.set('requests:owc_document:update', b'0')
-            r.publish("dashboard:trigger", b'owc_document')
-        # request owncloud carousel update
-        if r.get('requests:owc_carousel:update') == b'1':
-            r.set('requests:owc_carousel:update', b'0')
-            r.publish("dashboard:trigger", b'owc_carousel')
+        # init request session
+        s = requests.Session()
+        s.auth = (webdav_user, webdav_pass)
+        req = s.request(method='PROPFIND', url=webdav_host + webdav_root,
+                        data=propfind_request, headers={'Depth': '1'}, verify=False)
+        # check result
+        if req.status_code == HTTP_MULTI_STATUS:
+            # parse XML
+            dom = minidom.parseString(req.text.encode('ascii', 'xmlcharrefreplace'))
+            # for every d:response
+            for response in dom.getElementsByTagName('d:response'):
+                href = response.getElementsByTagName('d:href')[0].firstChild.data
+                # d:getlastmodified, oc:checksum and oc:size in d:response/d:propstat/d:prop
+                prop_stat = response.getElementsByTagName('d:propstat')[0]
+                prop = prop_stat.getElementsByTagName('d:prop')[0]
+                get_last_modified = prop.getElementsByTagName('d:getlastmodified')[0].firstChild.data
+                dt_last_modified = dateutil.parser.parse(get_last_modified)
+                name = urllib.parse.unquote(href[len(webdav_root):])[1:]
+                update_ts = int(dt_last_modified.timestamp())
+                # document update ?
+                if name == webdav_reglement_doc_dir:
+                    try:
+                        last_update = int(r.get('owncloud:document:update_ts'))
+                    except TypeError:
+                        last_update = 0
+                    # update need
+                    if update_ts > last_update:
+                        r.publish('dashboard:trigger', 'owc_document')
+                        r.set('owncloud:document:update_ts', update_ts)
+                # carousel update ?
+                elif name == webdav_carousel_img_dir:
+                    try:
+                        last_update = int(r.get('owncloud:carousel:update_ts'))
+                    except TypeError:
+                        last_update = 0
+                    # update need
+                    if update_ts > last_update:
+                        r.publish('dashboard:trigger', 'owc_carousel')
+                        r.set('owncloud:carousel:update_ts', update_ts)
     except Exception:
         logging.error(traceback.format_exc())
         return None
@@ -178,8 +224,8 @@ def check_requests_job():
 # main
 if __name__ == '__main__':
     # logging setup
-    # logging.basicConfig(format='%(asctime)s %(message)s')
-    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
+    logging.basicConfig(format='%(asctime)s %(message)s')
+    # logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
 
     # init webdav client
     wdc = wc.Client(dict(webdav_hostname=webdav_host, webdav_root=webdav_root,
@@ -194,12 +240,11 @@ if __name__ == '__main__':
     ps.subscribe(["dashboard:trigger"])
 
     # init scheduler
-    schedule.every(2).minutes.do(check_requests_job)
+    schedule.every(2).minutes.do(check_owncloud_update_job)
     schedule.every(4).hours.do(owncloud_sync_carousel_job)
     schedule.every(4).hours.do(owncloud_sync_doc_job)
-    schedule.every(4).hours.do(manage_carousel_job)
     # first call
-    check_requests_job()
+    check_owncloud_update_job()
 
     # main loop
     while True:
@@ -211,7 +256,7 @@ if __name__ == '__main__':
             if msg and msg["type"] == "message":
                 # immediate carousel update on redis notify
                 if msg["data"].decode() == "carousel_update":
-                    manage_carousel_job()
+                    update_img_carousel_job()
                 # immediate owncloud document update on redis notify
                 if msg["data"].decode() == "owc_document":
                     owncloud_sync_doc_job()
