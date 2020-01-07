@@ -244,7 +244,7 @@ if __name__ == '__main__':
     ps.subscribe(["dashboard:trigger"])
 
     # init scheduler
-    schedule.every(2).minutes.do(check_owncloud_update_job)
+    schedule.every(5).minutes.do(check_owncloud_update_job)
     schedule.every(4).hours.do(owncloud_sync_carousel_job)
     schedule.every(4).hours.do(owncloud_sync_doc_job)
     # first call
