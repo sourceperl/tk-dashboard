@@ -1439,6 +1439,7 @@ class ImageCarouselTile(Tile):
 
     def _img_files_load(self):
         self._img_files = glob.glob(carousel_img_path + "*.png")
+        self._img_files.sort()
 
 
 # main

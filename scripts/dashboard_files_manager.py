@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 from configparser import ConfigParser
+import glob
 import hashlib
 import logging
 import os
-from os.path import splitext, isfile, getsize, join, expanduser
+from os.path import basename, splitext, isfile, getsize, join, expanduser
 import time
 import traceback
 import shutil
@@ -52,41 +53,66 @@ def update_img_carousel_job():
         # log sync start
         logging.debug("start of carousel job")
         # extract md5 hash from name of png files in img directory
-        files_hash_l = [splitext(f)[0] for f in os.listdir(carousel_img_path) if f.endswith(".png")]
-        rm_hash_l = files_hash_l.copy()
+        file_hash_l = []
+        for img_fname in os.listdir(carousel_img_path):
+            if img_fname.endswith(".png"):
+                # extract hash from index_md5.png or md5.png form
+                try:
+                    md5_hash = splitext(img_fname)[0].split('_')[1]
+                except:
+                    md5_hash = splitext(img_fname)[0]
+                file_hash_l.append(md5_hash)
+        rm_hash_l = file_hash_l.copy()
 
-        # for all files in display dir
-        for f in ls_files(carousel_upload_dir):
-            # filters supported file types
-            if f.endswith(".pdf") or f.endswith(".png") or f.endswith(".jpg"):
-                # compute md5 hash of file
-                md5 = hashlib.md5()
-                with open(f, 'rb') as fh:
-                    while True:
-                        data = fh.read(HASH_BUF_SIZE)
-                        if not data:
-                            break
-                        md5.update(data)
-                md5_hash = md5.hexdigest()
-                # file not already converted (md5 exist ?)
-                if md5_hash not in files_hash_l:
-                    logging.debug("%s not exist, build it" % md5_hash)
-                    # convert to PNG
-                    subprocess.call("mogrify -density 500 -resize 655x453 -format png".split() + [f + "[0]"])
-                    # move png file from upload dir to img dir
-                    shutil.move(splitext(f)[0] + ".png", join(carousel_img_path, "%s.png" % md5_hash))
-                else:
-                    # remove current hash from rm list
-                    try:
-                        rm_hash_l.remove(md5_hash)
-                    except ValueError:
-                        pass
+        # get all files with pdf, png or jpg type in upload directory (images source), build a sorted list
+        file_img_src_l = []
+        for src_fname in os.listdir(carousel_upload_dir):
+            if isfile(join(carousel_upload_dir, src_fname)):
+                if src_fname.endswith(".pdf") or src_fname.endswith(".png") or src_fname.endswith(".jpg"):
+                    file_img_src_l.append(src_fname)
+        # build sorted list
+        file_img_src_l.sort()
+        # check if md5 of src file match img hash (in filename)
+        for index, src_fname in enumerate(file_img_src_l):
+            src_fname_full_path = join(carousel_upload_dir, src_fname)
+            # compute md5 hash of file
+            md5 = hashlib.md5()
+            with open(src_fname_full_path, 'rb') as fh:
+                while True:
+                    data = fh.read(HASH_BUF_SIZE)
+                    if not data:
+                        break
+                    md5.update(data)
+            md5_hash = md5.hexdigest()
+            # build target img file name
+            target_img_fname = "%03i_%s.png" % (index, md5_hash)
+            # if file not already converted (md5 not in list): do mogrify
+            if md5_hash not in file_hash_l:
+                logging.debug("hash %s not exist, build it" % md5_hash)
+                # convert to PNG
+                subprocess.call("mogrify -density 500 -resize 655x453 -format png".split() +
+                                [src_fname_full_path + "[0]"])
+                # move png file from upload dir to img dir with sort index as first 3 chars
+                shutil.move(splitext(src_fname_full_path)[0] + ".png",
+                            join(carousel_img_path, target_img_fname))
+            # if src file is already converted, just check index
+            else:
+                # reindex: check current index, update it if need
+                for img_fname_to_check in glob.glob(join(carousel_img_path, "*%s.png" % md5_hash)):
+                    if not img_fname_to_check.endswith(target_img_fname):
+                        logging.debug("rename %s to %s" % (basename(img_fname_to_check), target_img_fname))
+                        os.rename(img_fname_to_check, join(carousel_img_path, target_img_fname))
+                # remove current hash from rm list
+                try:
+                    rm_hash_l.remove(md5_hash)
+                except ValueError:
+                    pass
 
-        # remove file from
-        for f_hash in rm_hash_l:
-            f_full_path = join(carousel_img_path, "%s.png" % f_hash)
-            logging.debug("remove old file %s" % f_full_path)
-            os.remove(f_full_path)
+        # remove orphan img file (without src)
+        for rm_hash in rm_hash_l:
+            for img_fname_to_rm in glob.glob(join(carousel_img_path, "*%s.png" % rm_hash)):
+                logging.debug("remove old file %s" % img_fname_to_rm)
+                os.remove(img_fname_to_rm)
 
         # log sync end
         logging.debug("end of carousel job")
