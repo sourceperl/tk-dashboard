@@ -13,7 +13,7 @@
 
 ### Setup redis
 
-    sudo apt-get install redis-server
+    sudo apt-get install -y redis-server
     # edit config file /etc/redis/redis.conf
     # for use with pi SD card, we need to reduce backup cycle
     # -> here we use only "save 3600 1"
@@ -26,6 +26,11 @@
 
 ### Setup
 
+    mkdir -p /home/pi/dashboard/img
+    mkdir -p /home/pi/dashboard/carousel_upload
+    mkdir -p /home/pi/dashboard/carousel_img
+    mkdir -p /home/pi/dashboard/reglement_doc
+    sudo apt-get install -y xpdf
     sudo pip3 install -r requirements.txt
     sudo cp -r scripts/* /usr/local/bin/
 
@@ -36,7 +41,7 @@
 
 ### Setup supervisor
 
-    sudo apt-get install supervisor
+    sudo apt-get install -y supervisor
     # for master dashboard (do all external requests and own the redis db)
     sudo cp etc/supervisor/conf.d/dashboard_master.conf /etc/supervisor/conf.d/
     # for slave dashboard (connect to master redis db and sync all files with master)
@@ -44,9 +49,15 @@
     # reload conf
     sudo supervisorctl update
 
+### Turn off screensaver
+
+    sudo apt-get install -y xscreensaver
+    sudo reboot
+    # in lxde GUI menu go to Preferences option/screensaver and deactivate it
+
 ### Setup remote access
 
-    sudo apt-get install x11vnc
+    sudo apt-get install -y x11vnc
     # create password
     x11vnc -storepasswd
     # launch server as you want
