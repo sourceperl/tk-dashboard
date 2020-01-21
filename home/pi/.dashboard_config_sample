@@ -30,8 +30,7 @@ cloud_img = grt_cloud.png
 tspeak_pwr_w_key = <TS WRITE API KEY>
 tspeak_idx_w_key = <TS WRITE API KEY>
 [owncloud_dashboard]
-webdav_host = https://192.168.0.71
-webdav_root = /owncloud/remote.php/webdav
+webdav_url = https://192.168.0.71/owncloud/remote.php/webdav/
 webdav_user = dashboard
 webdav_pass = <owncloud password>
 webdav_reglement_doc_dir = Affichage réglementaire/
