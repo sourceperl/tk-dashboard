@@ -149,7 +149,7 @@ class Tags:
     # WARNs: -> all tag are manage by an IO thread
     #        -> tag subscriber callback code are call by IO thread (not by tkinter main thread)
     D_GSHEET_GRT = Tag(cmd_src=lambda: DB.master.get_obj("gsheet:grt"))
-    D_ISWIP_ROOM = Tag(cmd_src=lambda: DB.master.get_obj("iswip:room_status"))
+    # D_ISWIP_ROOM = Tag(cmd_src=lambda: DB.master.get_obj("iswip:room_status"))
     D_ATMO_QUALITY = Tag(cmd_src=lambda: DB.master.get_obj("atmo:quality"))
     D_W_TODAY_LOOS = Tag(cmd_src=lambda: DB.master.get_obj("weather:today:loos"))
     D_W_FORECAST_LOOS = Tag(cmd_src=lambda: DB.master.get_obj("weather:forecast:loos"))
@@ -323,14 +323,14 @@ class LiveTab(Tab):
         self.tl_watts.set_tile(row=4, column=5, columnspan=2)
         # flyspray
         self.tl_fly = FlysprayTile(self)
-        self.tl_fly.set_tile(row=5, column=0,  rowspan=3, columnspan=5)
+        self.tl_fly.set_tile(row=5, column=0,  rowspan=3, columnspan=7)
         # meeting room
-        self.tl_room_prj = MeetingRoomTile(self, room="Salle project")
-        self.tl_room_prj.set_tile(row=5, column=5,columnspan=2)
-        self.tl_room_trn = MeetingRoomTile(self, room="Salle trainning")
-        self.tl_room_trn.set_tile(row=6, column=5, columnspan=2)
-        self.tl_room_met = MeetingRoomTile(self, room="Salle meeting")
-        self.tl_room_met.set_tile(row=7, column=5, columnspan=2)
+        # self.tl_room_prj = MeetingRoomTile(self, room="Salle project")
+        # self.tl_room_prj.set_tile(row=5, column=5,columnspan=2)
+        # self.tl_room_trn = MeetingRoomTile(self, room="Salle trainning")
+        # self.tl_room_trn.set_tile(row=6, column=5, columnspan=2)
+        # self.tl_room_met = MeetingRoomTile(self, room="Salle meeting")
+        # self.tl_room_met.set_tile(row=7, column=5, columnspan=2)
         # self.tl_room_bur1 = MeetingRoomTile(self, room="Bureau passage 1")
         # self.tl_room_bur1.set_tile(row=5, column=2, columnspan=2)
         # self.tl_room_bur2 = MeetingRoomTile(self, room="Bureau passage 2")
@@ -404,9 +404,9 @@ class LiveTab(Tab):
         self.tl_watts.today_wh = Tags.MET_TODAY_WH.get()
         self.tl_watts.yesterday_wh = Tags.MET_YESTERDAY_WH.get()
         # update room status
-        self.tl_room_trn.status = Tags.D_ISWIP_ROOM.get("Salle_TRAINNING")
-        self.tl_room_prj.status = Tags.D_ISWIP_ROOM.get("Salle_PROJECT")
-        self.tl_room_met.status = Tags.D_ISWIP_ROOM.get("Salle_MEETING")
+        # self.tl_room_trn.status = Tags.D_ISWIP_ROOM.get("Salle_TRAINNING")
+        # self.tl_room_prj.status = Tags.D_ISWIP_ROOM.get("Salle_PROJECT")
+        # self.tl_room_met.status = Tags.D_ISWIP_ROOM.get("Salle_MEETING")
         # self.tl_room_bur1.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_1")
         # self.tl_room_bur2.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_2")
         # flyspray
@@ -556,7 +556,7 @@ class FlysprayTile(Tile):
         tk.Label(self, text="live Flyspray DTS Nord", bg=self.cget("bg"),
                  font=("courier", 14, "bold", "underline")).pack()
         tk.Label(self, textvariable=self._msg_text, bg=self.cget("bg"),
-                 wraplength=550, justify=tk.LEFT, font=("courier", 11)).pack(expand=True)
+                 wraplength=750, justify=tk.LEFT, font=("courier", 11)).pack(expand=True)
 
     @property
     def l_items(self):
