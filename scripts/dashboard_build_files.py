@@ -3,6 +3,7 @@
 from collections import Counter
 from configparser import ConfigParser
 import logging
+import io
 import os
 import re
 import time
@@ -12,6 +13,7 @@ from requests_oauthlib import OAuth1
 import schedule
 import shutil
 import urllib.parse
+from PIL import Image
 from wordcloud import WordCloud
 
 
@@ -96,6 +98,21 @@ def gmap_traffic_img_job():
         logging.error(traceback.format_exc())
 
 
+# retrieve DIR-est web images
+def dir_est_img_job():
+    # http request
+    try:
+        for id_cam in ["laxou", "houpette", "mulhouse2"]:
+            r = requests.get("http://oeil.dir-est.fr/consultation-pub/?clusterCameraCode=%s" % id_cam)
+            if r.status_code == 200:
+                # resize image and it save to ramdisk
+                img = Image.open(io.BytesIO(r.content))
+                img.thumbnail([224, 235])
+                img.save(dashboard_ramdisk + "dir_%s.png" % id_cam, "PNG")
+    except Exception:
+        logging.error(traceback.format_exc())
+
+
 # main
 if __name__ == '__main__':
     # logging setup
@@ -103,9 +120,11 @@ if __name__ == '__main__':
 
     # init scheduler
     schedule.every(2).minutes.do(gmap_traffic_img_job)
+    schedule.every(5).minutes.do(dir_est_img_job)
     schedule.every(60).minutes.do(twitter2cloud_job)
     # first call
     gmap_traffic_img_job()
+    dir_est_img_job()
     twitter2cloud_job()
 
     # main loop
