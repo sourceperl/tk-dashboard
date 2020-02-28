@@ -280,7 +280,7 @@ class LiveTab(Tab):
         self.tl_atmo_sque = AirQualityTile(self, city="Saint-Quentin")
         self.tl_atmo_sque.set_tile(row=0, column=4)
         # traffic map
-        self.tl_tf_map = ImageRefreshTile(self, file=gmap_img_target, img_ratio=2, bg="white")
+        self.tl_tf_map = ImageRefreshTile(self, file=gmap_img_target, img_ratio=1, bg="white")
         self.tl_tf_map.set_tile(row=1, column=0, rowspan=3, columnspan=5)
         # weather
         self.tl_weath = WeatherTile(self)
