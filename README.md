@@ -15,8 +15,10 @@
 
     sudo apt-get install -y redis-server
     # edit config file /etc/redis/redis.conf
-    # for use with pi SD card, we need to reduce backup cycle
-    # -> here we use only "save 3600 1"
+    # -> for use with pi SD card, we need to reduce backup cycle
+    #    here we use only "save 3600 1"
+    # -> also we need to comment bind line to allow redis listen all the interfaces
+    # -> set protected-mode to "no"
 
 ### Copy config file (URL, API credentials, misc...)
 
@@ -32,6 +34,8 @@
     mkdir -p /home/pi/dashboard/reglement_doc
     sudo apt-get install -y xpdf
     sudo pip3 install -r requirements.txt
+    # need by wordcloud 1.6.0 on raspbian buster
+    sudo pip3 install cairocffire
     # Loos dashboard
     sudo cp -r scripts/loos/* /usr/local/bin/
     # Messein dashboard
