@@ -249,7 +249,7 @@ def local_info_job():
     # do request
     try:
         l_titles = []
-        for post in feedparser.parse("https://france3-regions.francetvinfo.fr/societe/rss?r=hauts-de-france").entries:
+        for post in feedparser.parse("https://france3-regions.francetvinfo.fr/societe/rss?r=grand-est").entries:
             l_titles.append(post.title)
         DB.master.set_obj("news:local", l_titles)
         DB.master.set_ttl("news:local", ttl=3600)
