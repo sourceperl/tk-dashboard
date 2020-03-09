@@ -15,8 +15,6 @@ max_png = 4
 url = <gsheet url>
 [openweathermap]
 app_id = <openweathermap app_id>
-[iswip]
-url = <url iswip>
 [gmap_img]
 img_url = https://www.google.fr/maps/vt/data=J0SMoE6NwxdkGrcPjDFKWA4jRbFMNxPdkvE-yOtGUk7SBznTRNQJEqiP6CG7yOImsqxidDlFn1lMPauccqeux3p6rmjvFzB4lJmojpYY2xGLXbASHrfq6NHR2v3gfV5HOFQjxo6-EjqO7wkvryEv0tZjKjErdkfFgwPEG-WVwVcwsaikduS3f_keVH8
 img_target = traffic_map.png

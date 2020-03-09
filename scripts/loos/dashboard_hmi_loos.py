@@ -149,7 +149,6 @@ class Tags:
     # WARNs: -> all tag are manage by an IO thread
     #        -> tag subscriber callback code are call by IO thread (not by tkinter main thread)
     D_GSHEET_GRT = Tag(cmd_src=lambda: DB.master.get_obj("gsheet:grt"))
-    # D_ISWIP_ROOM = Tag(cmd_src=lambda: DB.master.get_obj("iswip:room_status"))
     D_ATMO_QUALITY = Tag(cmd_src=lambda: DB.master.get_obj("atmo:quality"))
     D_W_TODAY_LOOS = Tag(cmd_src=lambda: DB.master.get_obj("weather:today:loos"))
     D_W_FORECAST_LOOS = Tag(cmd_src=lambda: DB.master.get_obj("weather:forecast:loos"))
@@ -403,12 +402,6 @@ class LiveTab(Tab):
         self.tl_watts.pwr = Tags.MET_PWR_ACT.get()
         self.tl_watts.today_wh = Tags.MET_TODAY_WH.get()
         self.tl_watts.yesterday_wh = Tags.MET_YESTERDAY_WH.get()
-        # update room status
-        # self.tl_room_trn.status = Tags.D_ISWIP_ROOM.get("Salle_TRAINNING")
-        # self.tl_room_prj.status = Tags.D_ISWIP_ROOM.get("Salle_PROJECT")
-        # self.tl_room_met.status = Tags.D_ISWIP_ROOM.get("Salle_MEETING")
-        # self.tl_room_bur1.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_1")
-        # self.tl_room_bur2.status = Tags.D_ISWIP_ROOM.get("Bureau_Passage_2")
         # flyspray
         self.tl_fly.l_items = Tags.L_FLYSPRAY_RSS.get()
 

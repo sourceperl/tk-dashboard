@@ -149,7 +149,6 @@ class Tags:
     # WARNs: -> all tag are manage by an IO thread
     #        -> tag subscriber callback code are call by IO thread (not by tkinter main thread)
     D_GSHEET_GRT = Tag(cmd_src=lambda: DB.master.get_obj("gsheet:grt"))
-    # D_ISWIP_ROOM = Tag(cmd_src=lambda: DB.master.get_obj("iswip:room_status"))
     D_ATMO_QUALITY = Tag(cmd_src=lambda: DB.master.get_obj("atmo:quality"))
     D_W_TODAY_LOOS = Tag(cmd_src=lambda: DB.master.get_obj("weather:today:loos"))
     D_W_FORECAST_LOOS = Tag(cmd_src=lambda: DB.master.get_obj("weather:forecast:loos"))

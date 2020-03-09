@@ -32,7 +32,10 @@
     mkdir -p /home/pi/dashboard/reglement_doc
     sudo apt-get install -y xpdf
     sudo pip3 install -r requirements.txt
-    sudo cp -r scripts/* /usr/local/bin/
+    # Loos dashboard
+    sudo cp -r scripts/loos/* /usr/local/bin/
+    # Messein dashboard
+    sudo cp -r scripts/messein/* /usr/local/bin/
 
 ### Setup LXDE
 
@@ -42,10 +45,14 @@
 ### Setup supervisor
 
     sudo apt-get install -y supervisor
-    # for master dashboard (do all external requests and own the redis db)
-    sudo cp etc/supervisor/conf.d/dashboard_master.conf /etc/supervisor/conf.d/
-    # for slave dashboard (connect to master redis db and sync all files with master)
-    sudo cp etc/supervisor/conf.d/dashboard_slave.conf /etc/supervisor/conf.d/
+    # for loos master dashboard (do all external requests and own the redis db)
+    sudo cp etc/supervisor/conf.d/dashboard_master_loos.conf /etc/supervisor/conf.d/
+    # for loos slave dashboard (connect to master redis db and sync all files with master)
+    sudo cp etc/supervisor/conf.d/dashboard_slave_loos.conf /etc/supervisor/conf.d/
+    # for messein master dashboard (do all external requests and own the redis db)
+    sudo cp etc/supervisor/conf.d/dashboard_master_messein.conf /etc/supervisor/conf.d/
+    # for messein slave dashboard (connect to master redis db and sync all files with master)
+    sudo cp etc/supervisor/conf.d/dashboard_slave_messein.conf /etc/supervisor/conf.d/
     # reload conf
     sudo supervisorctl update
 

@@ -31,8 +31,6 @@ dash_master_host = cnf.get("dashboard", "master_host")
 gsheet_url = cnf.get('gsheet', 'url')
 # openweathermap
 ow_app_id = cnf.get('openweathermap', 'app_id')
-# iswip
-iswip_url = cnf.get('iswip', 'url')
 # twitter
 tw_api_key = cnf.get("twitter", "api_key")
 tw_api_secret = cnf.get("twitter", "api_secret")
@@ -247,28 +245,6 @@ def vigilance_job():
         logging.error(traceback.format_exc())
 
 
-def iswip_job():
-    try:
-        # do request
-        devices_l = requests.get(iswip_url, timeout=5.0).json()
-        d_dev = {}
-        for device in devices_l:
-            # device id
-            dev_id = str(device['device_description']).replace(' ', '_')
-            # device message
-            dev_msg = ''
-            for token in device['lastmessage_content'].split(';'):
-                name, value = token.split('=')
-                if name == 'TypeMessage':
-                    dev_msg = value
-            # update redis
-            d_dev[dev_id] = dev_msg
-        DB.master.set_obj('iswip:room_status', d_dev)
-        DB.master.set_ttl('iswip:room_status', ttl=3600)
-    except Exception:
-        logging.error(traceback.format_exc())
-
-
 def local_info_job():
     # do request
     try:
@@ -391,7 +367,6 @@ if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s %(message)s')
 
     # init scheduler
-    #schedule.every(1).minute.do(iswip_job)
     schedule.every(2).minutes.do(twitter_job)
     schedule.every(5).minutes.do(local_info_job)
     schedule.every(5).minutes.do(gsheet_job)
@@ -406,7 +381,6 @@ if __name__ == '__main__':
     openweathermap_forecast_job()
     vigilance_job()
     local_info_job()
-    #iswip_job()
     twitter_job()
 
     # main loop
