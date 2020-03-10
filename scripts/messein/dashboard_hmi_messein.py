@@ -551,7 +551,7 @@ class FlysprayTile(Tile):
         self._msg_text = tk.StringVar()
         self._msg_text.set("n/a")
         # tk job
-        tk.Label(self, text="live Flyspray DTS Nord", bg=self.cget("bg"),
+        tk.Label(self, text="live Flyspray DTS Est", bg=self.cget("bg"),
                  font=("courier", 14, "bold", "underline")).pack()
         tk.Label(self, textvariable=self._msg_text, bg=self.cget("bg"),
                  wraplength=750, justify=tk.LEFT, font=("courier", 11)).pack(expand=True)
