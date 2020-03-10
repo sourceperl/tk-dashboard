@@ -49,8 +49,6 @@ cnf = ConfigParser()
 cnf.read(os.path.expanduser('~/.dashboard_config'))
 # hostname of master dashboard
 dash_master_host = cnf.get("dashboard", "master_host")
-# hostname of bridge server
-bridge_host = cnf.get("bridge", "bridge_host")
 # paths
 dashboard_ramdisk = cnf.get("paths", "dashboard_ramdisk")
 dashboard_root_path = cnf.get("paths", "dashboard_root_path")
@@ -80,7 +78,6 @@ class CustomRedis(redis.StrictRedis):
 class DB:
     # create connector
     master = CustomRedis(host=dash_master_host, socket_timeout=4, socket_keepalive=True)
-    bridge = CustomRedis(host=bridge_host, socket_timeout=4, socket_keepalive=True)
 
 
 class Tag:
@@ -156,7 +153,7 @@ class Tags:
     MET_PWR_ACT = Tag(cmd_src=lambda: DB.master.get_obj("meters:electric:site:pwr_act"))
     MET_TODAY_WH = Tag(cmd_src=lambda: DB.master.get_obj("meters:electric:site:today_wh"))
     MET_YESTERDAY_WH = Tag(cmd_src=lambda: DB.master.get_obj("meters:electric:site:yesterday_wh"))
-    L_FLYSPRAY_RSS = Tag(cmd_src=lambda: DB.bridge.get_obj("dweet:flyspray_rss_est"))
+    L_FLYSPRAY_RSS = Tag(cmd_src=lambda: DB.master.get_obj("dweet:flyspray_rss_est"))
 
     @classmethod
     def tags_io_thread(cls):
