@@ -2,11 +2,13 @@
 
 from collections import OrderedDict
 from configparser import ConfigParser
-from datetime import datetime, timedelta
+from datetime import datetime
+import base64
 import feedparser
 import html
 import json
 import logging
+import math
 import os
 import time
 import traceback
@@ -21,6 +23,7 @@ from xml.dom import minidom
 
 # some const
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:2.0.1) Gecko/20100101 Firefox/4.0.1"
+DW_GET_URL = 'https://dweet.io/get/latest/dweet/for/'
 
 # read config
 cnf = ConfigParser()
@@ -36,6 +39,9 @@ tw_api_key = cnf.get("twitter", "api_key")
 tw_api_secret = cnf.get("twitter", "api_secret")
 tw_access_token = cnf.get("twitter", "access_token")
 tw_access_token_secret = cnf.get("twitter", "access_token_secret")
+# dweet
+dweet_id = cnf.get('dweet', 'id')
+dweet_key = cnf.get('dweet', 'key')
 
 
 class CustomRedis(redis.StrictRedis):
@@ -76,6 +82,44 @@ class DB:
 
 
 # some function
+def byte_xor(bytes_1, bytes_2):
+    return bytes([_a ^ _b for _a, _b in zip(bytes_1, bytes_2)])
+
+
+def dweet_encode(bytes_msg):
+    # build xor mask (size will be >= msg size)
+    xor_mask = dweet_key.encode('utf8')
+    xor_mask *= math.ceil(len(bytes_msg) / len(xor_mask))
+    # do xor
+    xor_result = byte_xor(xor_mask, bytes_msg)
+    # encode result in base64 (for no utf-8 byte support)
+    return base64.b64encode(xor_result)
+
+
+def dweet_decode(b64_bytes_msg):
+    # decode base64 msg
+    bytes_msg = base64.b64decode(b64_bytes_msg)
+    # build xor mask (size will be >= msg size)
+    xor_mask = dweet_key.encode('utf8')
+    xor_mask *= math.ceil(len(bytes_msg) / len(xor_mask))
+    # do xor and return clear bytes msg
+    return byte_xor(xor_mask, bytes_msg)
+
+
+def dweet_job():
+    # https request
+    try:
+        r = requests.get(DW_GET_URL + dweet_id, timeout=15.0)
+        # check error
+        if r.status_code == 200:
+            data_d = r.json()
+            json_flyspray_est = dweet_decode(data_d['with'][0]['content']['raw_flyspray_est']).decode('utf8')
+            DB.master.set_obj("dweet:flyspray_rss_est", json.loads(json_flyspray_est))
+            DB.master.set_ttl("dweet:flyspray_rss_est", ttl=3600)
+    except Exception:
+        logging.error(traceback.format_exc())
+
+
 def gsheet_job():
     # https request
     try:
@@ -88,41 +132,6 @@ def gsheet_job():
         redis_d = dict(update=datetime.now().isoformat("T"), tags=d)
         DB.master.set_obj("gsheet:grt", redis_d)
         DB.master.set_ttl("gsheet:grt", ttl=3600)
-    except Exception:
-        logging.error(traceback.format_exc())
-
-
-def weather_today_job():
-    try:
-        # request HTML data from server
-        r = requests.get("https://weather.com/fr-FR/temps/aujour/l/FRXX6464:1:FR", timeout=5.0, headers={"User-Agent": USER_AGENT})
-        # check error
-        if r.status_code == 200:
-            d_today = {}
-            s = BeautifulSoup(r.content, "html.parser")
-            # temp current
-            try:
-                d_today['t'] = int(s.find("div", attrs={"class": "today_nowcard-temp"}).text.strip()[:-1])
-            except:
-                d_today['t'] = None
-            # weather status str
-            try:
-                d_today['description'] = s.find("div", attrs={"class": "today_nowcard-phrase"}).text.strip().lower()
-            except:
-                d_today['description'] = 'n/a'
-            # temp max/min
-            l_span = s.find_all("span", attrs={"class": "deg-hilo-nowcard"})
-            try:
-                d_today['t_max'] = int(l_span[0].text.strip()[:-1])
-            except:
-                d_today['t_max'] = d_today['t']
-            try:
-                d_today['t_min'] = int(l_span[1].text.strip()[:-1])
-            except:
-                d_today['t_min'] = d_today['t']
-            # store to redis
-            DB.master.set_obj('weather:today:loos', d_today)
-            DB.master.set_ttl('weather:today:loos', ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -162,44 +171,6 @@ def air_quality_atmo_hdf_job():
             # update redis
             DB.master.set_obj('atmo:quality', d_air_quality)
             DB.master.set_ttl('atmo:quality', ttl=3600*4)
-    except Exception:
-        logging.error(traceback.format_exc())
-
-
-def openweathermap_forecast_job():
-    # https request
-    try:
-        # build url
-        ow_url = "http://api.openweathermap.org/data/2.5/forecast?"
-        ow_url += "q=Loos,fr&appid=%s&units=metric&lang=fr" % ow_app_id
-        # do request
-        ow_d = requests.get(ow_url, timeout=5.0).json()
-        # decode json
-        t_today = None
-        d_days = {}
-        for i in range(0, 5):
-            d_days[i] = dict(t_min=50.0, t_max=-50.0, main='', description='', icon='')
-        # parse json
-        for item in ow_d["list"]:
-            # for day-0 to day-4
-            for i_day in range(5):
-                txt_date, txt_time = item['dt_txt'].split(' ')
-                # search today
-                if txt_date == (datetime.now() + timedelta(days=i_day)).date().strftime('%Y-%m-%d'):
-                    # search min/max temp
-                    d_days[i_day]['t_min'] = min(d_days[i_day]['t_min'], item['main']['temp_min'])
-                    d_days[i_day]['t_max'] = max(d_days[i_day]['t_max'], item['main']['temp_max'])
-                    # main and icon in 12h item
-                    if txt_time == '12:00:00' or t_today is None:
-                        d_days[i_day]['main'] = item['weather'][0]['main']
-                        d_days[i_day]['icon'] = item['weather'][0]['icon']
-                        d_days[i_day]['description'] = item['weather'][0]['description']
-                        if t_today is None:
-                            t_today = item['main']['temp']
-                            d_days[0]['t'] = t_today
-        # store to redis
-        DB.master.set_obj('weather:forecast:loos', d_days)
-        DB.master.set_ttl('weather:forecast:loos', ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -345,17 +316,15 @@ if __name__ == '__main__':
 
     # init scheduler
     schedule.every(2).minutes.do(twitter_job)
+    schedule.every(4).minutes.do(dweet_job)
     schedule.every(5).minutes.do(local_info_job)
     schedule.every(5).minutes.do(gsheet_job)
-    schedule.every(5).minutes.do(weather_today_job)
     schedule.every(5).minutes.do(vigilance_job)
-    schedule.every(15).minutes.do(openweathermap_forecast_job)
     schedule.every(60).minutes.do(air_quality_atmo_hdf_job)
     # first call
+    dweet_job()
     gsheet_job()
-    weather_today_job()
     air_quality_atmo_hdf_job()
-    openweathermap_forecast_job()
     vigilance_job()
     local_info_job()
     twitter_job()

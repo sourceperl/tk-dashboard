@@ -150,15 +150,13 @@ class Tags:
     #        -> tag subscriber callback code are call by IO thread (not by tkinter main thread)
     D_GSHEET_GRT = Tag(cmd_src=lambda: DB.master.get_obj("gsheet:grt"))
     D_ATMO_QUALITY = Tag(cmd_src=lambda: DB.master.get_obj("atmo:quality"))
-    D_W_TODAY_LOOS = Tag(cmd_src=lambda: DB.master.get_obj("weather:today:loos"))
-    D_W_FORECAST_LOOS = Tag(cmd_src=lambda: DB.master.get_obj("weather:forecast:loos"))
     D_WEATHER_VIG = Tag(cmd_src=lambda: DB.master.get_obj("weather:vigilance"))
     D_NEWS_LOCAL = Tag(cmd_src=lambda: DB.master.get_obj("news:local"))
     D_TWEETS_GRT = Tag(cmd_src=lambda: DB.master.get_obj("twitter:tweets:grtgaz"))
     MET_PWR_ACT = Tag(cmd_src=lambda: DB.master.get_obj("meters:electric:site:pwr_act"))
     MET_TODAY_WH = Tag(cmd_src=lambda: DB.master.get_obj("meters:electric:site:today_wh"))
     MET_YESTERDAY_WH = Tag(cmd_src=lambda: DB.master.get_obj("meters:electric:site:yesterday_wh"))
-    L_FLYSPRAY_RSS = Tag(cmd_src=lambda: DB.bridge.get_obj("rx:bur:flyspray_rss_est"))
+    L_FLYSPRAY_RSS = Tag(cmd_src=lambda: DB.bridge.get_obj("dweet:flyspray_rss_est"))
 
     @classmethod
     def tags_io_thread(cls):
