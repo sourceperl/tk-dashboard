@@ -257,29 +257,6 @@ def local_info_job():
         logging.error(traceback.format_exc())
 
 
-# deprecated
-# def gmap_travel_time_job():
-#     try:
-#         d_traffic = {}
-#         for gm_dest in ("Arras", "Amiens", "Dunkerque", "Maubeuge", "Reims"):
-#             # build url
-#             gm_url_origin = urllib.parse.quote_plus(gmap_origin)
-#             gm_url_destination = urllib.parse.quote_plus(gm_dest)
-#             gm_url = "https://maps.googleapis.com/maps/api/directions/json"
-#             gm_url += "?&origin=%s&destination=%s&departure_time=now&key=%s"
-#             gm_url %= gm_url_origin, gm_url_destination, gmap_key
-#             # http request
-#             gm_json = requests.get(gm_url, timeout=5.0).json()
-#             # decode json
-#             duration_abs = gm_json["routes"][0]["legs"][0]["duration"]["value"]
-#             duration_with_traffic = gm_json["routes"][0]["legs"][0]["duration_in_traffic"]["value"]
-#             d_traffic[gm_dest] = dict(duration=duration_abs, duration_traffic=duration_with_traffic)
-#         DS.redis_set_obj('gmap:traffic', d_traffic)
-#         DS.redis_set_ttl('gmap:traffic', ttl=1800)
-#     except Exception:
-#         logging.error(traceback.format_exc())
-
-
 def twitter_job():
     def tcl_normalize_str(tweet_str):
         tcl_str = ""
