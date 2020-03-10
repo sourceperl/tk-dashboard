@@ -116,7 +116,7 @@ if __name__ == '__main__':
     # logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
 
     # init scheduler
-    schedule.every(2).minutes.do(dweet_job)
+    schedule.every(5).minutes.do(dweet_job)
     # first call
     dweet_job()
 
