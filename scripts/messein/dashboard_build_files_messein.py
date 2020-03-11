@@ -121,7 +121,7 @@ if __name__ == '__main__':
     # init scheduler
     schedule.every(2).minutes.do(gmap_traffic_img_job)
     schedule.every(5).minutes.do(dir_est_img_job)
-    schedule.every(60).minutes.do(twitter2cloud_job)
+    schedule.every(30).minutes.do(twitter2cloud_job)
     # first call
     gmap_traffic_img_job()
     dir_est_img_job()
