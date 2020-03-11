@@ -112,8 +112,10 @@ def dweet_job():
         r = requests.get(DW_GET_URL + dweet_id, timeout=15.0)
         # check error
         if r.status_code == 200:
+            # parse data
             data_d = r.json()
             json_flyspray_est = dweet_decode(data_d['with'][0]['content']['raw_flyspray_est']).decode('utf8')
+            # update redis
             DB.master.set_obj("dweet:flyspray_rss_est", json.loads(json_flyspray_est))
             DB.master.set_ttl("dweet:flyspray_rss_est", ttl=3600)
     except Exception:
@@ -130,15 +132,16 @@ def gsheet_job():
             tag, value = line.split(',')
             d[tag] = value
         redis_d = dict(update=datetime.now().isoformat("T"), tags=d)
+        # update redis
         DB.master.set_obj("gsheet:grt", redis_d)
         DB.master.set_ttl("gsheet:grt", ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
 
-def air_quality_atmo_hdf_job():
-    url = 'https://services8.arcgis.com/rxZzohbySMKHTNcy/arcgis/rest/services/ind_hdf_agglo/FeatureServer/0/query' \
-          '?where=1%3D1&outFields=date_ech,valeur,source,qualif,couleur,lib_zone,code_zone,type_zone' \
+def air_quality_atmo_est_job():
+    url = 'https://services3.arcgis.com/Is0UwT37raQYl9Jj/arcgis/rest/services/ind_Grand_Est_commune/FeatureServer' \
+          '/0/query?where=1%3D1&outFields=date_ech,valeur,source,qualif,couleur,lib_zone,code_zone,type_zone' \
           '&returnGeometry=false&resultRecordCount=48&orderByFields=date_ech%20DESC&outSR=4326&f=json'
     today_dt_date = datetime.today().date()
     # https request
@@ -162,12 +165,10 @@ def air_quality_atmo_hdf_job():
                     zones_d[r_code_zone] = r_value
             # create and populate result dict
             d_air_quality = {}
-            d_air_quality['amiens'] = zones_d.get('80021', 0)
-            d_air_quality['lille'] = zones_d.get('59350', 0)
-            d_air_quality['dunkerque'] = zones_d.get('59183', 0)
-            d_air_quality['valenciennes'] = zones_d.get('59606', 0)
-            d_air_quality['maubeuge'] = zones_d.get('59392', 0)
-            d_air_quality['saint-quentin'] = zones_d.get('02691', 0)
+            d_air_quality['nancy'] = zones_d.get(54395, 0)
+            d_air_quality['metz'] = zones_d.get(57463, 0)
+            d_air_quality['reims'] = zones_d.get(51454, 0)
+            d_air_quality['strasbourg'] = zones_d.get(67482, 0)
             # update redis
             DB.master.set_obj('atmo:quality', d_air_quality)
             DB.master.set_ttl('atmo:quality', ttl=3600*4)
@@ -320,11 +321,11 @@ if __name__ == '__main__':
     schedule.every(5).minutes.do(local_info_job)
     schedule.every(5).minutes.do(gsheet_job)
     schedule.every(5).minutes.do(vigilance_job)
-    schedule.every(60).minutes.do(air_quality_atmo_hdf_job)
+    schedule.every(60).minutes.do(air_quality_atmo_est_job)
     # first call
     dweet_job()
     gsheet_job()
-    air_quality_atmo_hdf_job()
+    air_quality_atmo_est_job()
     vigilance_job()
     local_info_job()
     twitter_job()
