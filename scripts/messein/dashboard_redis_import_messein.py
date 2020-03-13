@@ -12,6 +12,7 @@ import math
 import os
 import time
 import traceback
+import zlib
 from bs4 import BeautifulSoup
 import redis
 import requests
@@ -87,23 +88,27 @@ def byte_xor(bytes_1, bytes_2):
 
 
 def dweet_encode(bytes_msg):
+    # compress msg
+    c_bytes_msg = zlib.compress(bytes_msg)
     # build xor mask (size will be >= msg size)
     xor_mask = dweet_key.encode('utf8')
     xor_mask *= math.ceil(len(bytes_msg) / len(xor_mask))
     # do xor
-    xor_result = byte_xor(xor_mask, bytes_msg)
+    xor_result = byte_xor(xor_mask, c_bytes_msg)
     # encode result in base64 (for no utf-8 byte support)
     return base64.b64encode(xor_result)
 
 
 def dweet_decode(b64_bytes_msg):
     # decode base64 msg
-    bytes_msg = base64.b64decode(b64_bytes_msg)
+    xor_bytes_msg = base64.b64decode(b64_bytes_msg)
     # build xor mask (size will be >= msg size)
     xor_mask = dweet_key.encode('utf8')
-    xor_mask *= math.ceil(len(bytes_msg) / len(xor_mask))
+    xor_mask *= math.ceil(len(xor_bytes_msg) / len(xor_mask))
+    # do xor
+    c_bytes_msg = byte_xor(xor_mask, xor_bytes_msg)
     # do xor and return clear bytes msg
-    return byte_xor(xor_mask, bytes_msg)
+    return zlib.decompress(c_bytes_msg)
 
 
 def dweet_job():
