@@ -11,6 +11,14 @@
     # reboot to take effect
     sudo reboot
 
+### Security setup
+
+    sudo apt update && sudo apt dist-upgrade
+    sudo apt install fail2ban ufw
+    sudo ufw allow proto tcp from 192.168.0.0/24 to any port ssh
+    sudo ufw allow proto tcp from 192.168.0.0/24 to any port 6379
+    sudo ufw enable
+
 ### Setup redis
 
     sudo apt-get install -y redis-server
