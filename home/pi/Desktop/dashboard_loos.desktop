@@ -1,6 +1,6 @@
 [Desktop Entry]
-Name=Dashboard
-Exec=dashboard_hmi.py
+Name=Dashboard Loos
+Exec=dashboard_hmi_loos.py
 Icon=krfb
 Type=Application
 Terminal=false

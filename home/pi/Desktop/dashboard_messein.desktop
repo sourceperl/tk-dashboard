@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Dashboard Messein
+Exec=dashboard_hmi_messein.py
+Icon=krfb
+Type=Application
+Terminal=false
