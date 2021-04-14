@@ -19,7 +19,7 @@
     sudo ufw allow proto tcp from 192.168.0.0/24 to any port 6379
     sudo ufw enable
 
-### Setup redis
+### Redis setup
 
     sudo apt-get install -y redis-server
     # edit config file /etc/redis/redis.conf
@@ -28,14 +28,11 @@
     # -> also we need to comment bind line to allow redis listen all the interfaces
     # -> set protected-mode to "no"
 
-### Copy config file (URL, API credentials, misc...)
+### Dashboard setup
 
     # edit home/pi/.dashboard_config_sample with credentials
     # save as .dashboard_config
     cp home/pi/.dashboard_config /home/pi/
-
-### Setup
-
     mkdir -p /home/pi/dashboard/img
     mkdir -p /home/pi/dashboard/carousel_upload
     mkdir -p /home/pi/dashboard/carousel_img
@@ -43,7 +40,10 @@
     sudo apt-get install -y xpdf
     sudo pip3 install -r requirements.txt
     # need by wordcloud 1.6.0 on raspbian buster
-    sudo pip3 install cairocffire
+    sudo apt install -y imagemagick python3-cairocffi
+    # workaround on buster: update line 94 of ImageMagick policy, comment this :
+    # <!--<policy domain="coder" rights="none" pattern="PDF" />-->
+    sudo vim /etc/ImageMagick-6/policy.xml
     # Loos dashboard
     sudo cp -r scripts/loos/* /usr/local/bin/
     # Messein dashboard
