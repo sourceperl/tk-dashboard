@@ -3,6 +3,7 @@
 from collections import OrderedDict
 from configparser import ConfigParser
 from datetime import datetime, timedelta
+from urllib.parse import quote
 import feedparser
 import html
 import json
@@ -128,9 +129,12 @@ def weather_today_job():
 
 
 def air_quality_atmo_hdf_job():
-    url = 'https://services8.arcgis.com/rxZzohbySMKHTNcy/arcgis/rest/services/ind_hdf_agglo/FeatureServer/0/query' \
-          '?where=1%3D1&outFields=date_ech,valeur,source,qualif,couleur,lib_zone,code_zone,type_zone' \
-          '&returnGeometry=false&resultRecordCount=48&orderByFields=date_ech%20DESC&outSR=4326&f=json'
+    url = 'https://services8.arcgis.com/' + \
+          'rxZzohbySMKHTNcy/arcgis/rest/services/ind_hdf_3j/FeatureServer/0/query' + \
+          '?where=%s' % quote('code_zone IN (02691, 59183, 59350, 59392, 59606, 80021)') + \
+          '&outFields=date_ech, code_qual, lib_qual, lib_zone, code_zone' + \
+          '&returnGeometry=false&resultRecordCount=48' + \
+          '&orderByFields=%s&f=json' % quote('date_ech DESC')
     today_dt_date = datetime.today().date()
     # https request
     try:
@@ -147,7 +151,7 @@ def air_quality_atmo_hdf_job():
                 r_code_zone = record['attributes']['code_zone']
                 r_ts = int(record['attributes']['date_ech'])
                 r_dt = datetime.utcfromtimestamp(r_ts / 1000)
-                r_value = record['attributes']['valeur']
+                r_value = record['attributes']['code_qual']
                 # retain today value
                 if r_dt.date() == today_dt_date:
                     zones_d[r_code_zone] = r_value

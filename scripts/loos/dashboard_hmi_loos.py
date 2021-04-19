@@ -654,8 +654,8 @@ class FlysprayTile(Tile):
 
 
 class AirQualityTile(Tile):
-    QUALITY_LVL = ("n/a", "très bon", "très bon", "bon", "bon", "moyen",
-                   "médiocre", "médiocre", "mauvais", "mauvais", "très mauvais")
+    QUALITY_LVL = ("n/a", "Bon", "Moyen", "Dégradé", "Mauvais", "Moyen",
+                   "Très mauvais", "Extrêmement mauvais")
 
     def __init__(self, *args, city, **kwargs):
         Tile.__init__(self, *args, **kwargs)
@@ -691,7 +691,7 @@ class AirQualityTile(Tile):
 
     def _on_data_change(self):
         try:
-            self._index_str.set("%d/10" % self._qlt_index)
+            self._index_str.set("%d/6" % self._qlt_index)
             self._status_str.set(AirQualityTile.QUALITY_LVL[self._qlt_index])
         except (TypeError, ZeroDivisionError):
             # set tk var
@@ -702,9 +702,9 @@ class AirQualityTile(Tile):
         else:
             # choose tile color
             tile_color = "green"
-            if self._qlt_index > 7:
+            if self._qlt_index > 4:
                 tile_color = "firebrick"
-            elif self._qlt_index > 4:
+            elif self._qlt_index > 2:
                 tile_color = "orange"
         # update tile and his childs color
         for w in self.winfo_children():
