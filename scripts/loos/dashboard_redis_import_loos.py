@@ -173,6 +173,9 @@ def air_quality_atmo_hdf_job():
                 # retain today value
                 if r_dt.date() == today_dt_date:
                     zones_d[r_code_zone] = r_value
+            # skip key publish if zones_d is empty
+            if not zones_d:
+                raise ValueError('dataset is empty')
             # create and populate result dict
             d_air_quality = {}
             d_air_quality['amiens'] = zones_d.get('80021', 0)
@@ -183,7 +186,7 @@ def air_quality_atmo_hdf_job():
             d_air_quality['saint-quentin'] = zones_d.get('02691', 0)
             # update redis
             DB.master.set_obj('atmo:quality', d_air_quality)
-            DB.master.set_ttl('atmo:quality', ttl=3600 * 4)
+            DB.master.set_ttl('atmo:quality', ttl=3600 * 6)
     except Exception:
         logging.error(traceback.format_exc())
 
