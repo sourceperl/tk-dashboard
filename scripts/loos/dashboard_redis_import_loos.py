@@ -16,9 +16,9 @@ import redis
 import requests
 from requests_oauthlib import OAuth1
 import schedule
+from metar.Metar import Metar
 import pytz
 from xml.dom import minidom
-
 
 # some const
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:2.0.1) Gecko/20100101 Firefox/4.0.1"
@@ -39,6 +39,14 @@ tw_access_token = cnf.get("twitter", "access_token")
 tw_access_token_secret = cnf.get("twitter", "access_token_secret")
 
 
+# some functions
+def dt_utc_to_local(utc_dt):
+    now_ts = time.time()
+    offset = datetime.fromtimestamp(now_ts) - datetime.utcfromtimestamp(now_ts)
+    return utc_dt + offset
+
+
+# some class
 class CustomRedis(redis.StrictRedis):
     def get_str(self, name):
         try:
@@ -95,32 +103,42 @@ def gsheet_job():
 
 def weather_today_job():
     try:
-        # request HTML data from server
-        r = requests.get("https://weather.com/fr-FR/temps/aujour/l/FRXX6464:1:FR", timeout=5.0, headers={"User-Agent": USER_AGENT})
+        # request data from NOAA server (METAR of Lille-Lesquin Airport)
+        r = requests.get("http://tgftp.nws.noaa.gov/data/observations/metar/stations/LFQQ.TXT",
+                         timeout=5.0, headers={"User-Agent": USER_AGENT})
         # check error
         if r.status_code == 200:
+            # extract METAR message
+            metar_msg = r.content.decode().split("\n")[1]
+            # METAR parse
+            obs = Metar(metar_msg)
+            # init and populate d_today dict
             d_today = {}
-            s = BeautifulSoup(r.content, "html.parser")
-            # temp current
-            try:
-                d_today['t'] = int(s.find("div", attrs={"class": "today_nowcard-temp"}).text.strip()[:-1])
-            except:
-                d_today['t'] = None
+            # message date and time
+            if obs.time:
+                d_today['update_iso'] = obs.time.strftime('%Y-%m-%dT%H:%M:%SZ')
+                d_today['update_fr'] = dt_utc_to_local(obs.time).strftime('%H:%M %d/%m')
+            # current temperature
+            if obs.temp:
+                d_today['temp'] = round(obs.temp.value("C"))
+            # current dew point
+            if obs.dewpt:
+                d_today['dewpt'] = round(obs.dewpt.value("C"))
+            # current pressure
+            if obs.press:
+                d_today['press'] = round(obs.press.value('hpa'))
+            # current wind speed
+            if obs.wind_speed:
+                d_today['w_speed'] = round(obs.wind_speed.value("KMH"))
+            # current wind speed peak
+            if obs.wind_speed_peak:
+                d_today['w_speed_peak'] = round(obs.wind_speed_peak.value("KMH"))
+            # current wind direction
+            if obs.wind_dir:
+                # replace "W"est by "O"uest
+                d_today['w_dir'] = obs.wind_dir.compass().replace("W", "O")
             # weather status str
-            try:
-                d_today['description'] = s.find("div", attrs={"class": "today_nowcard-phrase"}).text.strip().lower()
-            except:
-                d_today['description'] = 'n/a'
-            # temp max/min
-            l_span = s.find_all("span", attrs={"class": "deg-hilo-nowcard"})
-            try:
-                d_today['t_max'] = int(l_span[0].text.strip()[:-1])
-            except:
-                d_today['t_max'] = d_today['t']
-            try:
-                d_today['t_min'] = int(l_span[1].text.strip()[:-1])
-            except:
-                d_today['t_min'] = d_today['t']
+            d_today['descr'] = 'n/a'
             # store to redis
             DB.master.set_obj('weather:today:loos', d_today)
             DB.master.set_ttl('weather:today:loos', ttl=3600)
@@ -165,7 +183,7 @@ def air_quality_atmo_hdf_job():
             d_air_quality['saint-quentin'] = zones_d.get('02691', 0)
             # update redis
             DB.master.set_obj('atmo:quality', d_air_quality)
-            DB.master.set_ttl('atmo:quality', ttl=3600*4)
+            DB.master.set_ttl('atmo:quality', ttl=3600 * 4)
     except Exception:
         logging.error(traceback.format_exc())
 

@@ -322,13 +322,13 @@ class LiveTab(Tab):
         self.tl_watts.set_tile(row=4, column=5, columnspan=2)
         # flyspray
         self.tl_fly = FlysprayTile(self)
-        self.tl_fly.set_tile(row=5, column=0,  rowspan=3, columnspan=7)
+        self.tl_fly.set_tile(row=5, column=0, rowspan=3, columnspan=7)
         # meeting room
         # self.tl_room_prj = MeetingRoomTile(self, room="Salle project")
         # self.tl_room_prj.set_tile(row=5, column=5,columnspan=2)
         # self.tl_room_trn = MeetingRoomTile(self, room="Salle trainning")
         # self.tl_room_trn.set_tile(row=6, column=5, columnspan=2)
-        # self.tl_room_met = MeetingRoomTile(self, room="Salle meeting")
+        #  self.tl_room_met = MeetingRoomTile(self, room="Salle meeting")
         # self.tl_room_met.set_tile(row=7, column=5, columnspan=2)
         # self.tl_room_bur1 = MeetingRoomTile(self, room="Bureau passage 1")
         # self.tl_room_bur1.set_tile(row=5, column=2, columnspan=2)
@@ -575,6 +575,7 @@ class FlysprayTile(Tile):
             self._msg_text.set(msg)
         except Exception:
             self._msg_text.set("n/a")
+
 
 # deprecated
 # class TrafficDurationTile(Tile):
@@ -944,16 +945,23 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
         # fill labels
         try:
             # today
-            today_desc = self._w_today_dict["description"]
-            today_t = self._w_today_dict["t"]
-            today_t_min = self._w_today_dict["t_min"]
-            today_t_max = self._w_today_dict["t_max"]
+            temp = "%s" % self._w_today_dict.get("temp", "--")
+            dewpt = "%s" % self._w_today_dict.get("dewpt", "--")
+            press = "%s" % self._w_today_dict.get("press", "----")
+            w_speed = "%s" % self._w_today_dict.get("w_speed", "--")
+            w_peak_msg = "%s" % self._w_today_dict.get("w_speed_peak", "")
+            w_peak_msg = "%9s" % ("(raf %s)" % w_peak_msg) if w_peak_msg else ""
+            w_dir = self._w_today_dict.get("w_dir", "--")
+            update_fr = self._w_today_dict.get("update_fr", "--")
             # today message
-            message = "Situation : %s\n\nTempérature actuelle : %d°C\n" + \
-                      "            minimale : %d°C\n" + \
-                      "            maximale : %d°C"
-            message %= (today_desc, today_t, today_t_min, today_t_max)
-            self.lbl_today.configure(text=message)
+            msg = "Température    : %4s °C\n" + \
+                  "Point de rosée : %4s °C\n" + \
+                  "Pression       : %4s hPa\n" + \
+                  "Vent %9s : %4s km/h %s\n" + \
+                  "\n" + \
+                  "Mise à jour    : %s\n"
+            msg %= (temp, dewpt, press, w_peak_msg, w_speed, w_dir, update_fr)
+            self.lbl_today.configure(text=msg)
         except:
             self.lbl_today.configure(text="n/a")
             logging.error(traceback.format_exc())
