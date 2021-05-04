@@ -949,8 +949,8 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
             dewpt = "%s" % self._w_today_dict.get("dewpt", "--")
             press = "%s" % self._w_today_dict.get("press", "----")
             w_speed = "%s" % self._w_today_dict.get("w_speed", "--")
-            w_peak_msg = "%s" % self._w_today_dict.get("w_speed_peak", "")
-            w_peak_msg = "%9s" % ("(raf %s)" % w_peak_msg) if w_peak_msg else ""
+            w_gust_msg = "%s" % self._w_today_dict.get("w_gust", "")
+            w_gust_msg = "%9s" % ("(raf %s)" % w_gust_msg) if w_gust_msg else ""
             w_dir = self._w_today_dict.get("w_dir", "--")
             update_fr = self._w_today_dict.get("update_fr", "--")
             # today message
@@ -960,7 +960,7 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
                   "Vent %9s : %4s km/h %s\n" + \
                   "\n" + \
                   "Mise à jour    : %s\n"
-            msg %= (temp, dewpt, press, w_peak_msg, w_speed, w_dir, update_fr)
+            msg %= (temp, dewpt, press, w_gust_msg, w_speed, w_dir, update_fr)
             self.lbl_today.configure(text=msg)
         except:
             self.lbl_today.configure(text="n/a")

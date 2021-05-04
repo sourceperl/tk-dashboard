@@ -130,9 +130,9 @@ def weather_today_job():
             # current wind speed
             if obs.wind_speed:
                 d_today['w_speed'] = round(obs.wind_speed.value("KMH"))
-            # current wind speed peak
-            if obs.wind_speed_peak:
-                d_today['w_speed_peak'] = round(obs.wind_speed_peak.value("KMH"))
+            # current wind gust
+            if obs.wind_gust:
+                d_today['w_gust'] = round(obs.wind_gust.value("KMH"))
             # current wind direction
             if obs.wind_dir:
                 # replace "W"est by "O"uest
