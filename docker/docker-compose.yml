@@ -1,9 +1,9 @@
 version: "3"
 
 services:
-  redis-srv:
-    image: redis
-    container_name: redis-srv
+  dash-redis-srv:
+    image: redis:6.2.3
+    container_name: dash-redis-srv
     restart: unless-stopped
     command: redis-server --save 3600 1
     ports:
@@ -18,7 +18,24 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  dash-import-app:
+    build: dash-import-app/.
+    image: dash-import-app-img
+    container_name: dash-import-app
+    restart: unless-stopped
+    volumes:
+      - dashboard-conf-vol:/data/dashboard-conf-vol
+    networks:
+      - redis-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
 volumes:
+  dashboard-conf-vol:
+    external: true
   redis-data-vol:
     external: true
 
