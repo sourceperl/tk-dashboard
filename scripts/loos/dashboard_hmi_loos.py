@@ -72,26 +72,28 @@ class CustomRedis(redis.StrictRedis):
     def get_bytes(self, name):
         try:
             return self.get(name)
-        except redis.RedisError as e:
-            logging.error(traceback.format_exc())
+        except redis.RedisError:
+            logging.debug('redis.get_bytes(%s)' % name)
+            logging.debug(traceback.format_exc())
 
     def get_str(self, name):
         try:
             return self.get(name).decode('utf-8')
-        except (redis.RedisError, AttributeError) as e:
-            logging.error(traceback.format_exc())
+        except (redis.RedisError, AttributeError):
+            logging.debug('redis.get_str(%s)' % name)
+            logging.debug(traceback.format_exc())
 
     def get_from_json(self, name):
         try:
             return json.loads(self.get(name).decode('utf-8'))
-        except (redis.RedisError, AttributeError, json.decoder.JSONDecodeError) as e:
-            logging.error(traceback.format_exc())
+        except (redis.RedisError, AttributeError, json.decoder.JSONDecodeError):
+            logging.debug('redis.get_from_json(%s)' % name)
+            logging.debug(traceback.format_exc())
 
 
 class DB:
     # create connector
     master = CustomRedis(host='localhost', socket_timeout=4, socket_keepalive=True)
-    master = CustomRedis(host=dash_master_host, socket_timeout=4, socket_keepalive=True)
     bridge = CustomRedis(host=bridge_host, socket_timeout=4, socket_keepalive=True)
 
 
@@ -1428,7 +1430,8 @@ class ImageCarouselTile(Tile):
 # main
 if __name__ == '__main__':
     # logging setup
-    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
+    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
+    logging.info('dash-hmi-app started')
     # avoid PIL debug message
     logging.getLogger('PIL').setLevel(logging.WARNING)
     # start IO thread
