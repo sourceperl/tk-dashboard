@@ -1,7 +1,13 @@
 # docker tk-dashboard test platform
 
-Start container:
+Start tk-dashboard as master:
 
 ```bash
-docker-compose up -d
+docker-compose -f compose-master.yml up -d
+```
+
+Start tk-dashboard as slave:
+
+```bash
+docker-compose -f compose-slave.yml up -d
 ```
