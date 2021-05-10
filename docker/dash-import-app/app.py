@@ -11,6 +11,7 @@ import logging
 import io
 import re
 import time
+import traceback
 from xml.dom import minidom
 import redis
 import requests
@@ -52,44 +53,44 @@ class CustomRedis(redis.StrictRedis):
     def set_ttl(self, name, ttl=3600):
         try:
             return self.expire(name, ttl)
-        except redis.RedisError as e:
-            logging.error(e)
+        except redis.RedisError:
+            logging.error(traceback.format_exc())
 
     def set_bytes(self, name, value):
         try:
             return self.set(name, value)
-        except redis.RedisError as e:
-            logging.error(e)
+        except redis.RedisError:
+            logging.error(traceback.format_exc())
 
     def get_bytes(self, name):
         try:
             return self.get(name)
-        except redis.RedisError as e:
-            logging.error(e)
+        except redis.RedisError:
+            logging.error(traceback.format_exc())
 
     def set_str(self, name, value):
         try:
             return self.set(name, value)
-        except redis.RedisError as e:
-            logging.error(e)
+        except redis.RedisError:
+            logging.error(traceback.format_exc())
 
     def get_str(self, name):
         try:
             return self.get(name).decode('utf-8')
-        except (redis.RedisError, AttributeError) as e:
-            logging.error(e)
+        except (redis.RedisError, AttributeError):
+            logging.error(traceback.format_exc())
 
     def set_to_json(self, name, obj):
         try:
             return self.set(name, json.dumps(obj))
-        except (redis.RedisError, AttributeError, json.decoder.JSONDecodeError) as e:
-            logging.error(e)
+        except (redis.RedisError, AttributeError, json.decoder.JSONDecodeError):
+            logging.error(traceback.format_exc())
 
     def get_from_json(self, name):
         try:
             return json.loads(self.get(name).decode('utf-8'))
-        except (redis.RedisError, AttributeError, json.decoder.JSONDecodeError) as e:
-            logging.error(e)
+        except (redis.RedisError, AttributeError, json.decoder.JSONDecodeError):
+            logging.error(traceback.format_exc())
 
 
 class DB:
@@ -137,8 +138,8 @@ def air_quality_atmo_hdf_job():
             # update redis
             DB.master.set_to_json('atmo:quality', d_air_quality)
             DB.master.set_ttl('atmo:quality', ttl=6 * 3600)
-    except Exception as e:
-        logging.error(e)
+    except Exception:
+        logging.error(traceback.format_exc())
 
 
 def gmap_traffic_img_job():
@@ -155,8 +156,8 @@ def gmap_traffic_img_job():
             # store RAW PNG to redis key
             DB.master.set_bytes('img:traffic-map:png', img_io.getvalue())
             DB.master.set_ttl('img:traffic-map:png', 2 * 3600)
-    except Exception as e:
-        logging.error(e)
+    except Exception:
+        logging.error(traceback.format_exc())
 
 
 def gsheet_job():
@@ -171,8 +172,8 @@ def gsheet_job():
         redis_d = dict(update=datetime.now().isoformat('T'), tags=d)
         DB.master.set_to_json('gsheet:grt', redis_d)
         DB.master.set_ttl('gsheet:grt', ttl=2 * 3600)
-    except Exception as e:
-        logging.error(e)
+    except Exception:
+        logging.error(traceback.format_exc())
 
 
 def local_info_job():
@@ -183,8 +184,8 @@ def local_info_job():
             l_titles.append(post.title)
         DB.master.set_to_json('news:local', l_titles)
         DB.master.set_ttl('news:local', ttl=2 * 3600)
-    except Exception as e:
-        logging.error(e)
+    except Exception:
+        logging.error(traceback.format_exc())
 
 
 def openweathermap_forecast_job():
@@ -221,8 +222,8 @@ def openweathermap_forecast_job():
         # store to redis
         DB.master.set_to_json('weather:forecast:loos', d_days)
         DB.master.set_ttl('weather:forecast:loos', ttl=2 * 3600)
-    except Exception as e:
-        logging.error(e)
+    except Exception:
+        logging.error(traceback.format_exc())
 
 
 def twitter_job():
@@ -261,8 +262,8 @@ def twitter_job():
             d_redis = dict(tweets=tweets_l, update=datetime.now().isoformat('T'))
             DB.master.set_to_json('twitter:tweets:grtgaz', d_redis)
             DB.master.set_ttl('twitter:tweets:grtgaz', ttl=3600)
-    except Exception as e:
-        logging.error(e)
+    except Exception:
+        logging.error(traceback.format_exc())
 
 
 def twitter2cloud_job():
@@ -311,8 +312,8 @@ def twitter2cloud_job():
                 # store RAW PNG to redis key
                 DB.master.set_bytes('img:grt-tweet-wordcloud:png', img_io.getvalue())
                 DB.master.set_ttl('img:grt-tweet-wordcloud:png', 2 * 3600)
-    except Exception as e:
-        logging.error(e)
+    except Exception:
+        logging.error(traceback.format_exc())
 
 
 def vigilance_job():
@@ -352,8 +353,8 @@ def vigilance_job():
                                                     'risk_id': risk_id}
             DB.master.set_to_json('weather:vigilance', vig_data)
             DB.master.set_ttl('weather:vigilance', ttl=2 * 3600)
-    except Exception as e:
-        logging.error(e)
+    except Exception:
+        logging.error(traceback.format_exc())
 
 
 def weather_today_job():
@@ -397,14 +398,15 @@ def weather_today_job():
             # store to redis
             DB.master.set_to_json('weather:today:loos', d_today)
             DB.master.set_ttl('weather:today:loos', ttl=2 * 3600)
-    except Exception as e:
-        logging.error(e)
+    except Exception:
+        logging.error(traceback.format_exc())
 
 
 # main
 if __name__ == '__main__':
     # logging setup
-    logging.basicConfig(format='%(asctime)s %(message)s')
+    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
+    logging.info('dash-import-app started')
 
     # init scheduler
     schedule.every(60).minutes.do(air_quality_atmo_hdf_job)
