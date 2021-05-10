@@ -19,12 +19,12 @@ from wordcloud import WordCloud
 cnf = ConfigParser()
 cnf.read('/data/dashboard-conf-vol/dashboard.conf')
 # gmap img traffic
-gmap_img_url = cnf.get("gmap_img", "img_url")
+gmap_img_url = cnf.get('gmap_img', 'img_url')
 # twitter
-tw_api_key = cnf.get("twitter", "api_key")
-tw_api_secret = cnf.get("twitter", "api_secret")
-tw_access_token = cnf.get("twitter", "access_token")
-tw_access_token_secret = cnf.get("twitter", "access_token_secret")
+tw_api_key = cnf.get('twitter', 'api_key')
+tw_api_secret = cnf.get('twitter', 'api_secret')
+tw_access_token = cnf.get('twitter', 'access_token')
+tw_access_token_secret = cnf.get('twitter', 'access_token_secret')
 
 
 # some class
@@ -50,7 +50,7 @@ class DB:
 # some function
 def twitter2cloud_job():
     def is_camelcase(s):
-        return s != s.lower() and "_" not in s
+        return s != s.lower() and '_' not in s
 
     try:
         # params
