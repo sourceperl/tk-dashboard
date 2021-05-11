@@ -1328,7 +1328,7 @@ class ImageRawTile(Tile):
         try:
             widget_size = (self.winfo_width(), self.winfo_height())
             # display current image file if raw_img is set
-            if value and self.winfo_ismapped():
+            if value:
                 # RAW img data to Pillow (PIL) image
                 pil_img = PIL.Image.open(io.BytesIO(value))
                 # force image size to widget size
