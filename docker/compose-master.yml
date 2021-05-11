@@ -35,11 +35,10 @@ services:
 
 volumes:
   dash-conf-vol:
-    external: true
+    name: dash-conf-vol
   dash-redis-data-vol:
-    external: true
+    name: dash-redis-data-vol
 
 networks:
   dash-net:
-    external: true
-
+    name: dash-net
