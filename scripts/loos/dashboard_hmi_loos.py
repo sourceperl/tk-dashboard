@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
 
-try:
-    # Python 2.x
-    import Tkinter as tk
-    import ttk
-except ImportError:
-    # Python 3.x
-    import tkinter as tk
-    from tkinter import ttk
-
+import tkinter as tk
+from tkinter import ttk
 from configparser import ConfigParser
 import io
 import json
@@ -39,15 +32,18 @@ Step : file independant, can be used without pdf and images
 # Geometry
 TAB_PAD_HEIGHT = 17
 TAB_PAD_WIDTH = 17
-NEWS_BANNER_HEIGHT = 90
-# GRTgaz Colors
-BLEU = '#007bc2'
-VERT = '#00a984'
-ARDOISE = '#3c4f69'
-MARINE = '#154194'
-FUSHIA = '#e5007d'
-ORANGE = '#f39200'
-JAUNE = '#ffe200'
+# dashboard colors
+C_WHITE = '#eff0f1'
+C_GREEN = '#00704f'
+C_YELLOW = '#dab02d'
+C_ORANGE = '#dd6c1e'
+C_RED = '#b22222'
+C_PINK = '#b86d6c'
+C_BACKGROUND = '#75adb1'
+C_TILE_BORDER = '#3c4f69'
+C_TXT = C_WHITE
+C_H_TXT = '#81424b'
+C_NA = C_PINK
 
 # read config
 cnf = ConfigParser()
@@ -280,7 +276,7 @@ class LiveTab(Tab):
         Tab.__init__(self, *args, **kwargs)
         # create all tiles for this tab here
         # logo Atmo HDF
-        self.tl_img_atmo = ImageTile(self, file=dashboard_img_path + 'logo_atmo_hdf.png', bg='white')
+        self.tl_img_atmo = ImageTile(self, file=dashboard_img_path + 'logo_atmo_hdf.png')
         self.tl_img_atmo.set_tile(row=0, column=0)
         # air quality Dunkerque
         self.tl_atmo_dunk = AirQualityTile(self, city='Dunkerque')
@@ -295,7 +291,7 @@ class LiveTab(Tab):
         self.tl_atmo_sque = AirQualityTile(self, city='Saint-Quentin')
         self.tl_atmo_sque.set_tile(row=0, column=4)
         # traffic map
-        self.tl_tf_map = ImageRawTile(self, bg='white')
+        self.tl_tf_map = ImageRawTile(self, bg='#bbe2c6')
         self.tl_tf_map.set_tile(row=1, column=0, rowspan=3, columnspan=5)
         # weather
         self.tl_weath = WeatherTile(self)
@@ -339,17 +335,6 @@ class LiveTab(Tab):
         # flyspray
         self.tl_fly = FlysprayTile(self)
         self.tl_fly.set_tile(row=5, column=0, rowspan=3, columnspan=7)
-        # meeting room
-        # self.tl_room_prj = MeetingRoomTile(self, room='Salle project')
-        # self.tl_room_prj.set_tile(row=5, column=5,columnspan=2)
-        # self.tl_room_trn = MeetingRoomTile(self, room='Salle trainning')
-        # self.tl_room_trn.set_tile(row=6, column=5, columnspan=2)
-        #  self.tl_room_met = MeetingRoomTile(self, room='Salle meeting')
-        # self.tl_room_met.set_tile(row=7, column=5, columnspan=2)
-        # self.tl_room_bur1 = MeetingRoomTile(self, room='Bureau passage 1')
-        # self.tl_room_bur1.set_tile(row=5, column=2, columnspan=2)
-        # self.tl_room_bur2 = MeetingRoomTile(self, room='Bureau passage 2')
-        # self.tl_room_bur2.set_tile(row=6, column=2, columnspan=2)
         # acc days stat
         self.tl_acc = DaysAccTile(self)
         self.tl_acc.set_tile(row=0, column=8, columnspan=5, rowspan=2)
@@ -357,7 +342,7 @@ class LiveTab(Tab):
         self.tl_tw_live = TwitterTile(self)
         self.tl_tw_live.set_tile(row=2, column=8, columnspan=5, rowspan=2)
         # logo img
-        self.tl_img_logo = ImageTile(self, file=dashboard_img_path + 'logo.png', bg='white')
+        self.tl_img_logo = ImageTile(self, file=dashboard_img_path + 'logo.png')
         self.tl_img_logo.set_tile(row=6, column=13, rowspan=2, columnspan=4)
         # carousel
         self.tl_crl = ImageCarouselTile(self)
@@ -477,12 +462,12 @@ class Tile(tk.Frame):
         # private
         self._update_ms = None
         # tk stuff
-        self.configure(highlightbackground=ARDOISE)
+        self.configure(highlightbackground=C_TILE_BORDER)
         self.configure(highlightthickness=3)
         self.configure(bd=0)
-        # set background, if current bg is tk default one
-        if self.cget('bg') == '#d9d9d9':
-            self.configure(bg=VERT)
+        # set default background color, if bg args is not set
+        if not kwargs.get('bg'):
+            self.configure(bg=C_BACKGROUND)
         # deny frame resize
         self.pack_propagate(False)
         self.grid_propagate(False)
@@ -490,9 +475,6 @@ class Tile(tk.Frame):
     def set_tile(self, row=0, column=0, rowspan=1, columnspan=1):
         # function to print a tile on the screen at the given coordonates
         self.grid(row=row, column=column, rowspan=rowspan, columnspan=columnspan, sticky=tk.NSEW)
-
-    # def del_tile(self):
-    #     self.grid_remove()
 
     def start_cyclic_update(self, update_ms=500):
         self._update_ms = update_ms
@@ -523,9 +505,9 @@ class TwitterTile(Tile):
         self._tw_index = 0
         # tk job
         self.configure(bg=TwitterTile.TW_BLUE)
-        tk.Label(self, text='live twitter: GRTgaz', bg=self.cget('bg'),
+        tk.Label(self, text='live twitter: GRTgaz', bg=self.cget('bg'), fg=C_TXT,
                  font=('courier', 14, 'bold', 'underline')).pack()
-        tk.Label(self, textvariable=self._tw_text, bg=self.cget('bg'),
+        tk.Label(self, textvariable=self._tw_text, bg=self.cget('bg'), fg=C_TXT,
                  wraplength=550, font=('courier', 14, 'bold')).pack(expand=True)
         # auto-update carousel rotate
         self.start_cyclic_update(update_ms=12000)
@@ -568,9 +550,9 @@ class FlysprayTile(Tile):
         self._msg_text = tk.StringVar()
         self._msg_text.set('n/a')
         # tk job
-        tk.Label(self, text='live Flyspray DTS Nord', bg=self.cget('bg'),
+        tk.Label(self, text='live Flyspray DTS Nord', bg=self.cget('bg'), fg=C_TXT,
                  font=('courier', 14, 'bold', 'underline')).pack()
-        tk.Label(self, textvariable=self._msg_text, bg=self.cget('bg'),
+        tk.Label(self, textvariable=self._msg_text, bg=self.cget('bg'), fg=C_TXT,
                  wraplength=750, justify=tk.LEFT, font=('courier', 11)).pack(expand=True)
 
     @property
@@ -614,10 +596,10 @@ class AirQualityTile(Tile):
         self._index_str.set('N/A')
         self._status_str.set('N/A')
         # tk job
-        tk.Label(self, text=city, font='bold').pack()
+        tk.Label(self, text=city, font='bold', fg=C_TXT).pack()
         tk.Label(self).pack()
-        tk.Label(self, textvariable=self._index_str).pack()
-        tk.Label(self, textvariable=self._status_str).pack()
+        tk.Label(self, textvariable=self._index_str, fg=C_TXT).pack()
+        tk.Label(self, textvariable=self._status_str, fg=C_TXT).pack()
 
     @property
     def qlt_index(self):
@@ -644,14 +626,14 @@ class AirQualityTile(Tile):
             self._index_str.set('N/A')
             self._status_str.set('N/A')
             # choose tile color
-            tile_color = 'pink'
+            tile_color = C_NA
         else:
             # choose tile color
-            tile_color = 'green'
+            tile_color = C_GREEN
             if self._qlt_index > 4:
-                tile_color = 'firebrick'
+                tile_color = C_RED
             elif self._qlt_index > 2:
-                tile_color = 'orange'
+                tile_color = C_ORANGE
         # update tile and his childs color
         for w in self.winfo_children():
             w.configure(bg=tile_color)
@@ -660,7 +642,7 @@ class AirQualityTile(Tile):
 
 class VigilanceTile(Tile):
     VIG_LVL = ['verte', 'jaune', 'orange', 'rouge']
-    VIG_COLOR = ['green', 'yellow', 'orange', 'firebrick']
+    VIG_COLOR = [C_GREEN, C_YELLOW, C_ORANGE, C_RED]
     ID_RISK = ['n/a', 'vent', 'pluie', 'orages', 'inondation', 'neige verglas',
                'canicule', 'grand froid', 'avalanches', 'submersion']
 
@@ -676,12 +658,12 @@ class VigilanceTile(Tile):
         self._level_str.set('N/A')
         self._risk_str.set('')
         # tk job
-        self.configure(bg='pink')
-        tk.Label(self, text='Vigilance', font='bold', bg='pink').pack()
-        tk.Label(self, text=self.department, font='bold', bg='pink').pack()
-        tk.Label(self, font=('', 6), bg='pink').pack()
-        tk.Label(self, textvariable=self._level_str, font='bold', bg='pink').pack()
-        tk.Label(self, textvariable=self._risk_str, font=('', 8), bg='pink').pack()
+        self.configure(bg=C_NA)
+        tk.Label(self, text='Vigilance', font='bold', bg=C_NA, fg=C_TXT).pack()
+        tk.Label(self, text=self.department, font='bold', bg=C_NA, fg=C_TXT).pack()
+        tk.Label(self, font=('', 6), bg=C_NA, fg=C_TXT).pack()
+        tk.Label(self, textvariable=self._level_str, font='bold', bg=C_NA, fg=C_TXT).pack()
+        tk.Label(self, textvariable=self._risk_str, font=('', 8), bg=C_NA, fg=C_TXT).pack()
 
     @property
     def vig_level(self):
@@ -723,7 +705,7 @@ class VigilanceTile(Tile):
             # set tk var
             self._level_str.set('N/A')
             # choose tile color
-            tile_color = 'pink'
+            tile_color = C_NA
         try:
             str_risk = ' '
             for id_risk in self._risk_ids[:2]:
@@ -750,10 +732,14 @@ class WattsTile(Tile):
         self._tdy_text = tk.StringVar()
         self._ydy_text = tk.StringVar()
         # tk job
-        tk.Label(self, text='Loos Watts news', bg=self.cget('bg'), font=('courier', 14, 'bold', 'underline')).pack()
-        tk.Label(self, textvariable=self._pwr_text, bg=self.cget('bg'), font=('courier', 14, 'bold')).pack(expand=True)
-        tk.Label(self, textvariable=self._tdy_text, bg=self.cget('bg'), font=('courier', 14, 'bold')).pack(expand=True)
-        tk.Label(self, textvariable=self._ydy_text, bg=self.cget('bg'), font=('courier', 14, 'bold')).pack(expand=True)
+        tk.Label(self, text='Loos Watts news', bg=self.cget('bg'), fg=C_TXT,
+                 font=('courier', 14, 'bold', 'underline')).pack()
+        tk.Label(self, textvariable=self._pwr_text, bg=self.cget('bg'), fg=C_TXT,
+                 font=('courier', 14, 'bold')).pack(expand=True)
+        tk.Label(self, textvariable=self._tdy_text, bg=self.cget('bg'), fg=C_TXT,
+                 font=('courier', 14, 'bold')).pack(expand=True)
+        tk.Label(self, textvariable=self._ydy_text, bg=self.cget('bg'), fg=C_TXT,
+                 font=('courier', 14, 'bold')).pack(expand=True)
         # public with accessor
         self.pwr = None
         self.today_wh = None
@@ -829,10 +815,10 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
             self.grid_columnconfigure(c, weight=1)
             # creation
             self._days_f_l.append(
-                tk.LabelFrame(master=self, text='dd/mm/yyyy', bg=self.cget('bg'),
+                tk.LabelFrame(master=self, text='dd/mm/yyyy', bg=self.cget('bg'), fg=C_TXT,
                               font=('bold', 10)))
             self._days_lbl.append(
-                tk.Label(master=self._days_f_l[c], text='n/a', bg=self.cget('bg'),
+                tk.Label(master=self._days_f_l[c], text='n/a', bg=self.cget('bg'), fg=C_TXT,
                          font='bold', anchor=tk.W, justify=tk.LEFT))
             # end creation
             # impression
@@ -842,9 +828,9 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
             self._days_lbl[c].grid_propagate(False)
 
         # today frame
-        self.frm_today = tk.LabelFrame(master=self, bg=self.cget('bg'), text='n/a', font=('bold', 18))
-        self.lbl_today = tk.Label(master=self.frm_today, text='n/a', bg=self.cget('bg'), font=('courier', 18, 'bold'),
-                                  anchor=tk.W, justify=tk.LEFT)
+        self.frm_today = tk.LabelFrame(master=self, bg=self.cget('bg'), fg=C_TXT, text='n/a', font=('bold', 18))
+        self.lbl_today = tk.Label(master=self.frm_today, text='n/a', bg=self.cget('bg'), fg=C_TXT,
+                                  font=('courier', 18, 'bold'), anchor=tk.W, justify=tk.LEFT)
         self.frm_today.grid(row=0, column=0, columnspan=4, rowspan=2, sticky=tk.NSEW)
         self.frm_today.grid_propagate(False)
         self.lbl_today.grid(column=0)
@@ -943,9 +929,9 @@ class ClockTile(Tile):
         locale.setlocale(locale.LC_ALL, 'fr_FR.UTF-8')
         # tk stuff
         tk.Label(self, textvariable=self._date_str, font=('bold', 15), bg=self.cget('bg'), anchor=tk.W,
-                 justify=tk.LEFT).pack(expand=True)
+                 justify=tk.LEFT, fg=C_TXT).pack(expand=True)
         tk.Label(self, textvariable=self._time_str, font=('digital-7', 30), bg=self.cget('bg'),
-                 fg='green').pack(expand=True)
+                 fg=C_TXT).pack(expand=True)
         # auto-update clock
         self.start_cyclic_update(update_ms=500)
 
@@ -969,10 +955,10 @@ class NewsBannerTile(Tile):
         self._disp_ban_pos = 0
         # tk stuff
         # set yellow background for this tile
-        self.configure(bg='yellow')
+        self.configure(bg='#f7e44f')
         # use a proportional font to handle spaces correctly, height is nb of lines
         tk.Label(self, textvariable=self._lbl_ban, height=1,
-                 bg=self.cget('bg'), font=('courier', 51, 'bold')).pack(expand=True)
+                 bg=self.cget('bg'), fg='black', font=('courier', 51, 'bold')).pack(expand=True)
         # auto-update clock
         self.start_cyclic_update(update_ms=200)
 
@@ -1029,7 +1015,7 @@ class PdfOpenerTile(Tile):
         self._l_process = list()
         # tk stuff
         self.name = tk.Label(self, text=os.path.splitext(self.filename)[0], wraplength=550,
-                             bg=self.cget('bg'), font=('courrier', 20, 'bold'))
+                             bg=self.cget('bg'), fg=C_TXT, font=('courrier', 20, 'bold'))
         self.name.pack(expand=True)
         # bind function for open pdf file
         self.bind('<Button-1>', self._on_click)
@@ -1057,64 +1043,6 @@ class PdfOpenerTile(Tile):
             del self._l_process[i]
 
 
-class MeetingRoomTile(Tile):
-    def __init__(self, *args, room, **kwargs):
-        Tile.__init__(self, *args, **kwargs)
-        # public
-
-        # private
-        self._status = None
-        self._status_str = tk.StringVar()
-        self._status_str.set('n/a')
-        # tk stuff
-        # init a 3x3 grid
-        for r in range(3):
-            for c in range(3):
-                self.grid_columnconfigure(c, weight=1)
-                tk.Label(self, bg=self.cget('bg')).grid(row=r, column=c)
-            self.grid_rowconfigure(r, weight=1)
-        # set labels
-        tk.Label(self, text=room, bg=self.cget('bg'), font='bold',
-                 justify='left', anchor='w').grid(row=1, column=0, sticky=tk.NSEW)
-        tk.Label(self, textvariable=self._status_str, bg=self.cget('bg'), font='bold', justify='left',
-                 anchor='w').grid(row=2, column=0, sticky=tk.NSEW)
-        self.tk_img = tk.PhotoImage()
-        tk.Label(self, image=self.tk_img, bg=self.cget('bg')).grid(row=0, column=2, rowspan=3)
-
-    @property
-    def status(self):
-        return self._status
-
-    @status.setter
-    def status(self, value):
-        # check type
-        try:
-            value = str(value)
-        except (TypeError, ValueError):
-            value = None
-        # check change
-        if self._status != value:
-            # check range
-            self._status = value
-            # update widget
-            self._on_data_change()
-
-    def _on_data_change(self):
-        if self._status is not None:
-            # set status on screen
-            self._status_str.set(self._status)
-            try:
-                # set traffic light image
-                if self._status == 'Occ' or self._status == 'OccPeriod':
-                    self.tk_img.configure(file=dashboard_img_path + 'tf_red.png')
-                elif self._status == 'Unocc':
-                    self.tk_img.configure(file=dashboard_img_path + 'tf_orange.png')
-                elif self._status == 'UnoccRepeat':
-                    self.tk_img.configure(file=dashboard_img_path + 'tf_green.png')
-            except Exception:
-                logging.error(traceback.format_exc())
-
-
 class GaugeTile(Tile):
     GAUGE_MIN = 0.0
     GAUGE_MAX = 100.0
@@ -1131,7 +1059,7 @@ class GaugeTile(Tile):
         self._head_str = ''
         self._percent = None
         # tk build
-        self.label = tk.Label(self, textvariable=self._str_title, font='bold')
+        self.label = tk.Label(self, textvariable=self._str_title, font='bold', bg=C_BACKGROUND, fg=C_TXT)
         self.label.grid(sticky=tk.NSEW)
         self.can = tk.Canvas(self, width=220, height=110, borderwidth=2, relief='sunken', bg='white')
         self.can.grid()
@@ -1186,18 +1114,18 @@ class GaugeTile(Tile):
             self._set_arrow(ratio)
             # update alarm, warn, fine status
             if self._percent < self.th_red:
-                self.can.configure(bg='red')
+                self.can.configure(bg=C_RED)
             elif self._percent < self.th_orange:
-                self.can.configure(bg='orange')
+                self.can.configure(bg=C_YELLOW)
             else:
-                self.can.configure(bg='green')
+                self.can.configure(bg=C_GREEN)
             if self._head_str:
                 self._str_title.set('%s (%s)' % (self.title, self._head_str))
             else:
                 self._str_title.set('%s (%.1f %%)' % (self.title, self.percent))
         except (TypeError, ZeroDivisionError):
             self._set_arrow(0.0)
-            self.can.configure(bg='pink')
+            self.can.configure(bg=C_NA)
             self._str_title.set('%s (%s)' % (self.title, 'N/A'))
 
     def _set_arrow(self, ratio):
@@ -1220,27 +1148,27 @@ class DaysAccTile(Tile):
         self._days_dts_str = tk.StringVar()
         self._days_digne_str = tk.StringVar()
         # tk stuff
-        self.configure(bg='white')
         # populate tile with blank grid parts
         for c in range(3):
             for r in range(3):
                 self.grid_rowconfigure(r, weight=1)
                 if c > 0:
-                    tk.Label(self, bg='white').grid(row=r, column=c, )
+                    tk.Label(self, bg=self.cget('bg')).grid(row=r, column=c, )
             self.columnconfigure(c, weight=1)
         # add label
         tk.Label(self, text='La sécurité est notre priorité !',
-                 font=('courier', 20, 'bold'), bg='white').grid(row=0, column=0, columnspan=2)
+                 font=('courier', 20, 'bold'), bg=self.cget('bg'),
+                 fg=C_TXT).grid(row=0, column=0, columnspan=2)
         # DTS
         tk.Label(self, textvariable=self._days_dts_str, font=('courier', 24, 'bold'),
-                 fg=FUSHIA, bg=self.cget('bg')).grid(row=1, column=0)
+                 bg=self.cget('bg'), fg=C_H_TXT).grid(row=1, column=0)
         tk.Label(self, text='Jours sans accident DTS',
-                 font=('courier', 18, 'bold'), bg=self.cget('bg')).grid(row=1, column=1, sticky=tk.W)
+                 font=('courier', 18, 'bold'), bg=self.cget('bg'), fg=C_TXT).grid(row=1, column=1, sticky=tk.W)
         # DIGNE
         tk.Label(self, textvariable=self._days_digne_str, font=('courier', 24, 'bold'),
-                 fg=FUSHIA, bg=self.cget('bg')).grid(row=2, column=0)
+                 bg=self.cget('bg'), fg=C_H_TXT).grid(row=2, column=0)
         tk.Label(self, text='Jours sans accident DIGNE',
-                 font=('courier', 18, 'bold'), bg=self.cget('bg')).grid(row=2, column=1, sticky=tk.W)
+                 font=('courier', 18, 'bold'), bg=self.cget('bg'), fg=C_TXT).grid(row=2, column=1, sticky=tk.W)
         # auto-update acc day counter
         self.start_cyclic_update(update_ms=5000)
 
