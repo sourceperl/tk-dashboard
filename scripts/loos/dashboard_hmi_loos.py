@@ -53,20 +53,13 @@ C_NEWS_TXT = C_BLACK
 # read config
 cnf = ConfigParser()
 cnf.read(os.path.expanduser('~/.dashboard_config'))
-# hostname of master dashboard
-dash_master_host = cnf.get('dashboard', 'master_host')
 # hostname of bridge server
 bridge_host = cnf.get('bridge', 'bridge_host')
 # paths
-dashboard_ramdisk = cnf.get('paths', 'dashboard_ramdisk')
 dashboard_root_path = cnf.get('paths', 'dashboard_root_path')
 dashboard_img_path = dashboard_root_path + cnf.get('paths', 'dashboard_img_dir')
 reglement_doc_path = dashboard_root_path + cnf.get('paths', 'reglement_doc_dir')
 carousel_img_path = dashboard_root_path + cnf.get('paths', 'carousel_img_dir')
-# gmap img traffic
-gmap_img_target = dashboard_ramdisk + cnf.get('gmap_img', 'img_target')
-# twitter cloud img
-tw_cloud_img = dashboard_ramdisk + cnf.get('twitter', 'cloud_img')
 
 
 class CustomRedis(redis.StrictRedis):
