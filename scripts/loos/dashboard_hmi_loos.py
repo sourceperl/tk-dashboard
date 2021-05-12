@@ -92,89 +92,70 @@ class DB:
 
 
 class Tag:
-    all_tags = []
-
-    def __init__(self, init=None, cmd_src=None):
+    def __init__(self, func_src=None):
         # private
-        self._var_lock = threading.Lock()
-        self._var = init
-        self._subscribers = []
-        self._cmd_src = cmd_src
-        # record the tag in tags list
-        Tag.all_tags.append(self)
-
-    def __repr__(self):
-        return repr(self._var)
+        self._func_src = func_src
+        self._lock = threading.Lock()
+        self._value = None
 
     def update(self):
-        if self._cmd_src:
-            self.var = self._cmd_src()
-
-    @property
-    def var(self):
-        with self._var_lock:
-            return self._var
-
-    @var.setter
-    def var(self, value):
-        with self._var_lock:
-            if value != self._var:
-                self._var = value
-                for callback in self._subscribers:
-                    callback(self._var)
-
-    def subscribe(self, callback):
-        # first value
-        callback(self._var)
-        # subscribe
-        self._subscribers.append(callback)
-
-    @classmethod
-    def update_all(cls):
-        for tag in cls.all_tags:
-            tag.update()
+        if callable(self._func_src):
+            # avoid lock thread during _func_src() IO stuff
+            cached_value = self._func_src()
+            with self._lock:
+                self._value = cached_value
 
     def get(self, path=None):
         if path:
+            # ensure path is an iterable
             if not type(path) in (tuple, list):
                 path = [path]
+            # explore path to retrieve item we want
+            with self._lock:
+                item = self._value
             try:
-                data = self._var
-                for i in range(0, len(path)):
-                    data = data[path[i]]
-                return data
-            except:
+                for cur_lvl in path:
+                    item = item[cur_lvl]
+                return item
+            # return None if path unavailable
+            except (TypeError, IndexError):
                 return None
         else:
-            return self._var
-
-    def set(self, *args):
-        self._var.set(*args)
+            # return simple scalar value
+            with self._lock:
+                return self._value
 
 
 class Tags:
     # create all tag here
     # WARNs: -> all tag are manage by an IO thread
-    #        -> tag subscriber callback code are call by IO thread (not by tkinter main thread)
-    D_GSHEET_GRT = Tag(cmd_src=lambda: DB.master.get_from_json('gsheet:grt'))
-    D_ATMO_QUALITY = Tag(cmd_src=lambda: DB.master.get_from_json('atmo:quality'))
-    D_W_TODAY_LOOS = Tag(cmd_src=lambda: DB.master.get_from_json('weather:today:loos'))
-    D_W_FORECAST_LOOS = Tag(cmd_src=lambda: DB.master.get_from_json('weather:forecast:loos'))
-    D_WEATHER_VIG = Tag(cmd_src=lambda: DB.master.get_from_json('weather:vigilance'))
-    D_NEWS_LOCAL = Tag(cmd_src=lambda: DB.master.get_from_json('news:local'))
-    D_TWEETS_GRT = Tag(cmd_src=lambda: DB.master.get_from_json('twitter:tweets:grtgaz'))
-    MET_PWR_ACT = Tag(cmd_src=lambda: DB.master.get_from_json('meters:electric:site:pwr_act'))
-    MET_TODAY_WH = Tag(cmd_src=lambda: DB.master.get_from_json('meters:electric:site:today_wh'))
-    MET_YESTERDAY_WH = Tag(cmd_src=lambda: DB.master.get_from_json('meters:electric:site:yesterday_wh'))
-    IMG_GRT_CLOUD = Tag(cmd_src=lambda: DB.master.get_bytes('img:grt-tweet-wordcloud:png'))
-    IMG_TRAFFIC_MAP = Tag(cmd_src=lambda: DB.master.get_bytes('img:traffic-map:png'))
-    L_FLYSPRAY_RSS = Tag(cmd_src=lambda: DB.bridge.get_from_json('rx:bur:flyspray_rss_nord'))
+    D_GSHEET_GRT = Tag(func_src=lambda: DB.master.get_from_json('gsheet:grt'))
+    D_ATMO_QUALITY = Tag(func_src=lambda: DB.master.get_from_json('atmo:quality'))
+    D_W_TODAY_LOOS = Tag(func_src=lambda: DB.master.get_from_json('weather:today:loos'))
+    D_W_FORECAST_LOOS = Tag(func_src=lambda: DB.master.get_from_json('weather:forecast:loos'))
+    D_WEATHER_VIG = Tag(func_src=lambda: DB.master.get_from_json('weather:vigilance'))
+    D_NEWS_LOCAL = Tag(func_src=lambda: DB.master.get_from_json('news:local'))
+    D_TWEETS_GRT = Tag(func_src=lambda: DB.master.get_from_json('twitter:tweets:grtgaz'))
+    MET_PWR_ACT = Tag(func_src=lambda: DB.master.get_from_json('meters:electric:site:pwr_act'))
+    MET_TODAY_WH = Tag(func_src=lambda: DB.master.get_from_json('meters:electric:site:today_wh'))
+    MET_YESTERDAY_WH = Tag(func_src=lambda: DB.master.get_from_json('meters:electric:site:yesterday_wh'))
+    IMG_GRT_CLOUD = Tag(func_src=lambda: DB.master.get_bytes('img:grt-tweet-wordcloud:png'))
+    IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.master.get_bytes('img:traffic-map:png'))
+    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.bridge.get_from_json('rx:bur:flyspray_rss_nord'))
 
     @classmethod
-    def tags_io_thread(cls):
-        # for tag auto-update method (with cmd_srv)
+    def init(cls):
+        # start IO thread
+        threading.Thread(target=cls._io_thread, daemon=True).start()
+
+    @classmethod
+    def _io_thread(cls):
+        # for non-blocking tag auto-update method (avoid GUI hang when IO delay occur)
         while True:
-            Tag.update_all()
+            for name, tag in cls.__dict__.items():
+                # if Tags attribute is a Tag refresh it (with cmd_src func)
+                if not name.startswith('__') and isinstance(tag, Tag):
+                    tag.update()
             time.sleep(2.0)
 
 
@@ -1358,8 +1339,8 @@ if __name__ == '__main__':
     logging.info('dash-hmi-app started')
     # avoid PIL debug message
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    # start IO thread
-    threading.Thread(target=Tags.tags_io_thread, daemon=True).start()
+    # init Tags
+    Tags.init()
     # start tkinter
     app = MainApp()
     app.title('GRTgaz Dashboard')
