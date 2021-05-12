@@ -34,6 +34,8 @@ TAB_PAD_HEIGHT = 17
 TAB_PAD_WIDTH = 17
 # dashboard colors
 C_WHITE = '#eff0f1'
+C_BLUE = '#4dbbdb'
+C_BLACK = '#100e0e'
 C_GREEN = '#00704f'
 C_YELLOW = '#dab02d'
 C_ORANGE = '#dd6c1e'
@@ -44,6 +46,9 @@ C_TILE_BORDER = '#3c4f69'
 C_TXT = C_WHITE
 C_H_TXT = '#81424b'
 C_NA = C_PINK
+C_TWEET = C_BLUE
+C_NEWS_BG = '#f7e44f'
+C_NEWS_TXT = C_BLACK
 
 # read config
 cnf = ConfigParser()
@@ -493,8 +498,6 @@ class Tile(tk.Frame):
 
 
 class TwitterTile(Tile):
-    TW_BLUE = '#1dcaff'
-
     def __init__(self, *args, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # public
@@ -504,7 +507,7 @@ class TwitterTile(Tile):
         self._tw_text.set('n/a')
         self._tw_index = 0
         # tk job
-        self.configure(bg=TwitterTile.TW_BLUE)
+        self.configure(bg=C_TWEET)
         tk.Label(self, text='live twitter: GRTgaz', bg=self.cget('bg'), fg=C_TXT,
                  font=('courier', 14, 'bold', 'underline')).pack()
         tk.Label(self, textvariable=self._tw_text, bg=self.cget('bg'), fg=C_TXT,
@@ -954,11 +957,11 @@ class NewsBannerTile(Tile):
         self._disp_ban_str = ''
         self._disp_ban_pos = 0
         # tk stuff
-        # set yellow background for this tile
-        self.configure(bg='#f7e44f')
+        # set background for this tile
+        self.configure(bg=C_NEWS_BG)
         # use a proportional font to handle spaces correctly, height is nb of lines
         tk.Label(self, textvariable=self._lbl_ban, height=1,
-                 bg=self.cget('bg'), fg='black', font=('courier', 51, 'bold')).pack(expand=True)
+                 bg=self.cget('bg'), fg=C_NEWS_TXT, font=('courier', 51, 'bold')).pack(expand=True)
         # auto-update clock
         self.start_cyclic_update(update_ms=200)
 
