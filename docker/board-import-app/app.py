@@ -143,7 +143,7 @@ class CustomRedis(redis.StrictRedis):
 
 class DB:
     # create connector
-    master = CustomRedis(host='dash-redis-srv', socket_timeout=4, socket_keepalive=True)
+    master = CustomRedis(host='board-redis-srv', socket_timeout=4, socket_keepalive=True)
     bridge = CustomRedis(host=bridge_host, socket_timeout=4, socket_keepalive=True)
 
 
