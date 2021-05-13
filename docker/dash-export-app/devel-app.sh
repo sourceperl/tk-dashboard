@@ -7,6 +7,6 @@ echo "/usr/src/app is link to ${HERE}"
 echo "run \"python3 app.py\" to test app.py update with ${IMG} docker image"
 docker run -it --rm \
            --net dash-net \
-           -v dash-conf-vol:/data/dashboard-conf-vol \
+           -v dash-conf-vol:/data/dash-conf-vol \
            -v ${HERE}:/usr/src/app \
            ${IMG} bash
