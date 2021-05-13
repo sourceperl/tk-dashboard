@@ -55,7 +55,6 @@ cnf = ConfigParser()
 cnf.read(os.path.expanduser('~/.dashboard_config'))
 # paths
 dashboard_root_path = cnf.get('paths', 'dashboard_root_path')
-dashboard_img_path = dashboard_root_path + cnf.get('paths', 'dashboard_img_dir')
 reglement_doc_path = dashboard_root_path + cnf.get('paths', 'reglement_doc_dir')
 carousel_img_path = dashboard_root_path + cnf.get('paths', 'carousel_img_dir')
 
@@ -137,6 +136,8 @@ class Tags:
     MET_TODAY_WH = Tag(func_src=lambda: DB.master.get_from_json('meters:electric:site:today_wh'))
     MET_YESTERDAY_WH = Tag(func_src=lambda: DB.master.get_from_json('meters:electric:site:yesterday_wh'))
     L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.master.get_from_json('bridge:flyspray_rss_nord'))
+    IMG_ATMO_HDF = Tag(func_src=lambda: DB.master.get_bytes('static:img:logo_atmo_hdf:png'))
+    IMG_LOGO_GRT = Tag(func_src=lambda: DB.master.get_bytes('static:img:logo_grt:png'))
     IMG_GRT_CLOUD = Tag(func_src=lambda: DB.master.get_bytes('img:grt-tweet-wordcloud:png'))
     IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.master.get_bytes('img:traffic-map:png'))
 
@@ -252,7 +253,7 @@ class LiveTab(Tab):
         Tab.__init__(self, *args, **kwargs)
         # create all tiles for this tab here
         # logo Atmo HDF
-        self.tl_img_atmo = ImageTile(self, file=dashboard_img_path + 'logo_atmo_hdf.png')
+        self.tl_img_atmo = ImageRawTile(self, bg='white')
         self.tl_img_atmo.set_tile(row=0, column=0)
         # air quality Dunkerque
         self.tl_atmo_dunk = AirQualityTile(self, city='Dunkerque')
@@ -317,9 +318,9 @@ class LiveTab(Tab):
         # twitter
         self.tl_tw_live = TwitterTile(self)
         self.tl_tw_live.set_tile(row=2, column=8, columnspan=5, rowspan=2)
-        # logo img
-        self.tl_img_logo = ImageTile(self, file=dashboard_img_path + 'logo.png')
-        self.tl_img_logo.set_tile(row=6, column=13, rowspan=2, columnspan=4)
+        # grt img
+        self.tl_img_grt = ImageRawTile(self, bg='white')
+        self.tl_img_grt.set_tile(row=6, column=13, rowspan=2, columnspan=4)
         # carousel
         self.tl_crl = ImageCarouselTile(self)
         self.tl_crl.set_tile(row=4, column=7, rowspan=4, columnspan=6)
@@ -333,6 +334,10 @@ class LiveTab(Tab):
         self.tl_img_cloud.raw = Tags.IMG_GRT_CLOUD.get()
         # traffic map
         self.tl_tf_map.raw = Tags.IMG_TRAFFIC_MAP.get()
+        # atmo
+        self.tl_img_atmo.raw = Tags.IMG_ATMO_HDF.get()
+        # GRT
+        self.tl_img_grt.raw = Tags.IMG_LOGO_GRT.get()
         # acc days stat
         self.tl_acc.acc_date_dts = Tags.D_GSHEET_GRT.get(('tags', 'DATE_ACC_DTS'))
         self.tl_acc.acc_date_digne = Tags.D_GSHEET_GRT.get(('tags', 'DATE_ACC_DIGNE'))
