@@ -1333,7 +1333,7 @@ class ImageCarouselTile(Tile):
 if __name__ == '__main__':
     # logging setup
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
-    logging.info('dash-hmi-app started')
+    logging.info('board-hmi-app started')
     # avoid PIL debug message
     logging.getLogger('PIL').setLevel(logging.WARNING)
     # init Tags

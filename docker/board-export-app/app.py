@@ -16,7 +16,7 @@ import schedule
 
 # read config
 cnf = ConfigParser()
-cnf.read('/data/dashboard-conf-vol/dashboard.conf')
+cnf.read('/data/board-conf-vol/dashboard.conf')
 # dweet
 dweet_id = cnf.get('dweet', 'id')
 dweet_key = cnf.get('dweet', 'key')
@@ -67,7 +67,7 @@ class CustomRedis(redis.StrictRedis):
 
 
 class DB:
-    master = CustomRedis(host='dash-redis-srv', socket_timeout=4, socket_keepalive=True)
+    master = CustomRedis(host='board-redis-srv', socket_timeout=4, socket_keepalive=True)
 
 
 # some function
@@ -137,7 +137,7 @@ def dweet_job():
 if __name__ == '__main__':
     # logging setup
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
-    logging.info('dash-export-app started')
+    logging.info('board-export-app started')
 
     # init scheduler
     schedule.every(5).minutes.do(dweet_job)

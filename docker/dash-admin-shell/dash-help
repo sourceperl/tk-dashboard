@@ -1,7 +1,0 @@
-#!/bin/sh
-
-echo "admin/init commands :"
-echo "\t- dash-help to see this message"
-echo "\t- dash-redis-admin to access to redis-cli"
-echo "\t- dash-init-static to add static content (PNG image...) to redis DB"
-echo "\t- vim /data/dash-conf-vol/dashboard.conf to edit configuration file"

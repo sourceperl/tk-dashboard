@@ -18,9 +18,9 @@ RUN apt-get install --yes \
 ENV PYTHONUNBUFFERED=1
 
 # copy some admin/init apps
-COPY dash-help /usr/local/bin/
-COPY dash-redis-admin /usr/local/bin/
-COPY dash-init-static /usr/local/bin/
+COPY board-help /usr/local/bin/
+COPY board-redis-admin /usr/local/bin/
+COPY board-init-static /usr/local/bin/
 
 # start in /root/
 WORKDIR /root/

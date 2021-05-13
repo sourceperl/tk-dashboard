@@ -1,73 +1,73 @@
 version: "3"
 
 services:
-  dash-redis-srv:
+  board-redis-srv:
     image: redis:6.2.3
-    container_name: dash-redis-srv
+    container_name: board-redis-srv
     restart: unless-stopped
     command: redis-server --save 3600 1
     ports:
       - "6379:6379"
     volumes:
-      - dash-redis-data-vol:/data
+      - board-redis-data-vol:/data
     networks:
-      - dash-net
+      - board-net
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "5"
 
-  dash-import-app:
-    build: dash-import-app/.
-    image: dash-import-app-img
-    container_name: dash-import-app
+  board-import-app:
+    build: board-import-app/.
+    image: board-import-app-img
+    container_name: board-import-app
     restart: unless-stopped
     volumes:
-      - dash-conf-vol:/data/dashboard-conf-vol
+      - board-conf-vol:/data/board-conf-vol
     networks:
-      - dash-net
+      - board-net
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "5"
 
-  dash-export-app:
-    build: dash-export-app/.
-    image: dash-export-app-img
-    container_name: dash-export-app
+  board-export-app:
+    build: board-export-app/.
+    image: board-export-app-img
+    container_name: board-export-app
     restart: unless-stopped
     volumes:
-      - dash-conf-vol:/data/dashboard-conf-vol
+      - board-conf-vol:/data/board-conf-vol
     networks:
-      - dash-net
+      - board-net
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "5"
 
-  dash-admin-shell:
-    build: dash-admin-shell/.
-    image: dash-admin-shell-img
-    container_name: dash-admin-shell
+  board-admin-shell:
+    build: board-admin-shell/.
+    image: board-admin-shell-img
+    container_name: board-admin-shell
     restart: unless-stopped
     stdin_open: true
     tty: true
     volumes:
-      - dash-conf-vol:/data/dash-conf-vol
+      - board-conf-vol:/data/board-conf-vol
     networks:
-      - dash-net
+      - board-net
     logging:
       driver: none
 
 volumes:
-  dash-conf-vol:
-    name: dash-conf-vol
-  dash-redis-data-vol:
-    name: dash-redis-data-vol
+  board-conf-vol:
+    name: board-conf-vol
+  board-redis-data-vol:
+    name: board-redis-data-vol
 
 networks:
-  dash-net:
-    name: dash-net
+  board-net:
+    name: board-net

@@ -1,17 +1,17 @@
 version: "3"
 
 services:
-  dash-redis-srv:
+  board-redis-srv:
     image: redis:6.2.3
-    container_name: dash-redis-srv
+    container_name: board-redis-srv
     restart: unless-stopped
     command: redis-server --slaveof 192.168.0.60 6379 --save 3600 1
     ports:
       - "6379:6379"
     volumes:
-      - dash-redis-data-vol:/data
+      - board-redis-data-vol:/data
     networks:
-      - dash-net
+      - board-net
     logging:
       driver: json-file
       options:
@@ -19,12 +19,12 @@ services:
         max-file: "5"
 
 volumes:
-  dash-conf-vol:
+  board-conf-vol:
     external: true
-  dash-redis-data-vol:
+  board-redis-data-vol:
     external: true
 
 networks:
-  dash-net:
+  board-net:
     external: true
 

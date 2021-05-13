@@ -31,7 +31,7 @@ USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64; rv:2.0.1) Gecko/20100101 Firefox/4
 
 # read config
 cnf = ConfigParser()
-cnf.read('/data/dashboard-conf-vol/dashboard.conf')
+cnf.read('/data/board-conf-vol/dashboard.conf')
 # hostname of bridge server
 bridge_host = cnf.get('bridge', 'bridge_host')
 # gmap img traffic
