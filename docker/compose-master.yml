@@ -33,6 +33,21 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  dash-export-app:
+    build: dash-export-app/.
+    image: dash-export-app-img
+    container_name: dash-export-app
+    restart: unless-stopped
+    volumes:
+      - dash-conf-vol:/data/dashboard-conf-vol
+    networks:
+      - dash-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
 volumes:
   dash-conf-vol:
     name: dash-conf-vol

@@ -16,7 +16,7 @@ import schedule
 
 # read config
 cnf = ConfigParser()
-cnf.read(os.path.expanduser('~/.dashboard_config'))
+cnf.read('/data/dashboard-conf-vol/dashboard.conf')
 # dweet
 dweet_id = cnf.get('dweet', 'id')
 dweet_key = cnf.get('dweet', 'key')
@@ -67,8 +67,7 @@ class CustomRedis(redis.StrictRedis):
 
 
 class DB:
-    # create connector
-    master = CustomRedis(host='localhost', socket_timeout=4, socket_keepalive=True)
+    master = CustomRedis(host='dash-redis-srv', socket_timeout=4, socket_keepalive=True)
 
 
 # some function
@@ -90,7 +89,7 @@ def dweet_encode(bytes_data):
     xor_data = byte_xor(c_data, token_mask)
     # concatenate xor random token and xor data
     msg_block = xor_token + xor_data
-    # encode result in base64 (for no utf-8 byte support)
+    # encode binary data with base64
     return base64.b64encode(msg_block)
 
 
@@ -126,7 +125,6 @@ def dweet_job():
             dweet_post_d['raw_flyspray_est'] = dweet_encode(json_flyspray_est).decode('ascii')
         # if dweet_post_d not empty publish to dweet
         if dweet_post_d:
-            print(dweet_post_d)
             r = requests.post(DW_POST_URL + dweet_id, json=dweet_post_d, timeout=15.0)
             # check error
             if r.status_code == 200:
@@ -139,7 +137,7 @@ def dweet_job():
 if __name__ == '__main__':
     # logging setup
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
-    logging.info('dashboard_redis_export started')
+    logging.info('dash-export-app started')
 
     # init scheduler
     schedule.every(5).minutes.do(dweet_job)
