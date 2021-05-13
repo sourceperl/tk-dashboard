@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
+import base64
 from collections import Counter
 from configparser import ConfigParser
 from datetime import datetime, timedelta
+import math
+import secrets
 import urllib.parse
-import feedparser
 import html
 import json
 import logging
@@ -13,6 +15,8 @@ import re
 import time
 import traceback
 from xml.dom import minidom
+import zlib
+import feedparser
 import redis
 import requests
 from requests_oauthlib import OAuth1
@@ -28,6 +32,8 @@ USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64; rv:2.0.1) Gecko/20100101 Firefox/4
 # read config
 cnf = ConfigParser()
 cnf.read('/data/dashboard-conf-vol/dashboard.conf')
+# hostname of bridge server
+bridge_host = cnf.get('bridge', 'bridge_host')
 # gmap img traffic
 gmap_img_url = cnf.get('gmap_img', 'img_url')
 # gsheet
@@ -39,6 +45,9 @@ tw_api_key = cnf.get('twitter', 'api_key')
 tw_api_secret = cnf.get('twitter', 'api_secret')
 tw_access_token = cnf.get('twitter', 'access_token')
 tw_access_token_secret = cnf.get('twitter', 'access_token_secret')
+# dweet
+dweet_id = cnf.get('dweet', 'id')
+dweet_key = cnf.get('dweet', 'key')
 
 
 # some functions
@@ -46,6 +55,45 @@ def dt_utc_to_local(utc_dt):
     now_ts = time.time()
     offset = datetime.fromtimestamp(now_ts) - datetime.utcfromtimestamp(now_ts)
     return utc_dt + offset
+
+
+def byte_xor(bytes_1, bytes_2):
+    return bytes([_a ^ _b for _a, _b in zip(bytes_1, bytes_2)])
+
+
+def dweet_encode(bytes_data):
+    # compress data
+    c_data = zlib.compress(bytes_data)
+    # generate a random token
+    token = secrets.token_bytes(64)
+    # xor random token and private key
+    key = dweet_key.encode('utf8')
+    key_mask = key * math.ceil(len(token) / len(key))
+    xor_token = byte_xor(token, key_mask)
+    # xor data and token
+    token_mask = token * math.ceil(len(c_data) / len(token))
+    xor_data = byte_xor(c_data, token_mask)
+    # concatenate xor random token and xor data
+    msg_block = xor_token + xor_data
+    # encode result in base64 (for no utf-8 byte support)
+    return base64.b64encode(msg_block)
+
+
+def dweet_decode(b64_msg_block):
+    # decode base64 msg
+    msg_block = base64.b64decode(b64_msg_block)
+    # split message: [xor_token part : xor_data part]
+    xor_token = msg_block[:64]
+    xor_data = msg_block[64:]
+    # token = xor_token xor private key
+    key = dweet_key.encode('utf8')
+    key_mask = key * math.ceil(len(xor_token) / len(key))
+    token = byte_xor(xor_token, key_mask)
+    # compressed data = xor_data xor token
+    token_mask = token * math.ceil(len(xor_data) / len(token))
+    c_data = byte_xor(xor_data, token_mask)
+    # return decompress data
+    return zlib.decompress(c_data)
 
 
 # some class
@@ -96,6 +144,7 @@ class CustomRedis(redis.StrictRedis):
 class DB:
     # create connector
     master = CustomRedis(host='dash-redis-srv', socket_timeout=4, socket_keepalive=True)
+    bridge = CustomRedis(host=bridge_host, socket_timeout=4, socket_keepalive=True)
 
 
 # some function
@@ -138,6 +187,38 @@ def air_quality_atmo_hdf_job():
             # update redis
             DB.master.set_to_json('atmo:quality', d_air_quality)
             DB.master.set_ttl('atmo:quality', ttl=6 * 3600)
+    except Exception:
+        logging.error(traceback.format_exc())
+
+
+def bridge_job():
+    # relay flyspray data from bridge to master DB
+    try:
+        flyspray_data = DB.bridge.get_from_json('rx:bur:flyspray_rss_nord')
+        if flyspray_data:
+            DB.master.set_to_json('bridge:flyspray_rss_nord', flyspray_data)
+            DB.master.set_ttl('bridge:flyspray_rss_nord', ttl=1 * 3600)
+    except Exception:
+        logging.error(traceback.format_exc())
+
+
+def dweet_job():
+    DW_GET_URL = 'https://dweet.io/get/latest/dweet/for/'
+
+    # https request
+    try:
+        r = requests.get(DW_GET_URL + dweet_id, timeout=10.0)
+        # check error
+        if r.status_code == 200:
+            # parse data
+            data_d = r.json()
+            json_flyspray_est = dweet_decode(data_d['with'][0]['content']['raw_flyspray_est']).decode('utf8')
+            json_flyspray_nord = dweet_decode(data_d['with'][0]['content']['raw_flyspray_nord']).decode('utf8')
+            # update redis
+            DB.master.set_to_json("dweet:flyspray_rss_est", json.loads(json_flyspray_est))
+            DB.master.set_ttl("dweet:flyspray_rss_est", ttl=3600)
+            DB.master.set_to_json("dweet:flyspray_rss_nord", json.loads(json_flyspray_nord))
+            DB.master.set_ttl("dweet:flyspray_rss_nord", ttl=3600)
     except Exception:
         logging.error(traceback.format_exc())
 
@@ -411,6 +492,8 @@ if __name__ == '__main__':
 
     # init scheduler
     schedule.every(60).minutes.do(air_quality_atmo_hdf_job)
+    #schedule.every(2).minutes.do(bridge_job)
+    #schedule.every(2).minutes.do(dweet_job)
     schedule.every(5).minutes.do(gsheet_job)
     schedule.every(2).minutes.do(img_gmap_traffic_job)
     schedule.every(30).minutes.do(img_grt_tw_cloud_job)
@@ -421,6 +504,8 @@ if __name__ == '__main__':
     schedule.every(5).minutes.do(weather_today_job)
     # first call
     air_quality_atmo_hdf_job()
+    #bridge_job()
+    #dweet_job()
     gsheet_job()
     img_gmap_traffic_job()
     img_grt_tw_cloud_job()

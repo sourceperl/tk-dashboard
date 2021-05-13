@@ -53,8 +53,6 @@ C_NEWS_TXT = C_BLACK
 # read config
 cnf = ConfigParser()
 cnf.read(os.path.expanduser('~/.dashboard_config'))
-# hostname of bridge server
-bridge_host = cnf.get('bridge', 'bridge_host')
 # paths
 dashboard_root_path = cnf.get('paths', 'dashboard_root_path')
 dashboard_img_path = dashboard_root_path + cnf.get('paths', 'dashboard_img_dir')
@@ -88,7 +86,6 @@ class CustomRedis(redis.StrictRedis):
 class DB:
     # create connector
     master = CustomRedis(host='localhost', socket_timeout=4, socket_keepalive=True)
-    bridge = CustomRedis(host=bridge_host, socket_timeout=4, socket_keepalive=True)
 
 
 class Tag:
@@ -139,9 +136,9 @@ class Tags:
     MET_PWR_ACT = Tag(func_src=lambda: DB.master.get_from_json('meters:electric:site:pwr_act'))
     MET_TODAY_WH = Tag(func_src=lambda: DB.master.get_from_json('meters:electric:site:today_wh'))
     MET_YESTERDAY_WH = Tag(func_src=lambda: DB.master.get_from_json('meters:electric:site:yesterday_wh'))
+    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.master.get_from_json('bridge:flyspray_rss_nord'))
     IMG_GRT_CLOUD = Tag(func_src=lambda: DB.master.get_bytes('img:grt-tweet-wordcloud:png'))
     IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.master.get_bytes('img:traffic-map:png'))
-    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.bridge.get_from_json('rx:bur:flyspray_rss_nord'))
 
     @classmethod
     def init(cls):
