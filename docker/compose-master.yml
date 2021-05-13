@@ -48,6 +48,20 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  dash-admin-shell:
+    build: dash-admin-shell/.
+    image: dash-admin-shell-img
+    container_name: dash-admin-shell
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    volumes:
+      - dash-conf-vol:/data/dash-conf-vol
+    networks:
+      - dash-net
+    logging:
+      driver: none
+
 volumes:
   dash-conf-vol:
     name: dash-conf-vol
