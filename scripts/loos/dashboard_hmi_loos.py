@@ -532,7 +532,7 @@ class FlysprayTile(Tile):
         tk.Label(self, text='live Flyspray DTS Nord', bg=self.cget('bg'), fg=C_TXT,
                  font=('courier', 14, 'bold', 'underline')).pack()
         tk.Label(self, textvariable=self._msg_text, bg=self.cget('bg'), fg=C_TXT,
-                 wraplength=750, justify=tk.LEFT, font=('courier', 11)).pack(expand=True)
+                 wraplength=750, justify=tk.LEFT, font=('courier', 13, 'bold')).pack(expand=True)
 
     @property
     def l_items(self):
@@ -551,10 +551,16 @@ class FlysprayTile(Tile):
             self._on_data_change()
 
     def _on_data_change(self):
+        TTE_MAX_NB = 12
+        TTE_MAX_LEN = 75
         try:
             msg = ''
-            for item in self._l_items[:12]:
-                msg += '%s\n' % item['title']
+            # limit titles number
+            for item in self._l_items[:TTE_MAX_NB]:
+                # limit title length
+                title = item['title']
+                title = (title[:TTE_MAX_LEN-2] + '..') if len(title) > TTE_MAX_LEN else title
+                msg += '%s\n' % title
             self._msg_text.set(msg)
         except Exception:
             self._msg_text.set('n/a')
@@ -907,7 +913,7 @@ class ClockTile(Tile):
         # set locale (for french day name)
         locale.setlocale(locale.LC_ALL, 'fr_FR.UTF-8')
         # tk stuff
-        tk.Label(self, textvariable=self._date_str, font=('bold', 15), bg=self.cget('bg'), anchor=tk.W,
+        tk.Label(self, textvariable=self._date_str, font=('bold', 16), bg=self.cget('bg'), anchor=tk.W,
                  justify=tk.LEFT, fg=C_TXT).pack(expand=True)
         tk.Label(self, textvariable=self._time_str, font=('digital-7', 30), bg=self.cget('bg'),
                  fg=C_TXT).pack(expand=True)
@@ -1141,12 +1147,12 @@ class DaysAccTile(Tile):
         # DTS
         tk.Label(self, textvariable=self._days_dts_str, font=('courier', 24, 'bold'),
                  bg=self.cget('bg'), fg=C_H_TXT).grid(row=1, column=0)
-        tk.Label(self, text='Jours sans accident DTS',
+        tk.Label(self, text='jours sans accident DTS',
                  font=('courier', 18, 'bold'), bg=self.cget('bg'), fg=C_TXT).grid(row=1, column=1, sticky=tk.W)
         # DIGNE
         tk.Label(self, textvariable=self._days_digne_str, font=('courier', 24, 'bold'),
                  bg=self.cget('bg'), fg=C_H_TXT).grid(row=2, column=0)
-        tk.Label(self, text='Jours sans accident DIGNE',
+        tk.Label(self, text='jours sans accident DIGNE',
                  font=('courier', 18, 'bold'), bg=self.cget('bg'), fg=C_TXT).grid(row=2, column=1, sticky=tk.W)
         # auto-update acc day counter
         self.start_cyclic_update(update_ms=5000)
