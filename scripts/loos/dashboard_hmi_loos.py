@@ -1247,8 +1247,8 @@ class ImageRawTile(Tile):
                 # force image size to widget size
                 pil_img.thumbnail(widget_size)
             else:
-                # create a replace 'n/a' gray image
-                pil_img = PIL.Image.new('RGB', widget_size, 'gray')
+                # create a replace 'n/a' image
+                pil_img = PIL.Image.new('RGB', widget_size, C_PINK)
                 txt = 'n/a'
                 draw = PIL.ImageDraw.Draw(pil_img)
                 font = PIL.ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 24)
