@@ -17,10 +17,8 @@ RUN apt-get install --yes \
 # setup environnement
 ENV PYTHONUNBUFFERED=1
 
-# copy some admin/init apps
-COPY board-help /usr/local/bin/
-COPY board-redis-admin /usr/local/bin/
-COPY board-init-static /usr/local/bin/
+# copy board-* tools
+COPY board-* /usr/local/bin/
 
 # start in /root/
 WORKDIR /root/

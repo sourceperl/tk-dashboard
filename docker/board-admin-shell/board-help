@@ -2,6 +2,6 @@
 
 echo "admin/init commands :"
 echo "- board-help                               see this message"
-echo "- board-redis-admin                        access to redis-cli"
+echo "- board-redis-cli                          access to redis cli"
 echo "- board-init-static                        add static content (PNG image...) to redis DB"
 echo "- vim /data/board-conf-vol/dashboard.conf  edit configuration file"
