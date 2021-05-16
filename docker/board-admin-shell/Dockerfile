@@ -20,5 +20,12 @@ ENV PYTHONUNBUFFERED=1
 # copy board-* tools
 COPY board-* /usr/local/bin/
 
+# copy entrypoint script
+COPY docker-entrypoint.sh /
+
 # start in /root/
 WORKDIR /root/
+
+# define command
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["bash"]
