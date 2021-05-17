@@ -35,7 +35,7 @@ RUN groupadd -r $username && \
     useradd --no-log-init -r -g $username $username
 USER $username
 
-# setup environnement 
+# setup environment
 ENV PYTHONUNBUFFERED=1
 
 # run app
