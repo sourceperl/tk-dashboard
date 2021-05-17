@@ -51,8 +51,11 @@ dweet_key = cnf.get('dweet', 'key')
 
 
 # some functions
-def catch_log_except(catch=Exception, log_lvl=logging.ERROR):
+def catch_log_except(catch=None, log_lvl=logging.ERROR):
     # decorator to catch exception and produce one line log message
+    if catch is None:
+        catch = Exception
+
     def _catch_log_except(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -64,7 +67,9 @@ def catch_log_except(catch=Exception, log_lvl=logging.ERROR):
                 func_args += f'{str(kwargs)[1:-1]}'
                 func_call = f'{func.__name__}({func_args})'
                 logging.log(log_lvl, f'except {type(e)} in {func_call}: {e}')
+
         return wrapper
+
     return _catch_log_except
 
 
@@ -182,11 +187,11 @@ def air_quality_atmo_hdf_job():
             raise ValueError('dataset is empty')
         # create and populate result dict
         d_air_quality = {'amiens': zones_d.get('80021', 0),
-                            'dunkerque': zones_d.get('59183', 0),
-                            'lille': zones_d.get('59350', 0),
-                            'maubeuge': zones_d.get('59392', 0),
-                            'saint-quentin': zones_d.get('02691', 0),
-                            'valenciennes': zones_d.get('59606', 0)}
+                         'dunkerque': zones_d.get('59183', 0),
+                         'lille': zones_d.get('59350', 0),
+                         'maubeuge': zones_d.get('59392', 0),
+                         'saint-quentin': zones_d.get('02691', 0),
+                         'valenciennes': zones_d.get('59606', 0)}
         # update redis
         DB.master.set_to_json('atmo:quality', d_air_quality)
         DB.master.set_ttl('atmo:quality', ttl=6 * 3600)
@@ -194,11 +199,15 @@ def air_quality_atmo_hdf_job():
 
 @catch_log_except()
 def bridge_job():
-    # relay flyspray data from bridge to master DB
-    flyspray_data = DB.bridge.get_from_json('rx:bur:flyspray_rss_nord')
-    if flyspray_data:
-        DB.master.set_to_json('bridge:flyspray_rss_nord', flyspray_data)
+    # relay flyspray data from bridge to master DB
+    fly_data_nord = DB.bridge.get_from_json('rx:bur:flyspray_rss_nord')
+    fly_data_est = DB.bridge.get_from_json('rx:bur:flyspray_rss_est')
+    if fly_data_nord:
+        DB.master.set_to_json('bridge:flyspray_rss_nord', fly_data_nord)
         DB.master.set_ttl('bridge:flyspray_rss_nord', ttl=1 * 3600)
+    if fly_data_est:
+        DB.master.set_to_json('bridge:flyspray_rss_est', fly_data_est)
+        DB.master.set_ttl('bridge:flyspray_rss_est', ttl=1 * 3600)
 
 
 @catch_log_except()
@@ -243,7 +252,7 @@ def img_gmap_traffic_job():
         pil_img = PIL.Image.open(io.BytesIO(r.raw.read()))
         # crop image
         pil_img = pil_img.crop((0, 0, 560, 328))
-        #pil_img.thumbnail([632, 328])
+        # pil_img.thumbnail([632, 328])
         img_io = io.BytesIO()
         pil_img.save(img_io, format='PNG')
         # store RAW PNG to redis key
@@ -396,8 +405,8 @@ def vigilance_job():
         tz = pytz.timezone('Europe/Paris')
         map_date = str(dom.getElementsByTagName('entetevigilance')[0].getAttribute('dateinsert'))
         map_dt = tz.localize(datetime(int(map_date[0:4]), int(map_date[4:6]),
-                                        int(map_date[6:8]), int(map_date[8:10]),
-                                        int(map_date[10:12])))
+                                      int(map_date[6:8]), int(map_date[8:10]),
+                                      int(map_date[10:12])))
         vig_data['update'] = map_dt.isoformat()
         # parse every departments
         for items in dom.getElementsByTagName('datavigilance'):
@@ -425,7 +434,7 @@ def vigilance_job():
 def weather_today_job():
     # request data from NOAA server (METAR of Lille-Lesquin Airport)
     r = requests.get('http://tgftp.nws.noaa.gov/data/observations/metar/stations/LFQQ.TXT',
-                        timeout=5.0, headers={'User-Agent': USER_AGENT})
+                     timeout=5.0, headers={'User-Agent': USER_AGENT})
     # check error
     if r.status_code == 200:
         # extract METAR message
@@ -473,7 +482,7 @@ if __name__ == '__main__':
     # init scheduler
     schedule.every(60).minutes.do(air_quality_atmo_hdf_job)
     schedule.every(2).minutes.do(bridge_job)
-    #schedule.every(2).minutes.do(dweet_job)
+    schedule.every(15).minutes.do(dweet_job)
     schedule.every(5).minutes.do(gsheet_job)
     schedule.every(2).minutes.do(img_gmap_traffic_job)
     schedule.every(30).minutes.do(img_grt_tw_cloud_job)
@@ -485,7 +494,7 @@ if __name__ == '__main__':
     # first call
     air_quality_atmo_hdf_job()
     bridge_job()
-    #dweet_job()
+    dweet_job()
     gsheet_job()
     img_gmap_traffic_job()
     img_grt_tw_cloud_job()
