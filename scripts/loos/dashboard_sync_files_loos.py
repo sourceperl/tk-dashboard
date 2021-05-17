@@ -11,7 +11,7 @@ import subprocess
 
 
 # some const
-DASHBOARD_DATA_HMI_PATH = '/srv/dashboard/hmi/'
+DASHBOARD_DATA_HMI_PATH = '/srv/dashboard/'
 
 # read config
 cnf = ConfigParser()
