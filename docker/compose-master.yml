@@ -52,6 +52,24 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  board-files-app:
+    build: board-files-app/.
+    image: board-files-app-img
+    container_name: board-files-app
+    restart: unless-stopped
+    depends_on:
+      - "board-redis-srv"
+    volumes:
+      - board-conf-vol:/data/board-conf-vol
+      - /srv/dashboard:/srv/dashboard
+    networks:
+      - board-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
   board-admin-shell:
     build: board-admin-shell/.
     image: board-admin-shell-img
@@ -61,16 +79,17 @@ services:
     tty: true
     volumes:
       - board-conf-vol:/data/board-conf-vol
+      - /srv/dashboard:/srv/dashboard
     networks:
       - board-net
     logging:
       driver: none
 
 volumes:
-  board-conf-vol:
-    name: board-conf-vol
   board-redis-data-vol:
     name: board-redis-data-vol
+  board-conf-vol:
+    name: board-conf-vol
 
 networks:
   board-net:

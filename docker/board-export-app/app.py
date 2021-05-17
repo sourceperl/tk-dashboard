@@ -20,6 +20,7 @@ cnf.read('/data/board-conf-vol/dashboard.conf')
 dweet_id = cnf.get('dweet', 'id')
 dweet_key = cnf.get('dweet', 'key')
 
+
 # some function
 def catch_log_except(catch=Exception, log_lvl=logging.ERROR):
     # decorator to catch exception and produce one line log message
@@ -34,7 +35,9 @@ def catch_log_except(catch=Exception, log_lvl=logging.ERROR):
                 func_args += f'{str(kwargs)[1:-1]}'
                 func_call = f'{func.__name__}({func_args})'
                 logging.log(log_lvl, f'except {type(e)} in {func_call}: {e}')
+
         return wrapper
+
     return _catch_log_except
 
 

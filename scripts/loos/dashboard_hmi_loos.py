@@ -2,7 +2,6 @@
 
 import tkinter as tk
 from tkinter import ttk
-from configparser import ConfigParser
 import io
 import json
 import locale
@@ -49,14 +48,9 @@ C_NA = C_PINK
 C_TWEET = C_BLUE
 C_NEWS_BG = '#f7e44f'
 C_NEWS_TXT = C_BLACK
-
-# read config
-cnf = ConfigParser()
-cnf.read(os.path.expanduser('~/.dashboard_config'))
-# paths
-dashboard_root_path = cnf.get('paths', 'dashboard_root_path')
-reglement_doc_path = dashboard_root_path + cnf.get('paths', 'reglement_doc_dir')
-carousel_img_path = dashboard_root_path + cnf.get('paths', 'carousel_img_dir')
+# data path
+DOC_PDF_PATH = '/srv/dashboard/hmi/doc_pdf/'
+CAROUSEL_PNG_PATH = '/srv/dashboard/hmi/carousel_png/'
 
 
 class CustomRedis(redis.StrictRedis):
@@ -174,7 +168,7 @@ class MainApp(tk.Tk):
         # define notebook
         self.note = ttk.Notebook(self)
         self.tab1 = LiveTab(self.note)
-        self.tab2 = PdfTab(self.note, pdf_path=reglement_doc_path)
+        self.tab2 = PdfTab(self.note, pdf_path=DOC_PDF_PATH)
         self.note.add(self.tab1, text='Tableau de bord')
         self.note.add(self.tab2, text='Affichage réglementaire')
         self.note.pack()
@@ -1336,7 +1330,7 @@ class ImageCarouselTile(Tile):
             logging.error(traceback.format_exc())
 
     def _img_files_load(self):
-        self._img_files = glob.glob(carousel_img_path + '*.png')
+        self._img_files = glob.glob(CAROUSEL_PNG_PATH + '*.png')
         self._img_files.sort()
 
 
