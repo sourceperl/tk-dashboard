@@ -23,6 +23,8 @@ services:
     image: board-import-app-img
     container_name: board-import-app
     restart: unless-stopped
+    depends_on:
+      - "board-redis-srv"
     volumes:
       - board-conf-vol:/data/board-conf-vol
     networks:
@@ -38,6 +40,8 @@ services:
     image: board-export-app-img
     container_name: board-export-app
     restart: unless-stopped
+    depends_on:
+      - "board-redis-srv"
     volumes:
       - board-conf-vol:/data/board-conf-vol
     networks:
