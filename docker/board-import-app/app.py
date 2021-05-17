@@ -220,13 +220,19 @@ def dweet_job():
     if r.status_code == 200:
         # parse data
         data_d = r.json()
-        json_flyspray_est = dweet_decode(data_d['with'][0]['content']['raw_flyspray_est']).decode('utf8')
-        json_flyspray_nord = dweet_decode(data_d['with'][0]['content']['raw_flyspray_nord']).decode('utf8')
         # update redis
-        DB.master.set_to_json("dweet:flyspray_rss_est", json.loads(json_flyspray_est))
-        DB.master.set_ttl("dweet:flyspray_rss_est", ttl=3600)
-        DB.master.set_to_json("dweet:flyspray_rss_nord", json.loads(json_flyspray_nord))
-        DB.master.set_ttl("dweet:flyspray_rss_nord", ttl=3600)
+        try:
+            json_flyspray_est = dweet_decode(data_d['with'][0]['content']['raw_flyspray_est']).decode('utf8')
+            DB.master.set_to_json("dweet:flyspray_rss_est", json.loads(json_flyspray_est))
+            DB.master.set_ttl("dweet:flyspray_rss_est", ttl=3600)
+        except IndexError as e:
+            logging.error(f'except {type(e)} in  dweet_job(): {e}')
+        try:
+            json_flyspray_nord = dweet_decode(data_d['with'][0]['content']['raw_flyspray_nord']).decode('utf8')
+            DB.master.set_to_json("dweet:flyspray_rss_nord", json.loads(json_flyspray_nord))
+            DB.master.set_ttl("dweet:flyspray_rss_nord", ttl=3600)
+        except IndexError as e:
+            logging.error(f'except {type(e)} in  dweet_job(): {e}')
 
 
 @catch_log_except()
