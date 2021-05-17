@@ -15,7 +15,7 @@ cnf = ConfigParser()
 cnf.read(os.path.expanduser('~/.dashboard_config'))
 # hostname of master dashboard
 dash_master_host = cnf.get("dashboard", "master_host")
-dashboard_ramdisk = cnf.get("paths", "dashboard_ramdisk")
+#dashboard_ramdisk = cnf.get("paths", "dashboard_ramdisk")
 dashboard_root_path = cnf.get("paths", "dashboard_root_path")
 
 
@@ -47,10 +47,10 @@ if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s %(message)s')
 
     # init scheduler
-    schedule.every(1).minute.do(hot_file_sync_job)
+    #schedule.every(1).minute.do(hot_file_sync_job)
     schedule.every(5).minutes.do(cold_file_sync_job)
     # first call
-    hot_file_sync_job()
+    #hot_file_sync_job()
     cold_file_sync_job()
 
     # main loop
