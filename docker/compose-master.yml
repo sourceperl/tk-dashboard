@@ -52,6 +52,23 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  board-meters-app:
+    build: board-meters-app/.
+    image: board-meters-app-img
+    container_name: board-meters-app
+    restart: unless-stopped
+    depends_on:
+      - "board-redis-srv"
+    volumes:
+      - board-conf-vol:/data/board-conf-vol
+    networks:
+      - board-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
   board-files-app:
     build: board-files-app/.
     image: board-files-app-img

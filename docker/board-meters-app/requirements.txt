@@ -1,0 +1,2 @@
+schedule==1.1.0
+git+git://github.com/sourceperl/pyHMI@v0.0.6
