@@ -2,7 +2,6 @@
 
 from configparser import ConfigParser
 import logging
-import os
 import time
 import traceback
 from pyHMI.DS_ModbusTCP import ModbusTCPDevice
@@ -29,7 +28,7 @@ ts_idx_api_key = cnf.get('electric_meter', 'tspeak_idx_w_key')
 
 class Devices(object):
     # redis datasource
-    rd = RedisDevice()
+    rd = RedisDevice(host='board-redis-srv')
     # modbus datasource
     # meter 'garage'
     meter_garage = ModbusTCPDevice(LTX_IP, timeout=2.0, refresh=2.0, unit_id=1)
