@@ -1,14 +1,7 @@
-FROM debian:buster-slim
-
-# setup timezone to Europe/Paris
-RUN ln -sf /usr/share/zoneinfo/Europe/Paris /etc/localtime
-RUN dpkg-reconfigure -f noninteractive tzdata
+FROM board-py3-base-img
 
 # packages install
-RUN apt-get update --quiet && apt-get upgrade --yes
 RUN apt-get install --yes \
-                    python3 \
-                    python3-redis \
                     redis-tools \
                     vim \
                     nano \

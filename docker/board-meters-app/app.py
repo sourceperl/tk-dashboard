@@ -2,7 +2,6 @@
 
 from configparser import ConfigParser
 import logging
-import os
 import time
 import traceback
 from pyHMI.DS_ModbusTCP import ModbusTCPDevice
@@ -21,9 +20,7 @@ AD_2155_INDEX_PWR = 3205
 
 # read config
 cnf = ConfigParser()
-cnf.read(os.path.expanduser('~/.dashboard_config'))
-# hostname of master dashboard
-dash_master_host = cnf.get('dashboard', 'master_host')
+cnf.read('/data/board-conf-vol/dashboard.conf')
 # thingspeak api key
 ts_pwr_api_key = cnf.get('electric_meter', 'tspeak_pwr_w_key')
 ts_idx_api_key = cnf.get('electric_meter', 'tspeak_idx_w_key')
@@ -31,7 +28,7 @@ ts_idx_api_key = cnf.get('electric_meter', 'tspeak_idx_w_key')
 
 class Devices(object):
     # redis datasource
-    rd = RedisDevice(host=dash_master_host)
+    rd = RedisDevice(host='board-redis-srv')
     # modbus datasource
     # meter 'garage'
     meter_garage = ModbusTCPDevice(LTX_IP, timeout=2.0, refresh=2.0, unit_id=1)

@@ -4,8 +4,7 @@ FROM board-py3-base-img
 WORKDIR /usr/src/app
 
 # add python app requirements
-RUN pip3 install metar==1.8.0
-RUN pip3 install wordcloud==1.8.1
+RUN pip3 install git+git://github.com/sourceperl/pyHMI@v0.0.6
 
 # avoid to run python app as root
 ARG username=py-app
