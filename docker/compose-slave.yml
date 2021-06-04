@@ -19,12 +19,12 @@ services:
         max-file: "5"
 
 volumes:
-  board-conf-vol:
-    external: true
   board-redis-data-vol:
-    external: true
+    name: board-redis-data-vol
+  board-conf-vol:
+    name: board-conf-vol
 
 networks:
   board-net:
-    external: true
+    name: board-net
 
