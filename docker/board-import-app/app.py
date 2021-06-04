@@ -400,7 +400,7 @@ def twitter_job():
 @catch_log_except()
 def vigilance_job():
     # request XML data from server
-    r = requests.get('http://vigilance.meteofrance.com/data/NXFR34_LFPW_.xml', timeout=5.0)
+    r = requests.get('http://vigilance.meteofrance.com/data/NXFR34_LFPW_.xml', timeout=10.0)
     # check error
     if r.status_code == 200:
         # dom parsing (convert UTF-8 r.text to XML char)
@@ -440,7 +440,7 @@ def vigilance_job():
 def weather_today_job():
     # request data from NOAA server (METAR of Lille-Lesquin Airport)
     r = requests.get('http://tgftp.nws.noaa.gov/data/observations/metar/stations/LFQQ.TXT',
-                     timeout=5.0, headers={'User-Agent': USER_AGENT})
+                     timeout=10.0, headers={'User-Agent': USER_AGENT})
     # check error
     if r.status_code == 200:
         # extract METAR message
