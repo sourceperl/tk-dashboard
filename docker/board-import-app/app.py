@@ -51,7 +51,7 @@ dweet_key = cnf.get('dweet', 'key')
 
 
 # some functions
-def catch_log_except(catch=None, log_lvl=logging.ERROR):
+def catch_log_except(catch=None, log_lvl=logging.ERROR, limit_arg_len=40):
     # decorator to catch exception and produce one line log message
     if catch is None:
         catch = Exception
@@ -62,10 +62,17 @@ def catch_log_except(catch=None, log_lvl=logging.ERROR):
             try:
                 return func(*args, **kwargs)
             except catch as e:
-                func_args = f'{str(args)[1:-1]}'.strip(',')
-                func_args += ', ' if args and kwargs else ''
-                func_args += f'{str(kwargs)[1:-1]}'
+                # format function call "f_name(args..., kwargs...)" string (with arg/kwargs len limit)
+                func_args = ''
+                for arg in args:
+                    func_args += ', ' if func_args else ''
+                    func_args += repr(arg) if len(repr(arg)) < limit_arg_len else repr(arg)[:limit_arg_len - 2] + '..'
+                for k, v in kwargs.items():
+                    func_args += ', ' if func_args else ''
+                    func_args += repr(k) + '='
+                    func_args += repr(v) if len(repr(v)) < limit_arg_len else repr(v)[:limit_arg_len - 2] + '..'
                 func_call = f'{func.__name__}({func_args})'
+                # log message "except [except class] in f_name(args..., kwargs...): [except msg]"
                 logging.log(log_lvl, f'except {type(e)} in {func_call}: {e}')
 
         return wrapper
