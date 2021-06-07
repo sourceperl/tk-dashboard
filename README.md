@@ -77,9 +77,7 @@ x11vnc -usepw -forever &
 # create ssh key and copy it to central dashboard (file src at 192.168.0.60)
 ssh-keygen
 ssh-copy-id pi@192.168.0.60
-# now we can manually sync hot file (change frequently)
-rsync -aAxX --delete --omit-dir-times 192.168.0.60:/media/ramdisk/. /media/ramdisk/.
-# and cold file
-rsync -aAxX --delete 192.168.0.60:/home/pi/dashboard/. /home/pi/dashboard/.
+# now we can manually sync file
+rsync -aALxXv --delete 192.168.0.60:/srv/dashboard/hmi/. /srv/dashboard/hmi/.
 # see scripts/dashboard_sync_files.py to automate this
 ```
