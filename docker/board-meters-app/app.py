@@ -3,7 +3,7 @@
 from configparser import ConfigParser
 import logging
 import time
-import traceback
+import functools
 from pyHMI.DS_ModbusTCP import ModbusTCPDevice
 from pyHMI.DS_Redis import RedisDevice
 from pyHMI.Tag import Tag
@@ -26,6 +26,37 @@ ts_pwr_api_key = cnf.get('electric_meter', 'tspeak_pwr_w_key')
 ts_idx_api_key = cnf.get('electric_meter', 'tspeak_idx_w_key')
 
 
+# some functions
+def catch_log_except(catch=None, log_lvl=logging.ERROR, limit_arg_len=40):
+    # decorator to catch exception and produce one line log message
+    if catch is None:
+        catch = Exception
+
+    def _catch_log_except(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except catch as e:
+                # format function call "f_name(args..., kwargs...)" string (with arg/kwargs len limit)
+                func_args = ''
+                for arg in args:
+                    func_args += ', ' if func_args else ''
+                    func_args += repr(arg) if len(repr(arg)) < limit_arg_len else repr(arg)[:limit_arg_len - 2] + '..'
+                for k, v in kwargs.items():
+                    func_args += ', ' if func_args else ''
+                    func_args += repr(k) + '='
+                    func_args += repr(v) if len(repr(v)) < limit_arg_len else repr(v)[:limit_arg_len - 2] + '..'
+                func_call = f'{func.__name__}({func_args})'
+                # log message "except [except class] in f_name(args..., kwargs...): [except msg]"
+                logging.log(log_lvl, f'except {type(e)} in {func_call}: {e}')
+
+        return wrapper
+
+    return _catch_log_except
+
+
+# some class
 class Devices(object):
     # redis datasource
     rd = RedisDevice(host='board-redis-srv')
@@ -73,8 +104,12 @@ class Tags(object):
     # modbus tags
     GARAGE_PWR = Tag(0.0, src=Devices.meter_garage, ref={'type': 'float', 'addr': AD_3155_LIVE_PWR, 'span': 1000})
     GARAGE_I_PWR = Tag(0, src=Devices.meter_garage, ref={'type': 'long', 'addr': AD_3155_INDEX_PWR, 'span': 1 / 1000})
-    COLD_WATER_PWR = Tag(0.0, src=Devices.meter_cold_water, ref={'type': 'float', 'addr': AD_3155_LIVE_PWR, 'span': 1000})
-    COLD_WATER_I_PWR = Tag(0, src=Devices.meter_cold_water, ref={'type': 'long', 'addr': AD_3155_INDEX_PWR, 'span': 1 / 1000})
+    COLD_WATER_PWR = Tag(0.0, src=Devices.meter_cold_water, ref={'type': 'float',
+                                                                 'addr': AD_3155_LIVE_PWR,
+                                                                 'span': 1000})
+    COLD_WATER_I_PWR = Tag(0, src=Devices.meter_cold_water, ref={'type': 'long',
+                                                                 'addr': AD_3155_INDEX_PWR,
+                                                                 'span': 1 / 1000})
     LIGHT_PWR = Tag(0.0, src=Devices.meter_light, ref={'type': 'float', 'addr': AD_3155_LIVE_PWR, 'span': 1000})
     LIGHT_I_PWR = Tag(0, src=Devices.meter_light, ref={'type': 'long', 'addr': AD_3155_INDEX_PWR, 'span': 1 / 1000})
     TECH_PWR = Tag(0.0, src=Devices.meter_tech, ref={'type': 'float', 'addr': AD_3155_LIVE_PWR, 'span': 1000})
@@ -90,7 +125,7 @@ class Tags(object):
                                          Tags.CTA_PWR.val + Tags.HEAT_PWR.val)
 
 
-def thingspeak_send(api_key, l_values=list()):
+def thingspeak_send(api_key, l_values):
     """ upload data to thingspeak platform
     :param api_key: thingspeak write API Key
     :type api_key: str
@@ -99,32 +134,19 @@ def thingspeak_send(api_key, l_values=list()):
     :return: True if update is a success, False otherwise
     :rtype: bool
     """
-    req_try = 3
-    is_ok = False
-    # format data for post request
+    # format data for request
     d_data = {'api_key': api_key}
     for i, value in enumerate(l_values):
         i += 1
         d_data['field%i' % i] = value
-    # try loop
-    while True:
-        if req_try <= 0:
-            break
-        else:
-            req_try -= 1
-        try:
-            r = requests.post('https://api.thingspeak.com/update', data=d_data, timeout=10.0)
-            logging.debug('thingspeak_send: POST data %s' % d_data)
-        except Exception:
-            logging.error(traceback.format_exc())
-            pass
-        else:
-            is_ok = ((r.status_code == 200) and (int(r.text) != 0))
-            logging.debug('thingspeak_send: status: %s' % ('ok' if is_ok else 'error'))
-            break
+    # do http POST request
+    logging.debug('thingspeak_send: POST data %s' % d_data)
+    r = requests.post('https://api.thingspeak.com/update', data=d_data, timeout=10.0)
+    is_ok = ((r.status_code == 200) and (int(r.text) != 0))
     return is_ok
 
 
+@catch_log_except()
 def db_refresh_job():
     since_last_integrate = time.time() - Tags.RD_TIMESTAMP_WH.val
     Tags.RD_TIMESTAMP_WH.val += since_last_integrate
@@ -135,12 +157,14 @@ def db_refresh_job():
     Tags.RD_TOTAL_PWR.val = Tags.TOTAL_PWR.e_val
 
 
+@catch_log_except()
 def db_midnight_job():
     # backup daily value to yesterday then reset it for new day start
     Tags.RD_YESTERDAY_WH.val = Tags.RD_TODAY_WH.val
     Tags.RD_TODAY_WH.val = 0
 
 
+@catch_log_except()
 def web_publish_pwr_job():
     l_fields = (
         round(Tags.TOTAL_PWR.val),
@@ -154,6 +178,7 @@ def web_publish_pwr_job():
     thingspeak_send(api_key=ts_pwr_api_key, l_values=l_fields)
 
 
+@catch_log_except()
 def web_publish_index_job():
     l_fields = (
         round(Tags.GARAGE_I_PWR.val),
