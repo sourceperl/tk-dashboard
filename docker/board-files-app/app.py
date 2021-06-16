@@ -30,6 +30,7 @@ HTTP_CREATED = 201
 HTTP_NO_CONTENT = 204
 HTTP_MULTI_STATUS = 207
 HTTP_UNAUTHORIZED = 401
+HTTP_NOT_ALLOWED = 405
 # define files paths
 DOWNLOAD_DOC_PDF_PATH = '/srv/dashboard/webdav/Affichage réglementaire'
 DOWNLOAD_CAROUSEL_PNG_PATH = '/srv/dashboard/webdav/Carousel upload'
@@ -93,7 +94,7 @@ class WebDAV:
         self.last_http_code = 0
         self.timeout = timeout
         # private
-        self._url = url
+        self._url = url if url.endswith('/') else url + '/'
         self._url_path = urlparse(self._url).path
         self._session = requests.Session()
         # auth
