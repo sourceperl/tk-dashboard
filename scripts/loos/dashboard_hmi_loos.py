@@ -1310,10 +1310,10 @@ class ImageCarouselTile(Tile):
             self._load_next_img()
 
     def _on_click(self, evt=None):
-        # on first click: skip the 4 next auto update cycle
+        # on first click: skip the 8 next auto update cycle
         # on second one or more: load the next image
         if not self._skip_update_cnt > 0:
-            self._skip_update_cnt = 4
+            self._skip_update_cnt = 8
         else:
             self._load_next_img()
 
