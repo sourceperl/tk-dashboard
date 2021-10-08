@@ -1,0 +1,30 @@
+version: "3"
+
+services:
+  board-redis-srv:
+    image: redis:6.2.3
+    container_name: board-redis-srv
+    restart: unless-stopped
+    command: redis-server --slaveof 192.168.0.60 6379 --save 3600 1
+    ports:
+      - "0.0.0.0:6379:6379"
+    volumes:
+      - board-redis-data-vol:/data
+    networks:
+      - board-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  board-redis-data-vol:
+    name: board-redis-data-vol
+  board-conf-vol:
+    name: board-conf-vol
+
+networks:
+  board-net:
+    name: board-net
+

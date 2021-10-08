@@ -1,0 +1,79 @@
+version: "3"
+
+services:
+  board-redis-srv:
+    image: redis:6.2.3
+    container_name: board-redis-srv
+    restart: unless-stopped
+    command: redis-server --save 3600 1
+    ports:
+      - "0.0.0.0:6379:6379"
+    volumes:
+      - board-redis-data-vol:/data
+    networks:
+      - board-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  board-import-app:
+    build: board-import-app/.
+    image: board-import-app-img
+    container_name: board-import-app
+    restart: unless-stopped
+    depends_on:
+      - "board-redis-srv"
+    volumes:
+      - board-conf-vol:/data/board-conf-vol
+    networks:
+      - board-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  board-files-app:
+    build: board-files-app/.
+    image: board-files-app-img
+    container_name: board-files-app
+    restart: unless-stopped
+    depends_on:
+      - "board-redis-srv"
+    volumes:
+      - board-conf-vol:/data/board-conf-vol
+      - /srv/dashboard:/srv/dashboard
+    networks:
+      - board-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  board-admin-shell:
+    build: board-admin-shell/.
+    image: board-admin-shell-img
+    container_name: board-admin-shell
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    volumes:
+      - board-conf-vol:/data/board-conf-vol
+      - /srv/dashboard:/srv/dashboard
+    networks:
+      - board-net
+    logging:
+      driver: none
+
+volumes:
+  board-redis-data-vol:
+    name: board-redis-data-vol
+  board-conf-vol:
+    name: board-conf-vol
+
+networks:
+  board-net:
+    name: board-net

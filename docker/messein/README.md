@@ -1,4 +1,4 @@
-# docker tk-dashboard Loos platform
+# docker tk-dashboard Messein platform
 
 Start tk-dashboard as master:
 

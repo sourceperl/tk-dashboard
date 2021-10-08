@@ -1,0 +1,3 @@
+#!/bin/sh
+
+redis-cli -h board-redis-srv
