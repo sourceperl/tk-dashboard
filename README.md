@@ -5,7 +5,7 @@
 ```bash
 # HMI package dependency
 sudo apt update && sudo apt -y dist-upgrade
-sudo apt install -y supervisor xpdf imagemagick python3-cairocffi xscreensaver
+sudo apt install -y supervisor xpdf imagemagick python3-cairocffi python3-pil python3-pil.imagetk python3-redis xscreensaver
 # security setup
 sudo apt install -y fail2ban ufw
 sudo ufw allow proto tcp from 192.168.0.0/24 to any port ssh
@@ -17,6 +17,8 @@ sudo mkdir -p /srv/dashboard/
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 rm get-docker.sh
+# install docker-compose
+sudo pip3 install docker-compose
 # use docker cli with pi user
 sudo usermod -aG docker pi
 sudo reboot
@@ -91,6 +93,7 @@ x11vnc -usepw -forever &
 
 ### Setup for auto sync files (multi-screen case)
 
+#### Loos
 ```bash
 # create ssh key and copy it to central dashboard (file src at 192.168.0.60)
 ssh-keygen
