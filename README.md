@@ -24,8 +24,20 @@ sudo reboot
 
 ### Docker setup
 
+#### Loos
 ```bash
-cd docker
+# Loos setup
+cd docker/loos/
+# start the master dashboard stack
+./master-setup.sh
+# start the slave dashboard stack
+./slave-setup.sh
+```
+
+#### Messein
+```bash
+# Messein setup
+cd docker/messein/
 # start the master dashboard stack
 ./master-setup.sh
 # start the slave dashboard stack
@@ -44,15 +56,21 @@ cp home/pi/Desktop/* /home/pi/Desktop/
 
 ### Setup supervisor
 
+#### Loos
 ```bash
 # Loos dashboard
 sudo cp -r scripts/loos/* /usr/local/bin/
-# Messein dashboard
-sudo cp -r scripts/messein/* /usr/local/bin/
 # for loos master dashboard (do all external requests and own the redis db)
 sudo cp etc/supervisor/conf.d/dashboard_master_loos.conf /etc/supervisor/conf.d/
 # for loos slave dashboard (connect to master redis db and sync all files with master)
 sudo cp etc/supervisor/conf.d/dashboard_slave_loos.conf /etc/supervisor/conf.d/
+# reload conf
+sudo supervisorctl update
+```
+#### Messein
+```bash
+# Messein dashboard
+sudo cp -r scripts/messein/* /usr/local/bin/
 # for messein master dashboard (do all external requests and own the redis db)
 sudo cp etc/supervisor/conf.d/dashboard_master_messein.conf /etc/supervisor/conf.d/
 # for messein slave dashboard (connect to master redis db and sync all files with master)
