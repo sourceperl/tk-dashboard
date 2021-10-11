@@ -119,6 +119,7 @@ class Tag:
 class Tags:
     # create all tag here
     # WARNs: -> all tag are manage by an IO thread
+    #        -> tag subscriber callback code are call by IO thread (not by tkinter main thread)
     D_GSHEET_GRT = Tag(func_src=lambda: DB.master.get_from_json('gsheet:grt'))
     D_ATMO_QUALITY = Tag(func_src=lambda: DB.master.get_from_json('atmo:quality'))
     D_W_TODAY_LOOS = Tag(func_src=lambda: DB.master.get_from_json('weather:today:loos'))
