@@ -40,7 +40,6 @@ HMI_DOC_PDF_PATH = '/srv/dashboard/hmi/doc_pdf'
 # read config from board-conf-vol
 cnf = ConfigParser()
 cnf.read('/data/board-conf-vol/dashboard.conf')
-carousel_max_png = int(cnf.get("carousel", "max_png", fallback=4))
 # webdav
 webdav_url = cnf.get("owncloud_dashboard", "webdav_url")
 webdav_user = cnf.get("owncloud_dashboard", "webdav_user")

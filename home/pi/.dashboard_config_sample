@@ -9,8 +9,6 @@ dashboard_img_dir = img/
 reglement_doc_dir = reglement_doc/
 carousel_img_dir = carousel_img/
 carousel_upload_dir = carousel_upload/
-[carousel]
-max_png = 4
 [gsheet]
 url = <gsheet url>
 [openweathermap]
