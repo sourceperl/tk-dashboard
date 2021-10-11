@@ -131,6 +131,9 @@ class Tags:
     IMG_LOGO_GRT = Tag(func_src=lambda: DB.master.get_bytes('static:img:logo_grt:png'))
     IMG_GRT_CLOUD = Tag(func_src=lambda: DB.master.get_bytes('img:grt-tweet-wordcloud:png'))
     IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.master.get_bytes('img:traffic-map:png'))
+    IMG_DIR_CAM_LAXOU = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:laxou:png'))
+    IMG_DIR_CAM_HOUPETTE = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:houpette:png'))
+    IMG_DIR_CAM_FLAVIGNY = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:flavigny:png'))
 
     @classmethod
     def init(cls):
@@ -267,9 +270,9 @@ class LiveTab(Tab):
         # DIR-est houpette
         self.tl_img_houpette = ImageRawTile(self)
         self.tl_img_houpette.set_tile(row=0, column=7, rowspan=2, columnspan=2)
-        # DIR-est mulhouse2
-        self.tl_img_mulhouse2 = ImageRawTile(self)
-        self.tl_img_mulhouse2.set_tile(row=0, column=9, rowspan=2, columnspan=2)
+        # DIR-est flavigny
+        self.tl_img_flavigny = ImageRawTile(self)
+        self.tl_img_flavigny.set_tile(row=0, column=9, rowspan=2, columnspan=2)
         # clock
         self.tl_clock = ClockTile(self)
         self.tl_clock.set_tile(row=0, column=13, rowspan=2, columnspan=4)
@@ -333,6 +336,10 @@ class LiveTab(Tab):
         self.tl_img_atmo.raw = Tags.IMG_ATMO_GE.get()
         # GRT
         self.tl_img_grt.raw = Tags.IMG_LOGO_GRT.get()
+        # DIR-Est webcams
+        self.tl_img_laxou.raw = Tags.IMG_DIR_CAM_LAXOU.get()
+        self.tl_img_houpette.raw = Tags.IMG_DIR_CAM_HOUPETTE.get()
+        self.tl_img_flavigny.raw = Tags.IMG_DIR_CAM_FLAVIGNY.get()
         # acc days stat
         self.tl_acc.acc_date_dts = Tags.D_GSHEET_GRT.get(('tags', 'DATE_ACC_DTS'))
         # twitter

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
 from configparser import ConfigParser
+import functools
 import glob
 import hashlib
+import json
 import logging
 import os
-from os.path import basename, splitext, isfile, getsize, join, expanduser
+from os.path import basename, splitext, isfile, getsize, join
+import pathlib
 import time
-import traceback
 import shutil
 import subprocess
 from xml.dom import minidom
@@ -28,20 +30,56 @@ HTTP_CREATED = 201
 HTTP_NO_CONTENT = 204
 HTTP_MULTI_STATUS = 207
 HTTP_UNAUTHORIZED = 401
+HTTP_NOT_ALLOWED = 405
+# define files paths
+DOWNLOAD_DOC_PDF_PATH = '/srv/dashboard/webdav/Affichage réglementaire'
+DOWNLOAD_CAROUSEL_PNG_PATH = '/srv/dashboard/webdav/Carousel upload'
+HMI_CAROUSEL_PNG_PATH = '/srv/dashboard/hmi/carousel_png'
+HMI_DOC_PDF_PATH = '/srv/dashboard/hmi/doc_pdf'
 
-# read config
+# read config from board-conf-vol
 cnf = ConfigParser()
-cnf.read(expanduser('~/.dashboard_config'))
-dashboard_root_path = cnf.get("paths", "dashboard_root_path")
-reglement_doc_path = dashboard_root_path + cnf.get("paths", "reglement_doc_dir")
-carousel_img_path = dashboard_root_path + cnf.get("paths", "carousel_img_dir")
-carousel_upload_dir = dashboard_root_path + cnf.get("paths", "carousel_upload_dir")
-carousel_max_png = int(cnf.get("carousel", "max_png", fallback=4))
+cnf.read('/data/board-conf-vol/dashboard.conf')
+# webdav
 webdav_url = cnf.get("owncloud_dashboard", "webdav_url")
 webdav_user = cnf.get("owncloud_dashboard", "webdav_user")
 webdav_pass = cnf.get("owncloud_dashboard", "webdav_pass")
 webdav_reglement_doc_dir = cnf.get("owncloud_dashboard", "webdav_reglement_doc_dir")
 webdav_carousel_img_dir = cnf.get("owncloud_dashboard", "webdav_carousel_img_dir")
+
+
+# some functions
+def catch_log_except(catch=None, log_lvl=logging.ERROR, limit_arg_len=40):
+    # decorator to catch exception and produce one line log message
+    if catch is None:
+        catch = Exception
+
+    def _catch_log_except(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except catch as e:
+                # format function call "f_name(args..., kwargs...)" string (with arg/kwargs len limit)
+                func_args = ''
+                for arg in args:
+                    func_args += ', ' if func_args else ''
+                    func_args += repr(arg) if len(repr(arg)) < limit_arg_len else repr(arg)[:limit_arg_len - 2] + '..'
+                for k, v in kwargs.items():
+                    func_args += ', ' if func_args else ''
+                    func_args += repr(k) + '='
+                    func_args += repr(v) if len(repr(v)) < limit_arg_len else repr(v)[:limit_arg_len - 2] + '..'
+                func_call = f'{func.__name__}({func_args})'
+                # log message "except [except class] in f_name(args..., kwargs...): [except msg]"
+                logging.log(log_lvl, f'except {type(e)} in {func_call}: {e}')
+
+        return wrapper
+
+    return _catch_log_except
+
+
+def ls_files(path, ext=""):
+    return [join(path, file) for file in os.listdir(path) if isfile(join(path, file)) and file.endswith(ext)]
 
 
 # some class
@@ -55,7 +93,7 @@ class WebDAV:
         self.last_http_code = 0
         self.timeout = timeout
         # private
-        self._url = url
+        self._url = url if url.endswith('/') else url + '/'
         self._url_path = urlparse(self._url).path
         self._session = requests.Session()
         # auth
@@ -156,39 +194,110 @@ class WebDAV:
             raise WebDAVError("Error during PROPFIND (ls) request (HTTP code is %i)" % self.last_http_code)
 
 
-# some functions
-def ls_files(path, ext=""):
-    return [join(path, file) for file in os.listdir(path) if isfile(join(path, file)) and file.endswith(ext)]
+class CustomRedis(redis.StrictRedis):
+    @catch_log_except(catch=redis.RedisError)
+    def set_ttl(self, name, ttl=3600):
+        return self.expire(name, ttl)
+
+    @catch_log_except(catch=redis.RedisError)
+    def set_bytes(self, name, value):
+        return self.set(name, value)
+
+    @catch_log_except(catch=redis.RedisError)
+    def get_bytes(self, name):
+        return self.get(name)
+
+    @catch_log_except(catch=redis.RedisError)
+    def set_str(self, name, value):
+        return self.set(name, value)
+
+    @catch_log_except(catch=(redis.RedisError, AttributeError))
+    def get_str(self, name):
+        return self.get(name).decode('utf-8')
+
+    @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError))
+    def set_to_json(self, name, obj):
+        return self.set(name, json.dumps(obj))
+
+    @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError))
+    def get_from_json(self, name):
+        return json.loads(self.get(name).decode('utf-8'))
 
 
-# format carousel files (PDF, PNG, JPG) to match dashboard requirements
-def update_img_carousel_job():
-    try:
+class DB:
+    master = CustomRedis(host='board-redis-srv', socket_timeout=4, socket_keepalive=True)
+
+
+# sync owncloud carousel directory with local
+@catch_log_except()
+def owncloud_sync_carousel_job():
+    # log sync start
+    logging.debug('start of sync for owncloud carousel')
+
+    # list local files
+    local_files_l = [f for f in os.listdir(DOWNLOAD_CAROUSEL_PNG_PATH) if isfile(join(DOWNLOAD_CAROUSEL_PNG_PATH, f))]
+
+    # list owncloud files (disallow directory)
+    ownc_files_d = {}
+    ownc_change = False
+    for f_d in wdv.ls(webdav_carousel_img_dir):
+        if f_d['file_path'] and not f_d['file_path'].endswith('/'):
+            ownc_files_d[f_d['file_path']] = f_d['content_length']
+
+    # exist only on local
+    for f in list(set(local_files_l) - set(ownc_files_d)):
+        logging.debug('"%s" exist only on local -> remove it' % f)
+        os.remove(join(DOWNLOAD_CAROUSEL_PNG_PATH, f))
+        ownc_change = True
+    # exist only on remote
+    for f in list(set(ownc_files_d) - set(local_files_l)):
+        logging.debug('"%s" exist only on remote -> download it' % f)
+        data = wdv.download(join(webdav_carousel_img_dir, f))
+        if data:
+            open(join(DOWNLOAD_CAROUSEL_PNG_PATH, f), 'wb').write(data)
+        ownc_change = True
+    # exist at both side (update only if file size change)
+    for f in list(set(local_files_l).intersection(ownc_files_d)):
+        local_size = int(getsize(join(DOWNLOAD_CAROUSEL_PNG_PATH, f)))
+        remote_size = ownc_files_d[f]
+        logging.debug('check "%s" remote size [%i]/local size [%i]' % (f, remote_size, local_size))
+        if local_size != remote_size:
+            logging.debug('"%s" size mismatch -> download it' % f)
+            data = wdv.download(join(webdav_carousel_img_dir, f))
+            if data:
+                open(join(DOWNLOAD_CAROUSEL_PNG_PATH, f), 'wb').write(data)
+            ownc_change = True
+
+    # log sync end
+    logging.debug('end of sync for owncloud carousel')
+
+    # if change flag set, format carousel files (PDF, PNG, JPG) to match dashboard requirements
+    if ownc_change:
         # log sync start
-        logging.debug("start of carousel job")
+        logging.debug('start of carousel job')
         # extract md5 hash from name of png files in img directory
         file_hash_l = []
-        for img_fname in os.listdir(carousel_img_path):
-            if img_fname.endswith(".png"):
+        for img_fname in os.listdir(HMI_CAROUSEL_PNG_PATH):
+            if img_fname.endswith('.png'):
                 # extract hash from index_md5.png or md5.png form
                 try:
                     md5_hash = splitext(img_fname)[0].split('_')[1]
-                except:
+                except Exception:
                     md5_hash = splitext(img_fname)[0]
                 file_hash_l.append(md5_hash)
         rm_hash_l = file_hash_l.copy()
 
         # get all files with pdf, png or jpg type in upload directory (images source), build a sorted list
         file_img_src_l = []
-        for src_fname in os.listdir(carousel_upload_dir):
-            if isfile(join(carousel_upload_dir, src_fname)):
+        for src_fname in os.listdir(DOWNLOAD_CAROUSEL_PNG_PATH):
+            if isfile(join(DOWNLOAD_CAROUSEL_PNG_PATH, src_fname)):
                 if src_fname.endswith(".pdf") or src_fname.endswith(".png") or src_fname.endswith(".jpg"):
                     file_img_src_l.append(src_fname)
         # build sorted list
         file_img_src_l.sort()
         # check if md5 of src file match img hash (in filename)
         for index, src_fname in enumerate(file_img_src_l):
-            src_fname_full_path = join(carousel_upload_dir, src_fname)
+            src_fname_full_path = join(DOWNLOAD_CAROUSEL_PNG_PATH, src_fname)
             # compute md5 hash of file
             md5 = hashlib.md5()
             with open(src_fname_full_path, 'rb') as fh:
@@ -208,14 +317,14 @@ def update_img_carousel_job():
                                 [src_fname_full_path + "[0]"])
                 # move png file from upload dir to img dir with sort index as first 3 chars
                 shutil.move(splitext(src_fname_full_path)[0] + ".png",
-                            join(carousel_img_path, target_img_fname))
+                            join(HMI_CAROUSEL_PNG_PATH, target_img_fname))
             # if src file is already converted, just check index
             else:
                 # reindex: check current index, update it if need
-                for img_fname_to_check in glob.glob(join(carousel_img_path, "*%s.png" % md5_hash)):
+                for img_fname_to_check in glob.glob(join(HMI_CAROUSEL_PNG_PATH, "*%s.png" % md5_hash)):
                     if not img_fname_to_check.endswith(target_img_fname):
                         logging.debug("rename %s to %s" % (basename(img_fname_to_check), target_img_fname))
-                        os.rename(img_fname_to_check, join(carousel_img_path, target_img_fname))
+                        os.rename(img_fname_to_check, join(HMI_CAROUSEL_PNG_PATH, target_img_fname))
                 # remove current hash from rm list
                 try:
                     rm_hash_l.remove(md5_hash)
@@ -224,154 +333,98 @@ def update_img_carousel_job():
 
         # remove orphan img file (without src)
         for rm_hash in rm_hash_l:
-            for img_fname_to_rm in glob.glob(join(carousel_img_path, "*%s.png" % rm_hash)):
+            for img_fname_to_rm in glob.glob(join(HMI_CAROUSEL_PNG_PATH, "*%s.png" % rm_hash)):
                 logging.debug("remove old file %s" % img_fname_to_rm)
                 os.remove(img_fname_to_rm)
 
         # log sync end
         logging.debug("end of carousel job")
-    except Exception:
-        logging.error(traceback.format_exc())
-        return None
-
-
-# sync owncloud carousel directory with local
-def owncloud_sync_carousel_job():
-    try:
-        # log sync start
-        logging.debug('start of sync for owncloud carousel')
-
-        # list local files
-        local_files_l = [f for f in os.listdir(carousel_upload_dir) if isfile(join(carousel_upload_dir, f))]
-
-        # list owncloud files (disallow directory)
-        ownc_files_d = {}
-        ownc_change = False
-        for f_d in wdv.ls(webdav_carousel_img_dir):
-            if f_d['file_path'] and not f_d['file_path'].endswith('/'):
-                ownc_files_d[f_d['file_path']] = f_d['content_length']
-
-        # exist only on local
-        for f in list(set(local_files_l) - set(ownc_files_d)):
-            logging.debug('"%s" exist only on local -> remove it' % f)
-            os.remove(join(carousel_upload_dir, f))
-            ownc_change = True
-        # exist only on remote
-        for f in list(set(ownc_files_d) - set(local_files_l)):
-            logging.debug('"%s" exist only on remote -> download it' % f)
-            data = wdv.download(join(webdav_carousel_img_dir, f))
-            if data:
-                open(join(carousel_upload_dir, f), 'wb').write(data)
-            ownc_change = True
-        # exist at both side (update only if file size change)
-        for f in list(set(local_files_l).intersection(ownc_files_d)):
-            local_size = int(getsize(join(carousel_upload_dir, f)))
-            remote_size = ownc_files_d[f]
-            logging.debug('check "%s" remote size [%i]/local size [%i]' % (f, remote_size, local_size))
-            if local_size != remote_size:
-                logging.debug('"%s" size mismatch -> download it' % f)
-                data = wdv.download(join(webdav_carousel_img_dir, f))
-                if data:
-                    open(join(carousel_upload_dir, f), 'wb').write(data)
-                ownc_change = True
-
-        # log sync end
-        logging.debug('end of sync for owncloud carousel')
-
-        # notify carousel manager
-        if ownc_change:
-            rd.publish("dashboard:trigger", "carousel_update")
-    except Exception:
-        logging.error(traceback.format_exc())
-        return None
 
 
 # sync owncloud document directory with local
+@catch_log_except()
 def owncloud_sync_doc_job():
-    try:
-        # log sync start
-        logging.debug('start of sync for owncloud doc')
+    # log sync start
+    logging.debug('start of sync for owncloud doc')
 
-        # list local files
-        local_files_l = [f for f in os.listdir(reglement_doc_path) if isfile(join(reglement_doc_path, f))]
+    # list local files
+    local_files_l = [f for f in os.listdir(DOWNLOAD_DOC_PDF_PATH) if isfile(join(DOWNLOAD_DOC_PDF_PATH, f))]
 
-        # list owncloud files (disallow directory)
-        ownc_files_d = {}
-        for f_d in wdv.ls(webdav_reglement_doc_dir):
-            if f_d['file_path'] and not f_d['file_path'].endswith('/'):
-                ownc_files_d[f_d['file_path']] = f_d['content_length']
+    # list owncloud files (disallow directory)
+    ownc_files_d = {}
+    for f_d in wdv.ls(webdav_reglement_doc_dir):
+        if f_d['file_path'] and not f_d['file_path'].endswith('/'):
+            ownc_files_d[f_d['file_path']] = f_d['content_length']
 
-        # exist only on local
-        for f in list(set(local_files_l) - set(ownc_files_d)):
-            logging.debug('"%s" exist only on local -> remove it' % f)
-            os.remove(join(reglement_doc_path, f))
-        # exist only on remote
-        for f in list(set(ownc_files_d) - set(local_files_l)):
-            logging.debug('"%s" exist only on remote -> download it' % f)
+    # exist only on local
+    for f in list(set(local_files_l) - set(ownc_files_d)):
+        logging.debug('"%s" exist only on local -> remove it' % f)
+        os.remove(join(DOWNLOAD_DOC_PDF_PATH, f))
+    # exist only on remote
+    for f in list(set(ownc_files_d) - set(local_files_l)):
+        logging.debug('"%s" exist only on remote -> download it' % f)
+        data = wdv.download(join(webdav_reglement_doc_dir, f))
+        if data:
+            open(join(DOWNLOAD_DOC_PDF_PATH, f), 'wb').write(data)
+    # exist at both side (update only if file size change)
+    for f in list(set(local_files_l).intersection(ownc_files_d)):
+        local_size = int(getsize(join(DOWNLOAD_DOC_PDF_PATH, f)))
+        remote_size = ownc_files_d[f]
+        logging.debug('check "%s" remote size [%i]/local size [%i]' % (f, remote_size, local_size))
+        if local_size != remote_size:
+            logging.debug('"%s" size mismatch -> download it' % f)
             data = wdv.download(join(webdav_reglement_doc_dir, f))
             if data:
-                open(join(reglement_doc_path, f), 'wb').write(data)
-        # exist at both side (update only if file size change)
-        for f in list(set(local_files_l).intersection(ownc_files_d)):
-            local_size = int(getsize(join(reglement_doc_path, f)))
-            remote_size = ownc_files_d[f]
-            logging.debug('check "%s" remote size [%i]/local size [%i]' % (f, remote_size, local_size))
-            if local_size != remote_size:
-                logging.debug('"%s" size mismatch -> download it' % f)
-                data = wdv.download(join(webdav_reglement_doc_dir, f))
-                if data:
-                    open(join(reglement_doc_path, f), 'wb').write(data)
-        # log sync end
-        logging.debug('end of sync for owncloud doc')
-    except Exception:
-        logging.error(traceback.format_exc())
-        return None
+                open(join(DOWNLOAD_DOC_PDF_PATH, f), 'wb').write(data)
+    # log sync end
+    logging.debug('end of sync for owncloud doc')
 
 
-# check if the owncloud directories has been updated by users (start sync jobs with redis publish if need)
+# check if the owncloud directories has been updated by users (start sync jobs if need)
+@catch_log_except()
 def check_owncloud_update_job():
-    try:
-        for f in wdv.ls():
-            name = f['file_path']
-            update_ts = int(f['dt_last_modified'].timestamp())
-            # document update ?
-            if name == webdav_reglement_doc_dir:
-                try:
-                    last_update = int(rd.get('owncloud:document:update_ts'))
-                except TypeError:
-                    last_update = 0
-                # update need
-                if update_ts > last_update:
-                    rd.publish('dashboard:trigger', 'owc_document')
-                    rd.set('owncloud:document:update_ts', update_ts)
-            # carousel update ?
-            elif name == webdav_carousel_img_dir:
-                try:
-                    last_update = int(rd.get('owncloud:carousel:update_ts'))
-                except TypeError:
-                    last_update = 0
-                # update need
-                if update_ts > last_update:
-                    rd.publish('dashboard:trigger', 'owc_carousel')
-                    rd.set('owncloud:carousel:update_ts', update_ts)
-    except Exception:
-        logging.error(traceback.format_exc())
-        return None
+    for f in wdv.ls():
+        name = f['file_path']
+        update_ts = int(f['dt_last_modified'].timestamp())
+        # document update ?
+        if name == webdav_reglement_doc_dir:
+            try:
+                last_update = int(DB.master.get('owncloud:document:update_ts'))
+            except TypeError:
+                last_update = 0
+            # update need
+            if update_ts > last_update:
+                owncloud_sync_doc_job()
+                DB.master.set('owncloud:document:update_ts', update_ts)
+        # carousel update ?
+        elif name == webdav_carousel_img_dir:
+            try:
+                last_update = int(DB.master.get('owncloud:carousel:update_ts'))
+            except TypeError:
+                last_update = 0
+            # update need
+            if update_ts > last_update:
+                owncloud_sync_carousel_job()
+                DB.master.set('owncloud:carousel:update_ts', update_ts)
 
 
 # main
 if __name__ == '__main__':
     # logging setup
-    logging.basicConfig(format='%(asctime)s %(message)s')
-    # logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
+    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
+    logging.info('board-files-app started')
+
+    # create directory in data volume if need
+    pathlib.Path(DOWNLOAD_DOC_PDF_PATH).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(DOWNLOAD_CAROUSEL_PNG_PATH).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(HMI_CAROUSEL_PNG_PATH).mkdir(parents=True, exist_ok=True)
+    try:
+        os.symlink(DOWNLOAD_DOC_PDF_PATH, HMI_DOC_PDF_PATH)
+    except FileExistsError:
+        pass
 
     # init webdav client
     wdv = WebDAV(webdav_url, username=webdav_user, password=webdav_pass)
-
-    # subscribe to redis publish channel
-    rd = redis.StrictRedis()
-    ps = rd.pubsub()
-    ps.subscribe(["dashboard:trigger"])
 
     # init scheduler
     schedule.every(5).minutes.do(check_owncloud_update_job)
@@ -384,20 +437,5 @@ if __name__ == '__main__':
     while True:
         # schedule jobs
         schedule.run_pending()
-        # check notify on redis
-        try:
-            msg = ps.get_message()
-            if msg and msg["type"] == "message":
-                # immediate carousel update on redis notify
-                if msg["data"].decode() == "carousel_update":
-                    update_img_carousel_job()
-                # immediate owncloud document update on redis notify
-                if msg["data"].decode() == "owc_document":
-                    owncloud_sync_doc_job()
-                # immediate owncloud carousel update on redis notify
-                if msg["data"].decode() == "owc_carousel":
-                    owncloud_sync_carousel_job()
-        except Exception:
-            logging.error(traceback.format_exc())
         # wait next loop
         time.sleep(1)
