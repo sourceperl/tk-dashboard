@@ -22,6 +22,8 @@ import requests
 from requests_oauthlib import OAuth1
 import schedule
 import PIL.Image
+import PIL.ImageDraw
+import PIL.ImageFont
 from wordcloud import WordCloud
 from metar.Metar import Metar
 import pytz
@@ -208,6 +210,11 @@ def dir_est_img_job():
             # load image to PIL and resize it
             img = PIL.Image.open(io.BytesIO(r.content))
             img.thumbnail([224, 235])
+            # add text to image
+            txt_img = '%s - %s' % (id_cam.capitalize(), datetime.now().strftime('%H:%M'))
+            font = PIL.ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 16)
+            draw = PIL.ImageDraw.Draw(img)
+            draw.text((5, 5), txt_img, (0x10, 0x0e, 0x0e), font=font)
             # save image as PNG for redis
             redis_io = io.BytesIO()
             img.save(redis_io, format='PNG')

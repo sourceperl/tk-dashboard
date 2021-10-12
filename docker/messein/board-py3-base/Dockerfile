@@ -8,6 +8,7 @@ RUN dpkg-reconfigure -f noninteractive tzdata
 RUN apt-get update --quiet && apt-get upgrade --yes
 RUN apt-get install --yes \
                     git \
+                    fonts-freefont-ttf \
                     python3 \
                     python3-pip \
                     python3-tz \
