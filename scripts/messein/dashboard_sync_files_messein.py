@@ -17,13 +17,13 @@ DASHBOARD_DATA_HMI_PATH = '/srv/dashboard/hmi/'
 cnf = ConfigParser()
 cnf.read(os.path.expanduser('~/.dashboard_config'))
 # hostname of master dashboard
-dash_master_host = cnf.get("dashboard", "master_host")
+dash_master_host = cnf.get('dashboard', 'master_host')
 
 
 def cold_file_sync_job():
     # mirror master dashboard root path (like /home/pi/dashboard/) -> to slave one
     try:
-        cmd = "rsync -aALxX --delete %s:%s. %s."
+        cmd = 'rsync -aALxX --delete %s:%s. %s.'
         cmd %= dash_master_host, DASHBOARD_DATA_HMI_PATH, DASHBOARD_DATA_HMI_PATH
         subprocess.call(cmd.split())
     except Exception as e:
