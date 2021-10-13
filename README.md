@@ -7,9 +7,9 @@
 sudo apt update && sudo apt -y dist-upgrade
 sudo apt install -y supervisor xpdf imagemagick python3-cairocffi python3-pil python3-pil.imagetk python3-redis xscreensaver
 # security setup
-sudo apt install -y fail2ban ufw
+sudo apt install -y fail2ban ufw autossh
+# UFW firewall setup (warn: docker host overide UFW rules)
 sudo ufw allow proto tcp from 192.168.0.0/24 to any port ssh
-sudo ufw allow proto tcp from 192.168.0.0/24 to any port 6379
 sudo ufw enable
 # add project space on rpi host
 sudo mkdir -p /srv/dashboard/
