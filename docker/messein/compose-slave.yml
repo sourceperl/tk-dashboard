@@ -5,7 +5,7 @@ services:
     image: redis:6.2.3
     container_name: board-redis-srv
     restart: unless-stopped
-    command: redis-server --slaveof 127.0.0.1 63790 --save 3600 1
+    command: redis-server --slaveof board-redis-master-relay 6379 --save 3600 1
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
@@ -18,11 +18,26 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  board-redis-master-relay:
+    build: ../common/board-redis-master-relay/.
+    image: board-redis-master-relay-img
+    container_name: board-redis-master-relay
+    restart: unless-stopped
+    volumes:
+      - /home/pi/.ssh:/root/.ssh:ro
+    networks:
+      - board-net
+    environment:
+      - SSH_TARGET=pi@192.168.0.60
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
 volumes:
   board-redis-data-vol:
     name: board-redis-data-vol
-  board-conf-vol:
-    name: board-conf-vol
 
 networks:
   board-net:
