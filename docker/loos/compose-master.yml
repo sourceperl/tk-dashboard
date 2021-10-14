@@ -9,7 +9,7 @@ services:
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
-      - board-redis-data-vol:/data
+      - board-redis-data-vol:/data:rw
     networks:
       - board-net
     logging:
@@ -26,7 +26,7 @@ services:
     depends_on:
       - "board-redis-srv"
     volumes:
-      - board-conf-vol:/data/board-conf-vol
+      - board-conf-vol:/data/board-conf-vol:ro
     networks:
       - board-net
     logging:
@@ -43,7 +43,7 @@ services:
     depends_on:
       - "board-redis-srv"
     volumes:
-      - board-conf-vol:/data/board-conf-vol
+      - board-conf-vol:/data/board-conf-vol:ro
     networks:
       - board-net
     logging:
@@ -60,7 +60,7 @@ services:
     depends_on:
       - "board-redis-srv"
     volumes:
-      - board-conf-vol:/data/board-conf-vol
+      - board-conf-vol:/data/board-conf-vol:ro
     networks:
       - board-net
     logging:
@@ -77,8 +77,8 @@ services:
     depends_on:
       - "board-redis-srv"
     volumes:
-      - board-conf-vol:/data/board-conf-vol
-      - /srv/dashboard:/srv/dashboard
+      - board-conf-vol:/data/board-conf-vol:ro
+      - /srv/dashboard:/srv/dashboard:rw
     networks:
       - board-net
     logging:
@@ -95,8 +95,8 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      - board-conf-vol:/data/board-conf-vol
-      - /srv/dashboard:/srv/dashboard
+      - board-conf-vol:/data/board-conf-vol:rw
+      - /srv/dashboard:/srv/dashboard:rw
     networks:
       - board-net
     logging:
