@@ -35,6 +35,17 @@ cp conf/example/dashboard.conf /etc/opt/tk-dashboard/
 vim /etc/opt/tk-dashboard/dashboard.conf
 ```
 
+### Setup for slave (add ssh key to allow redis relay and files sync)
+
+```bash
+# create ssh key and copy it to central dashboard (file src at 192.168.0.60)
+ssh-keygen
+ssh-copy-id pi@192.168.0.60
+# now we can manually sync file
+rsync -aALxXv --delete 192.168.0.60:/srv/dashboard/hmi/. /srv/dashboard/hmi/.
+# see scripts/dashboard_sync_files.py to automate this
+```
+
 ### Docker setup
 
 #### Loos
@@ -45,6 +56,7 @@ cd docker/loos/
 # start the master dashboard stack
 ./master-setup.sh
 # start the slave dashboard stack
+# ensure ssh-copy-id is set to avoid ip ban by fail2ban
 ./slave-setup.sh
 ```
 
@@ -56,6 +68,7 @@ cd docker/messein/
 # start the master dashboard stack
 ./master-setup.sh
 # start the slave dashboard stack
+# ensure ssh-copy-id is set to avoid ip ban by fail2ban
 ./slave-setup.sh
 ```
 
@@ -99,19 +112,6 @@ sudo apt-get install -y x11vnc
 x11vnc -storepasswd
 # launch server as you want
 x11vnc -usepw -forever &
-```
-
-### Setup for auto sync files
-
-#### Loos
-
-```bash
-# create ssh key and copy it to central dashboard (file src at 192.168.0.60)
-ssh-keygen
-ssh-copy-id pi@192.168.0.60
-# now we can manually sync file
-rsync -aALxXv --delete 192.168.0.60:/srv/dashboard/hmi/. /srv/dashboard/hmi/.
-# see scripts/dashboard_sync_files.py to automate this
 ```
 
 ### Turn off screensaver
