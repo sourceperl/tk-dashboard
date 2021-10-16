@@ -15,7 +15,7 @@ import schedule
 
 # read config
 cnf = ConfigParser()
-cnf.read('/data/board-conf-vol/dashboard.conf')
+cnf.read('/data/conf/dashboard.conf')
 # dweet
 dweet_id = cnf.get('dweet', 'id')
 dweet_key = cnf.get('dweet', 'key')

@@ -20,7 +20,7 @@ AD_2155_INDEX_PWR = 3205
 
 # read config
 cnf = ConfigParser()
-cnf.read('/data/board-conf-vol/dashboard.conf')
+cnf.read('/data/conf/dashboard.conf')
 # thingspeak api key
 ts_pwr_api_key = cnf.get('electric_meter', 'tspeak_pwr_w_key')
 ts_idx_api_key = cnf.get('electric_meter', 'tspeak_idx_w_key')

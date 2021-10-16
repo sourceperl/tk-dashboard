@@ -26,7 +26,41 @@ services:
     depends_on:
       - "board-redis-srv"
     volumes:
-      - board-conf-vol:/data/board-conf-vol:ro
+      - /etc/opt/tk-dashboard:/data/conf:ro
+    networks:
+      - board-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  board-export-app:
+    build: board-export-app/.
+    image: board-export-app-img
+    container_name: board-export-app
+    restart: unless-stopped
+    depends_on:
+      - "board-redis-srv"
+    volumes:
+      - /etc/opt/tk-dashboard:/data/conf:ro
+    networks:
+      - board-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  board-meters-app:
+    build: board-meters-app/.
+    image: board-meters-app-img
+    container_name: board-meters-app
+    restart: unless-stopped
+    depends_on:
+      - "board-redis-srv"
+    volumes:
+      - /etc/opt/tk-dashboard:/data/conf:ro
     networks:
       - board-net
     logging:
@@ -43,7 +77,7 @@ services:
     depends_on:
       - "board-redis-srv"
     volumes:
-      - board-conf-vol:/data/board-conf-vol:ro
+      - /etc/opt/tk-dashboard:/data/conf:ro
       - /srv/dashboard:/srv/dashboard:rw
     networks:
       - board-net
@@ -54,14 +88,14 @@ services:
         max-file: "5"
 
   board-admin-shell:
-    build: board-admin-shell/.
+    build: ../common/board-admin-shell/.
     image: board-admin-shell-img
     container_name: board-admin-shell
     restart: unless-stopped
     stdin_open: true
     tty: true
     volumes:
-      - board-conf-vol:/data/board-conf-vol:rw
+      - /etc/opt/tk-dashboard:/data/conf:rw
       - /srv/dashboard:/srv/dashboard:rw
     networks:
       - board-net
@@ -71,8 +105,6 @@ services:
 volumes:
   board-redis-data-vol:
     name: board-redis-data-vol
-  board-conf-vol:
-    name: board-conf-vol
 
 networks:
   board-net:

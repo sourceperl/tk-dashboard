@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=Dashboard Messein
-Exec=dashboard_hmi_messein.py
+Exec=/opt/tk-dashboard/bin/board-hmi-messein.py
 Icon=krfb
 Type=Application
 Terminal=false

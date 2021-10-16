@@ -1,4 +1,4 @@
 #!/bin/sh
 
 # start the stack
-docker-compose -f compose-slave.yml up  -d
+docker-compose -f slave-compose.yml up -d

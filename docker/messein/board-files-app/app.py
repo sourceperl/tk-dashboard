@@ -37,9 +37,9 @@ DOWNLOAD_CAROUSEL_PNG_PATH = '/srv/dashboard/webdav/Carousel upload'
 HMI_CAROUSEL_PNG_PATH = '/srv/dashboard/hmi/carousel_png'
 HMI_DOC_PDF_PATH = '/srv/dashboard/hmi/doc_pdf'
 
-# read config from board-conf-vol
+# read config
 cnf = ConfigParser()
-cnf.read('/data/board-conf-vol/dashboard.conf')
+cnf.read('/data/conf/dashboard.conf')
 # webdav
 webdav_url = cnf.get("owncloud_dashboard", "webdav_url")
 webdav_user = cnf.get("owncloud_dashboard", "webdav_user")
