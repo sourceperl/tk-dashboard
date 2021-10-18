@@ -5,7 +5,8 @@
 ```bash
 # HMI package dependency
 sudo apt update && sudo apt -y dist-upgrade
-sudo apt install -y supervisor xpdf imagemagick python3-cairocffi python3-pil python3-pil.imagetk python3-redis xscreensaver
+sudo apt install -y supervisor xpdf imagemagick xscreensaver fonts-freefont-ttf \
+                    python3-cairocffi python3-pil python3-pil.imagetk python3-redis
 # security setup
 sudo apt install -y fail2ban ufw
 # UFW firewall setup (warn: docker host overide UFW rules)
@@ -48,11 +49,18 @@ rsync -aALxXv --delete 192.168.0.60:/srv/dashboard/hmi/. /srv/dashboard/hmi/.
 
 ### Docker setup
 
+#### On all dashboard
+
+```bash
+cd docker
+./docker-setup.sh
+```
+
 #### Loos
 
 ```bash
 # Loos setup
-cd docker/loos/
+cd loos/
 # start the master dashboard stack
 ./master-setup.sh
 # start the slave dashboard stack
@@ -64,7 +72,7 @@ cd docker/loos/
 
 ```bash
 # Messein setup
-cd docker/messein/
+cd messein/
 # start the master dashboard stack
 ./master-setup.sh
 # start the slave dashboard stack
