@@ -203,15 +203,16 @@ def air_quality_atmo_ge_job():
 
 @catch_log_except()
 def dir_est_img_job():
-    # retrieve DIR-est webcams: laxou, houpette, mulhouse2
-    for id_cam, get_code in [('laxou', '21?708'), ('houpette', '20?740'), ('flavigny', '5?854')]:
+    # retrieve DIR-est webcams: Houdemont, Velaine-en-Haye, Saint-Nicolas, Côte de Flavigny
+    for id_redis, lbl_cam, get_code in [('houdemont', 'Houdemont', '18'), ('velaine', 'Velaine', '53'),
+                                        ('st-nicolas', 'Saint-Nicolas', '49'), ('flavigny', 'Flavigny', '5')]:
         r = requests.get('https://webcam.dir-est.fr/app.php/lastimg/%s' % get_code)
         if r.status_code == 200:
             # load image to PIL and resize it
             img = PIL.Image.open(io.BytesIO(r.content))
             img.thumbnail([224, 235])
             # add text to image
-            txt_img = '%s - %s' % (id_cam.capitalize(), datetime.now().strftime('%H:%M'))
+            txt_img = '%s - %s' % (lbl_cam, datetime.now().strftime('%H:%M'))
             font = PIL.ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 16)
             draw = PIL.ImageDraw.Draw(img)
             draw.text((5, 5), txt_img, (0x10, 0x0e, 0x0e), font=font)
@@ -219,8 +220,8 @@ def dir_est_img_job():
             redis_io = io.BytesIO()
             img.save(redis_io, format='PNG')
             # update redis
-            DB.master.set('img:dir-cam:%s:png' % id_cam, redis_io.getvalue())
-            DB.master.set_ttl('img:dir-cam:%s:png' % id_cam, ttl=3600)
+            DB.master.set('img:dir-cam:%s:png' % id_redis, redis_io.getvalue())
+            DB.master.set_ttl('img:dir-cam:%s:png' % id_redis, ttl=3600)
 
 
 @catch_log_except()

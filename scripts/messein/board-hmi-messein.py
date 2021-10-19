@@ -131,8 +131,9 @@ class Tags:
     IMG_LOGO_GRT = Tag(func_src=lambda: DB.master.get_bytes('static:img:logo_grt:png'))
     IMG_GRT_CLOUD = Tag(func_src=lambda: DB.master.get_bytes('img:grt-tweet-wordcloud:png'))
     IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.master.get_bytes('img:traffic-map:png'))
-    IMG_DIR_CAM_LAXOU = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:laxou:png'))
-    IMG_DIR_CAM_HOUPETTE = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:houpette:png'))
+    IMG_DIR_CAM_HOUDEMONT = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:houdemont:png'))
+    IMG_DIR_CAM_VELAINE = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:velaine:png'))
+    IMG_DIR_CAM_ST_NICOLAS = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:st-nicolas:png'))
     IMG_DIR_CAM_FLAVIGNY = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:flavigny:png'))
 
     @classmethod
@@ -264,15 +265,18 @@ class LiveTab(Tab):
         # traffic map
         self.tl_tf_map = ImageRawTile(self, bg='#f5f5f5')
         self.tl_tf_map.set_tile(row=1, column=0, rowspan=3, columnspan=5)
-        # DIR-est laxou
-        self.tl_img_laxou = ImageRawTile(self)
-        self.tl_img_laxou.set_tile(row=0, column=5, rowspan=2, columnspan=2)
-        # DIR-est houpette
-        self.tl_img_houpette = ImageRawTile(self)
-        self.tl_img_houpette.set_tile(row=0, column=7, rowspan=2, columnspan=2)
-        # DIR-est flavigny
+        # DIR-est Houdemont
+        self.tl_img_houdemont = ImageRawTile(self)
+        self.tl_img_houdemont.set_tile(row=0, column=5, rowspan=2, columnspan=2)
+        # DIR-est Velaine-en-Haye
+        self.tl_img_velaine = ImageRawTile(self)
+        self.tl_img_velaine.set_tile(row=0, column=7, rowspan=2, columnspan=2)
+        # DIR-est Saint-Nicolas
+        self.tl_img_st_nicolas = ImageRawTile(self)
+        self.tl_img_st_nicolas.set_tile(row=0, column=9, rowspan=2, columnspan=2)
+        # DIR-est Côte de Flavigny
         self.tl_img_flavigny = ImageRawTile(self)
-        self.tl_img_flavigny.set_tile(row=0, column=9, rowspan=2, columnspan=2)
+        self.tl_img_flavigny.set_tile(row=0, column=11, rowspan=2, columnspan=2)
         # clock
         self.tl_clock = ClockTile(self)
         self.tl_clock.set_tile(row=0, column=13, rowspan=2, columnspan=4)
@@ -337,8 +341,9 @@ class LiveTab(Tab):
         # GRT
         self.tl_img_grt.raw = Tags.IMG_LOGO_GRT.get()
         # DIR-Est webcams
-        self.tl_img_laxou.raw = Tags.IMG_DIR_CAM_LAXOU.get()
-        self.tl_img_houpette.raw = Tags.IMG_DIR_CAM_HOUPETTE.get()
+        self.tl_img_houdemont.raw = Tags.IMG_DIR_CAM_HOUDEMONT.get()
+        self.tl_img_velaine.raw = Tags.IMG_DIR_CAM_VELAINE.get()
+        self.tl_img_st_nicolas.raw = Tags.IMG_DIR_CAM_ST_NICOLAS.get()
         self.tl_img_flavigny.raw = Tags.IMG_DIR_CAM_FLAVIGNY.get()
         # acc days stat
         self.tl_acc.acc_date_dts = Tags.D_GSHEET_GRT.get(('tags', 'DATE_ACC_DTS'))
