@@ -2,7 +2,7 @@ version: "3"
 
 services:
   board-redis-srv:
-    image: redis:6.2.3
+    image: redis:6.2.5
     container_name: board-redis-srv
     restart: unless-stopped
     command: redis-server --save 3600 1

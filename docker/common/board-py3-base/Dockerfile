@@ -13,7 +13,6 @@ RUN apt-get install --yes \
                     python3-pip \
                     python3-tz \
                     python3-dateutil \
-                    python3-redis \
                     python3-urllib3 \
                     python3-requests \ 
                     python3-requests-oauthlib \
@@ -26,3 +25,4 @@ RUN apt-get install --yes \
 
 # add python job scheduler
 RUN pip3 install schedule==1.1.0
+RUN pip3 install redis==3.5.3

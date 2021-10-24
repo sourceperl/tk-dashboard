@@ -6,7 +6,8 @@
 # HMI package dependency
 sudo apt update && sudo apt -y dist-upgrade
 sudo apt install -y supervisor xpdf imagemagick xscreensaver fonts-freefont-ttf \
-                    python3-cairocffi python3-pil python3-pil.imagetk python3-redis
+                    python3-cairocffi python3-pil python3-pil.imagetk
+sudo pip3 install redis==3.5.3
 # security setup
 sudo apt install -y fail2ban ufw
 # UFW firewall setup (warn: docker host overide UFW rules)
