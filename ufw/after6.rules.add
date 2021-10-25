@@ -9,7 +9,7 @@
 # define docker custom rules here for containers listenning port (if it's not explicit ACCEPT, it's will be DROP)
 # we need conntrack to avoid to be confuse with container port (what --dport see) instead of publish port (what we want)
 
-# drop not accepted packets
+# drop if not "ACCEPT"
 -A DOCKER-USER -i eth0 -j DROP
 ## end of eth0 ##
 
