@@ -1,0 +1,20 @@
+### DOCKER-USER ###
+*filter
+:DOCKER-USER - [0:0]
+
+## eth0 ##
+# allow established connections (avoid disabling container traffic to the Internet)
+-A DOCKER-USER -i eth0 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# define docker custom rules here for containers listenning port (if it's not explicit ACCEPT, it's will be DROP)
+# we need conntrack to avoid to be confuse with container port (what --dport see) instead of publish port (what we want)
+
+# drop not accepted packets
+-A DOCKER-USER -i eth0 -j DROP
+## end of eth0 ##
+
+# default DOCKER-USER job
+-A DOCKER-USER -j RETURN
+
+# don't delete the 'COMMIT' line or these rules won't be processed
+COMMIT
