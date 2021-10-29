@@ -131,28 +131,24 @@ def dweet_decode(b64_msg_block):
 # some class
 class CustomRedis(redis.StrictRedis):
     @catch_log_except(catch=redis.RedisError)
-    def set_ttl(self, name, ttl=3600):
-        return self.expire(name, ttl)
-
-    @catch_log_except(catch=redis.RedisError)
-    def set_bytes(self, name, value):
-        return self.set(name, value)
+    def set_bytes(self, name, value, ttl=None):
+        return self.set(name, value, ex=ttl)
 
     @catch_log_except(catch=redis.RedisError)
     def get_bytes(self, name):
         return self.get(name)
 
     @catch_log_except(catch=redis.RedisError)
-    def set_str(self, name, value):
-        return self.set(name, value)
+    def set_str(self, name, value, ttl=None):
+        return self.set(name, value, ex=ttl)
 
     @catch_log_except(catch=(redis.RedisError, AttributeError))
     def get_str(self, name):
         return self.get(name).decode('utf-8')
 
     @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError))
-    def set_to_json(self, name, obj):
-        return self.set(name, json.dumps(obj))
+    def set_to_json(self, name, obj, ttl=None):
+        return self.set(name, json.dumps(obj), ex=ttl)
 
     @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError))
     def get_from_json(self, name):
@@ -161,8 +157,8 @@ class CustomRedis(redis.StrictRedis):
 
 class DB:
     # create connector
-    master = CustomRedis(host='board-redis-srv', username=redis_user, password=redis_pass,
-                         socket_timeout=4, socket_keepalive=True)
+    main = CustomRedis(host='board-redis-srv', username=redis_user, password=redis_pass,
+                       socket_timeout=4, socket_keepalive=True)
     bridge = CustomRedis(host=bridge_host, socket_timeout=4, socket_keepalive=True)
 
 
@@ -204,21 +200,18 @@ def air_quality_atmo_hdf_job():
                          'saint-quentin': zones_d.get('02691', 0),
                          'valenciennes': zones_d.get('59606', 0)}
         # update redis
-        DB.master.set_to_json('atmo:quality', d_air_quality)
-        DB.master.set_ttl('atmo:quality', ttl=6 * 3600)
+        DB.main.set_to_json('atmo:quality', d_air_quality, ttl=6 * 3600)
 
 
 @catch_log_except()
 def bridge_job():
-    # relay flyspray data from bridge to master DB
+    # relay flyspray data from bridge to main DB
     fly_data_nord = DB.bridge.get_from_json('rx:bur:flyspray_rss_nord')
     fly_data_est = DB.bridge.get_from_json('rx:bur:flyspray_rss_est')
     if fly_data_nord:
-        DB.master.set_to_json('bridge:flyspray_rss_nord', fly_data_nord)
-        DB.master.set_ttl('bridge:flyspray_rss_nord', ttl=1 * 3600)
+        DB.main.set_to_json('bridge:flyspray_rss_nord', fly_data_nord, ttl=1 * 3600)
     if fly_data_est:
-        DB.master.set_to_json('bridge:flyspray_rss_est', fly_data_est)
-        DB.master.set_ttl('bridge:flyspray_rss_est', ttl=1 * 3600)
+        DB.main.set_to_json('bridge:flyspray_rss_est', fly_data_est, ttl=1 * 3600)
 
 
 @catch_log_except()
@@ -234,14 +227,12 @@ def dweet_job():
         # update redis
         try:
             json_flyspray_est = dweet_decode(data_d['with'][0]['content']['raw_flyspray_est']).decode('utf8')
-            DB.master.set_to_json("dweet:flyspray_rss_est", json.loads(json_flyspray_est))
-            DB.master.set_ttl("dweet:flyspray_rss_est", ttl=3600)
+            DB.main.set_to_json("dweet:flyspray_rss_est", json.loads(json_flyspray_est), ttl=3600)
         except IndexError as e:
             logging.error(f'except {type(e)} in  dweet_job(): {e}')
         try:
             json_flyspray_nord = dweet_decode(data_d['with'][0]['content']['raw_flyspray_nord']).decode('utf8')
-            DB.master.set_to_json("dweet:flyspray_rss_nord", json.loads(json_flyspray_nord))
-            DB.master.set_ttl("dweet:flyspray_rss_nord", ttl=3600)
+            DB.main.set_to_json("dweet:flyspray_rss_nord", json.loads(json_flyspray_nord), ttl=3600)
         except IndexError as e:
             logging.error(f'except {type(e)} in  dweet_job(): {e}')
 
@@ -256,8 +247,7 @@ def gsheet_job():
         tag, value = line.split(',')
         d[tag] = value
     redis_d = dict(update=datetime.now().isoformat('T'), tags=d)
-    DB.master.set_to_json('gsheet:grt', redis_d)
-    DB.master.set_ttl('gsheet:grt', ttl=2 * 3600)
+    DB.main.set_to_json('gsheet:grt', redis_d, ttl=2 * 3600)
 
 
 @catch_log_except()
@@ -273,8 +263,7 @@ def img_gmap_traffic_job():
         img_io = io.BytesIO()
         pil_img.save(img_io, format='PNG')
         # store RAW PNG to redis key
-        DB.master.set_bytes('img:traffic-map:png', img_io.getvalue())
-        DB.master.set_ttl('img:traffic-map:png', 2 * 3600)
+        DB.main.set_bytes('img:traffic-map:png', img_io.getvalue(), ttl=2 * 3600)
 
 
 @catch_log_except()
@@ -321,8 +310,7 @@ def img_grt_tw_cloud_job():
             pil_img = word_cloud.to_image()
             pil_img.save(img_io, format='PNG')
             # store RAW PNG to redis key
-            DB.master.set_bytes('img:grt-tweet-wordcloud:png', img_io.getvalue())
-            DB.master.set_ttl('img:grt-tweet-wordcloud:png', 2 * 3600)
+            DB.main.set_bytes('img:grt-tweet-wordcloud:png', img_io.getvalue(), ttl=2 * 3600)
 
 
 @catch_log_except()
@@ -331,8 +319,7 @@ def local_info_job():
     l_titles = []
     for post in feedparser.parse('https://france3-regions.francetvinfo.fr/societe/rss?r=hauts-de-france').entries:
         l_titles.append(post.title)
-    DB.master.set_to_json('news:local', l_titles)
-    DB.master.set_ttl('news:local', ttl=2 * 3600)
+    DB.main.set_to_json('news:local', l_titles, ttl=2 * 3600)
 
 
 @catch_log_except()
@@ -366,8 +353,7 @@ def openweathermap_forecast_job():
                         t_today = item['main']['temp']
                         d_days[0]['t'] = t_today
     # store to redis
-    DB.master.set_to_json('weather:forecast:loos', d_days)
-    DB.master.set_ttl('weather:forecast:loos', ttl=2 * 3600)
+    DB.main.set_to_json('weather:forecast:loos', d_days, ttl=2 * 3600)
 
 
 @catch_log_except()
@@ -404,8 +390,7 @@ def twitter_job():
                 tweets_l.append(tcl_normalize_str(tw['full_text']))
         # update redis
         d_redis = dict(tweets=tweets_l, update=datetime.now().isoformat('T'))
-        DB.master.set_to_json('twitter:tweets:grtgaz', d_redis)
-        DB.master.set_ttl('twitter:tweets:grtgaz', ttl=3600)
+        DB.main.set_to_json('twitter:tweets:grtgaz', d_redis, ttl=3600)
 
 
 @catch_log_except()
@@ -443,8 +428,7 @@ def vigilance_job():
             vig_data['department'][dep_code] = {'vig_level': color_id,
                                                 'flood_level': flood_id,
                                                 'risk_id': risk_id}
-        DB.master.set_to_json('weather:vigilance', vig_data)
-        DB.master.set_ttl('weather:vigilance', ttl=2 * 3600)
+        DB.main.set_to_json('weather:vigilance', vig_data, ttl=2 * 3600)
 
 
 @catch_log_except()
@@ -486,8 +470,7 @@ def weather_today_job():
         # weather status str
         d_today['descr'] = 'n/a'
         # store to redis
-        DB.master.set_to_json('weather:today:loos', d_today)
-        DB.master.set_ttl('weather:today:loos', ttl=2 * 3600)
+        DB.main.set_to_json('weather:today:loos', d_today, ttl=2 * 3600)
 
 
 # main

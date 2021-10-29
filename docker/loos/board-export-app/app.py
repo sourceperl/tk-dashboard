@@ -96,10 +96,6 @@ def dweet_decode(b64_msg_block):
 # some class
 class CustomRedis(redis.StrictRedis):
     @catch_log_except(catch=redis.RedisError)
-    def set_ttl(self, name, ttl=3600):
-        return self.expire(name, ttl)
-
-    @catch_log_except(catch=redis.RedisError)
     def set_bytes(self, name, value):
         return self.set(name, value)
 
@@ -125,8 +121,8 @@ class CustomRedis(redis.StrictRedis):
 
 
 class DB:
-    master = CustomRedis(host='board-redis-srv', username=redis_user, password=redis_pass,
-                         socket_timeout=4, socket_keepalive=True)
+    main = CustomRedis(host='board-redis-srv', username=redis_user, password=redis_pass,
+                       socket_timeout=4, socket_keepalive=True)
 
 
 @catch_log_except()
@@ -134,8 +130,8 @@ def dweet_job():
     DW_POST_URL = 'https://dweet.io/dweet/for/'
 
     # read internal data
-    json_flyspray_nord = DB.master.get_bytes('bridge:flyspray_rss_nord')
-    json_flyspray_est = DB.master.get_bytes('bridge:flyspray_rss_est')
+    json_flyspray_nord = DB.main.get_bytes('bridge:flyspray_rss_nord')
+    json_flyspray_est = DB.main.get_bytes('bridge:flyspray_rss_est')
     # populate dweet_post_d dict with encoded json
     dweet_post_d = {}
     if json_flyspray_nord:

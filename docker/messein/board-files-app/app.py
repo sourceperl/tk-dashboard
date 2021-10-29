@@ -199,10 +199,6 @@ class WebDAV:
 
 class CustomRedis(redis.StrictRedis):
     @catch_log_except(catch=redis.RedisError)
-    def set_ttl(self, name, ttl=3600):
-        return self.expire(name, ttl)
-
-    @catch_log_except(catch=redis.RedisError)
     def set_bytes(self, name, value):
         return self.set(name, value)
 
@@ -228,8 +224,8 @@ class CustomRedis(redis.StrictRedis):
 
 
 class DB:
-    master = CustomRedis(host='board-redis-srv', username=redis_user, password=redis_pass,
-                         socket_timeout=4, socket_keepalive=True)
+    main = CustomRedis(host='board-redis-srv', username=redis_user, password=redis_pass,
+                       socket_timeout=4, socket_keepalive=True)
 
 
 # sync owncloud carousel directory with local
@@ -393,23 +389,23 @@ def check_owncloud_update_job():
         # document update ?
         if name == webdav_reglement_doc_dir:
             try:
-                last_update = int(DB.master.get('owncloud:document:update_ts'))
+                last_update = int(DB.main.get('owncloud:document:update_ts'))
             except TypeError:
                 last_update = 0
             # update need
             if update_ts > last_update:
                 owncloud_sync_doc_job()
-                DB.master.set('owncloud:document:update_ts', update_ts)
+                DB.main.set('owncloud:document:update_ts', update_ts)
         # carousel update ?
         elif name == webdav_carousel_img_dir:
             try:
-                last_update = int(DB.master.get('owncloud:carousel:update_ts'))
+                last_update = int(DB.main.get('owncloud:carousel:update_ts'))
             except TypeError:
                 last_update = 0
             # update need
             if update_ts > last_update:
                 owncloud_sync_carousel_job()
-                DB.master.set('owncloud:carousel:update_ts', update_ts)
+                DB.main.set('owncloud:carousel:update_ts', update_ts)
 
 
 # main

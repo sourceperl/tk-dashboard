@@ -88,8 +88,8 @@ class CustomRedis(redis.StrictRedis):
 
 class DB:
     # create connector
-    master = CustomRedis(host='localhost', username=redis_user, password=redis_pass,
-                         socket_timeout=4, socket_keepalive=True)
+    main = CustomRedis(host='localhost', username=redis_user, password=redis_pass,
+                       socket_timeout=4, socket_keepalive=True)
 
 
 class Tag:
@@ -131,20 +131,20 @@ class Tags:
     # create all tag here
     # WARNs: -> all tag are manage by an IO thread
     #        -> tag subscriber callback code are call by IO thread (not by tkinter main thread)
-    D_GSHEET_GRT = Tag(func_src=lambda: DB.master.get_from_json('gsheet:grt'))
-    D_ATMO_QUALITY = Tag(func_src=lambda: DB.master.get_from_json('atmo:quality'))
-    D_WEATHER_VIG = Tag(func_src=lambda: DB.master.get_from_json('weather:vigilance'))
-    D_NEWS_LOCAL = Tag(func_src=lambda: DB.master.get_from_json('news:local'))
-    D_TWEETS_GRT = Tag(func_src=lambda: DB.master.get_from_json('twitter:tweets:grtgaz'))
-    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.master.get_from_json('dweet:flyspray_rss_est'))
-    IMG_ATMO_GE = Tag(func_src=lambda: DB.master.get_bytes('static:img:logo_atmo_ge:png'))
-    IMG_LOGO_GRT = Tag(func_src=lambda: DB.master.get_bytes('static:img:logo_grt:png'))
-    IMG_GRT_CLOUD = Tag(func_src=lambda: DB.master.get_bytes('img:grt-tweet-wordcloud:png'))
-    IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.master.get_bytes('img:traffic-map:png'))
-    IMG_DIR_CAM_HOUDEMONT = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:houdemont:png'))
-    IMG_DIR_CAM_VELAINE = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:velaine:png'))
-    IMG_DIR_CAM_ST_NICOLAS = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:st-nicolas:png'))
-    IMG_DIR_CAM_FLAVIGNY = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:flavigny:png'))
+    D_GSHEET_GRT = Tag(func_src=lambda: DB.main.get_from_json('gsheet:grt'))
+    D_ATMO_QUALITY = Tag(func_src=lambda: DB.main.get_from_json('atmo:quality'))
+    D_WEATHER_VIG = Tag(func_src=lambda: DB.main.get_from_json('weather:vigilance'))
+    D_NEWS_LOCAL = Tag(func_src=lambda: DB.main.get_from_json('news:local'))
+    D_TWEETS_GRT = Tag(func_src=lambda: DB.main.get_from_json('twitter:tweets:grtgaz'))
+    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.main.get_from_json('dweet:flyspray_rss_est'))
+    IMG_ATMO_GE = Tag(func_src=lambda: DB.main.get_bytes('static:img:logo_atmo_ge:png'))
+    IMG_LOGO_GRT = Tag(func_src=lambda: DB.main.get_bytes('static:img:logo_grt:png'))
+    IMG_GRT_CLOUD = Tag(func_src=lambda: DB.main.get_bytes('img:grt-tweet-wordcloud:png'))
+    IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.main.get_bytes('img:traffic-map:png'))
+    IMG_DIR_CAM_HOUDEMONT = Tag(func_src=lambda: DB.main.get_bytes('img:dir-cam:houdemont:png'))
+    IMG_DIR_CAM_VELAINE = Tag(func_src=lambda: DB.main.get_bytes('img:dir-cam:velaine:png'))
+    IMG_DIR_CAM_ST_NICOLAS = Tag(func_src=lambda: DB.main.get_bytes('img:dir-cam:st-nicolas:png'))
+    IMG_DIR_CAM_FLAVIGNY = Tag(func_src=lambda: DB.main.get_bytes('img:dir-cam:flavigny:png'))
 
     @classmethod
     def init(cls):

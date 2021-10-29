@@ -87,8 +87,8 @@ class CustomRedis(redis.StrictRedis):
 
 class DB:
     # create connector
-    master = CustomRedis(host='localhost', username=redis_user, password=redis_pass,
-                         socket_timeout=4, socket_keepalive=True)
+    main = CustomRedis(host='localhost', username=redis_user, password=redis_pass,
+                       socket_timeout=4, socket_keepalive=True)
 
 
 class Tag:
@@ -130,21 +130,21 @@ class Tags:
     # create all tag here
     # WARNs: -> all tag are manage by an IO thread
     #        -> tag subscriber callback code are call by IO thread (not by tkinter main thread)
-    D_GSHEET_GRT = Tag(func_src=lambda: DB.master.get_from_json('gsheet:grt'))
-    D_ATMO_QUALITY = Tag(func_src=lambda: DB.master.get_from_json('atmo:quality'))
-    D_W_TODAY_LOOS = Tag(func_src=lambda: DB.master.get_from_json('weather:today:loos'))
-    D_W_FORECAST_LOOS = Tag(func_src=lambda: DB.master.get_from_json('weather:forecast:loos'))
-    D_WEATHER_VIG = Tag(func_src=lambda: DB.master.get_from_json('weather:vigilance'))
-    D_NEWS_LOCAL = Tag(func_src=lambda: DB.master.get_from_json('news:local'))
-    D_TWEETS_GRT = Tag(func_src=lambda: DB.master.get_from_json('twitter:tweets:grtgaz'))
-    MET_PWR_ACT = Tag(func_src=lambda: DB.master.get_from_json('meters:electric:site:pwr_act'))
-    MET_TODAY_WH = Tag(func_src=lambda: DB.master.get_from_json('meters:electric:site:today_wh'))
-    MET_YESTERDAY_WH = Tag(func_src=lambda: DB.master.get_from_json('meters:electric:site:yesterday_wh'))
-    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.master.get_from_json('bridge:flyspray_rss_nord'))
-    IMG_ATMO_HDF = Tag(func_src=lambda: DB.master.get_bytes('static:img:logo_atmo_hdf:png'))
-    IMG_LOGO_GRT = Tag(func_src=lambda: DB.master.get_bytes('static:img:logo_grt:png'))
-    IMG_GRT_CLOUD = Tag(func_src=lambda: DB.master.get_bytes('img:grt-tweet-wordcloud:png'))
-    IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.master.get_bytes('img:traffic-map:png'))
+    D_GSHEET_GRT = Tag(func_src=lambda: DB.main.get_from_json('gsheet:grt'))
+    D_ATMO_QUALITY = Tag(func_src=lambda: DB.main.get_from_json('atmo:quality'))
+    D_W_TODAY_LOOS = Tag(func_src=lambda: DB.main.get_from_json('weather:today:loos'))
+    D_W_FORECAST_LOOS = Tag(func_src=lambda: DB.main.get_from_json('weather:forecast:loos'))
+    D_WEATHER_VIG = Tag(func_src=lambda: DB.main.get_from_json('weather:vigilance'))
+    D_NEWS_LOCAL = Tag(func_src=lambda: DB.main.get_from_json('news:local'))
+    D_TWEETS_GRT = Tag(func_src=lambda: DB.main.get_from_json('twitter:tweets:grtgaz'))
+    MET_PWR_ACT = Tag(func_src=lambda: DB.main.get_from_json('meters:electric:site:pwr_act'))
+    MET_TODAY_WH = Tag(func_src=lambda: DB.main.get_from_json('meters:electric:site:today_wh'))
+    MET_YESTERDAY_WH = Tag(func_src=lambda: DB.main.get_from_json('meters:electric:site:yesterday_wh'))
+    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.main.get_from_json('bridge:flyspray_rss_nord'))
+    IMG_ATMO_HDF = Tag(func_src=lambda: DB.main.get_bytes('static:img:logo_atmo_hdf:png'))
+    IMG_LOGO_GRT = Tag(func_src=lambda: DB.main.get_bytes('static:img:logo_grt:png'))
+    IMG_GRT_CLOUD = Tag(func_src=lambda: DB.main.get_bytes('img:grt-tweet-wordcloud:png'))
+    IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.main.get_bytes('img:traffic-map:png'))
 
     @classmethod
     def init(cls):
