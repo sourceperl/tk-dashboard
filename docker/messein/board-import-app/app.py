@@ -219,7 +219,7 @@ def dir_est_img_job():
             redis_io = io.BytesIO()
             img.save(redis_io, format='PNG')
             # update redis
-            DB.main.set('img:dir-cam:%s:png' % id_redis, redis_io.getvalue(), ttl=3600)
+            DB.main.set_bytes('img:dir-cam:%s:png' % id_redis, redis_io.getvalue(), ttl=3600)
 
 
 @catch_log_except()
