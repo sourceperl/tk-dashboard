@@ -32,8 +32,11 @@ USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64; rv:2.0.1) Gecko/20100101 Firefox/4
 # read config
 cnf = ConfigParser()
 cnf.read('/data/conf/dashboard.conf')
+# redis
+redis_user = cnf.get('redis', 'user')
+redis_pass = cnf.get('redis', 'pass')
 # hostname of bridge server
-bridge_host = cnf.get('bridge', 'bridge_host')
+bridge_host = cnf.get('bridge', 'host')
 # gmap img traffic
 gmap_img_url = cnf.get('gmap_img', 'img_url')
 # gsheet
@@ -158,7 +161,8 @@ class CustomRedis(redis.StrictRedis):
 
 class DB:
     # create connector
-    master = CustomRedis(host='board-redis-srv', socket_timeout=4, socket_keepalive=True)
+    master = CustomRedis(host='board-redis-srv', username=redis_user, password=redis_pass,
+                         socket_timeout=4, socket_keepalive=True)
     bridge = CustomRedis(host=bridge_host, socket_timeout=4, socket_keepalive=True)
 
 

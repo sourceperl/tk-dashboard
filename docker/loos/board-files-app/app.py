@@ -40,12 +40,15 @@ HMI_DOC_PDF_PATH = '/srv/dashboard/hmi/doc_pdf'
 # read config
 cnf = ConfigParser()
 cnf.read('/data/conf/dashboard.conf')
+# redis
+redis_user = cnf.get('redis', 'user')
+redis_pass = cnf.get('redis', 'pass')
 # webdav
-webdav_url = cnf.get("owncloud_dashboard", "webdav_url")
-webdav_user = cnf.get("owncloud_dashboard", "webdav_user")
-webdav_pass = cnf.get("owncloud_dashboard", "webdav_pass")
-webdav_reglement_doc_dir = cnf.get("owncloud_dashboard", "webdav_reglement_doc_dir")
-webdav_carousel_img_dir = cnf.get("owncloud_dashboard", "webdav_carousel_img_dir")
+webdav_url = cnf.get('owncloud_dashboard', 'webdav_url')
+webdav_user = cnf.get('owncloud_dashboard', 'webdav_user')
+webdav_pass = cnf.get('owncloud_dashboard', 'webdav_pass')
+webdav_reglement_doc_dir = cnf.get('owncloud_dashboard', 'webdav_reglement_doc_dir')
+webdav_carousel_img_dir = cnf.get('owncloud_dashboard', 'webdav_carousel_img_dir')
 
 
 # some functions
@@ -225,7 +228,8 @@ class CustomRedis(redis.StrictRedis):
 
 
 class DB:
-    master = CustomRedis(host='board-redis-srv', socket_timeout=4, socket_keepalive=True)
+    master = CustomRedis(host='board-redis-srv', username=redis_user, password=redis_pass,
+                         socket_timeout=4, socket_keepalive=True)
 
 
 # sync owncloud carousel directory with local

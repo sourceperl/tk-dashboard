@@ -16,6 +16,9 @@ import schedule
 # read config
 cnf = ConfigParser()
 cnf.read('/data/conf/dashboard.conf')
+# redis
+redis_user = cnf.get('redis', 'user')
+redis_pass = cnf.get('redis', 'pass')
 # dweet
 dweet_id = cnf.get('dweet', 'id')
 dweet_key = cnf.get('dweet', 'key')
@@ -122,7 +125,8 @@ class CustomRedis(redis.StrictRedis):
 
 
 class DB:
-    master = CustomRedis(host='board-redis-srv', socket_timeout=4, socket_keepalive=True)
+    master = CustomRedis(host='board-redis-srv', username=redis_user, password=redis_pass,
+                         socket_timeout=4, socket_keepalive=True)
 
 
 @catch_log_except()

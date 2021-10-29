@@ -5,10 +5,11 @@ services:
     image: redis:6.2.5
     container_name: board-redis-srv
     restart: unless-stopped
-    command: redis-server --save 3600 1
+    command: redis-server /usr/local/etc/redis/redis.conf
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
+      - /etc/opt/tk-dashboard/redis-master.conf:/usr/local/etc/redis/redis.conf:ro
       - board-redis-data-vol:/data:rw
     networks:
       - board-net
@@ -26,7 +27,7 @@ services:
     depends_on:
       - "board-redis-srv"
     volumes:
-      - /etc/opt/tk-dashboard:/data/conf:ro
+      - /etc/opt/tk-dashboard/dashboard.conf:/data/conf/dashboard.conf:ro
     networks:
       - board-net
     logging:
@@ -43,7 +44,7 @@ services:
     depends_on:
       - "board-redis-srv"
     volumes:
-      - /etc/opt/tk-dashboard:/data/conf:ro
+      - /etc/opt/tk-dashboard/dashboard.conf:/data/conf/dashboard.conf:ro
       - /srv/dashboard:/srv/dashboard:rw
     networks:
       - board-net
@@ -61,7 +62,7 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      - /etc/opt/tk-dashboard:/data/conf:rw
+      - /etc/opt/tk-dashboard/:/data/conf:rw
       - /srv/dashboard:/srv/dashboard:rw
     networks:
       - board-net

@@ -58,7 +58,9 @@ sudo sh -c 'echo "" >> /etc/ufw/after6.rules'
 sudo ufw reload
 ```
 
-### Add a configuration file
+### Add configuration files
+
+HMI and import/export process configuration
 
 ```bash
 # start from example
@@ -66,6 +68,20 @@ cp conf/example/dashboard.conf /etc/opt/tk-dashboard/
 # customize it
 vim /etc/opt/tk-dashboard/dashboard.conf
 ```
+
+Redis configuration for master
+
+```bash
+cp redis/redis-master.conf /etc/opt/tk-dashboard/
+```
+
+Redis configuration for slave
+
+```bash
+cp redis/redis-slave.conf /etc/opt/tk-dashboard/
+```
+
+**Update default passwords 'pwd' with custom one.**
 
 ### Setup for slave (add ssh key to allow redis relay and files sync)
 
@@ -113,20 +129,16 @@ cd messein/
 
 ### Setup supervisor
 
-#### On all dashboard
-
-```bash
-sudo cp -r scripts/common/* /opt/tk-dashboard/bin/
-```
-
 #### Loos
 
 ```bash
-sudo cp -r scripts/loos/* /opt/tk-dashboard/bin/
+# Loos HMI
+sudo cp scripts/board-hmi-loos.py /opt/tk-dashboard/bin/
 # for loos master dashboard
 sudo cp supervisor/dashboard_master_loos.conf /etc/supervisor/conf.d/
 # for loos slave dashboard
 sudo cp supervisor/dashboard_slave_loos.conf /etc/supervisor/conf.d/
+sudo cp scripts/board-sync-files.py /opt/tk-dashboard/bin/
 # reload conf
 sudo supervisorctl update
 ```
@@ -134,11 +146,13 @@ sudo supervisorctl update
 #### Messein
 
 ```bash
-sudo cp -r scripts/messein/* /opt/tk-dashboard/bin/
+# Messein HMI
+sudo cp scripts/board-hmi-messein.py /opt/tk-dashboard/bin/
 # for messein master dashboard
 sudo cp supervisor/dashboard_master_messein.conf /etc/supervisor/conf.d/
 # for messein slave dashboard
 sudo cp supervisor/dashboard_slave_messein.conf /etc/supervisor/conf.d/
+sudo cp scripts/board-sync-files.py /opt/tk-dashboard/bin/
 # reload conf
 sudo supervisorctl update
 ```

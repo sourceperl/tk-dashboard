@@ -21,6 +21,9 @@ AD_2155_INDEX_PWR = 3205
 # read config
 cnf = ConfigParser()
 cnf.read('/data/conf/dashboard.conf')
+# redis
+redis_user = cnf.get('redis', 'user')
+redis_pass = cnf.get('redis', 'pass')
 # thingspeak api key
 ts_pwr_api_key = cnf.get('electric_meter', 'tspeak_pwr_w_key')
 ts_idx_api_key = cnf.get('electric_meter', 'tspeak_idx_w_key')
@@ -59,7 +62,7 @@ def catch_log_except(catch=None, log_lvl=logging.ERROR, limit_arg_len=40):
 # some class
 class Devices(object):
     # redis datasource
-    rd = RedisDevice(host='board-redis-srv')
+    rd = RedisDevice(host='board-redis-srv', client_adv_args=dict(username=redis_user, password=redis_pass))
     # modbus datasource
     # meter 'garage'
     meter_garage = ModbusTCPDevice(LTX_IP, timeout=2.0, refresh=2.0, unit_id=1)

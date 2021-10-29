@@ -15,7 +15,7 @@ DASHBOARD_DATA_HMI_PATH = '/srv/dashboard/hmi/'
 cnf = ConfigParser()
 cnf.read('/etc/opt/tk-dashboard/dashboard.conf')
 # hostname of master dashboard
-master_host = cnf.get('dashboard', 'master_host')
+master_host = cnf.get('master', 'host')
 
 
 def cold_file_sync_job():

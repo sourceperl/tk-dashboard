@@ -14,7 +14,7 @@ logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 # read config
 cnf = ConfigParser()
 cnf.read(os.path.expanduser('/data/conf/dashboard.conf'))
-master_host = cnf.get('dashboard', 'master_host')
+master_host = cnf.get('master', 'host')
 
 # format autossh args (some can be overide by environment vars)
 ssh_args = '-o ServerAliveInterval=10 -o ServerAliveCountMax=3'

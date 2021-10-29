@@ -2,6 +2,7 @@
 
 import tkinter as tk
 from tkinter import ttk
+from configparser import ConfigParser
 import io
 import json
 import locale
@@ -31,6 +32,7 @@ Step : file independant, can be used without pdf and images
 # Geometry
 TAB_PAD_HEIGHT = 17
 TAB_PAD_WIDTH = 17
+NEWS_BANNER_HEIGHT = 90
 # dashboard colors
 C_WHITE = '#eff0f1'
 C_BLUE = '#4dbbdb'
@@ -51,6 +53,14 @@ C_NEWS_TXT = C_BLACK
 # data path
 DOC_PDF_PATH = '/srv/dashboard/hmi/doc_pdf/'
 CAROUSEL_PNG_PATH = '/srv/dashboard/hmi/carousel_png/'
+
+
+# read config
+cnf = ConfigParser()
+cnf.read('/etc/opt/tk-dashboard/dashboard.conf')
+# redis
+redis_user = cnf.get('redis', 'user')
+redis_pass = cnf.get('redis', 'pass')
 
 
 class CustomRedis(redis.StrictRedis):
@@ -78,7 +88,8 @@ class CustomRedis(redis.StrictRedis):
 
 class DB:
     # create connector
-    master = CustomRedis(host='localhost', socket_timeout=4, socket_keepalive=True)
+    master = CustomRedis(host='localhost', username=redis_user, password=redis_pass,
+                         socket_timeout=4, socket_keepalive=True)
 
 
 class Tag:
@@ -108,7 +119,7 @@ class Tag:
                     item = item[cur_lvl]
                 return item
             # return None if path unavailable
-            except (TypeError, IndexError):
+            except (KeyError, TypeError, IndexError):
                 return None
         else:
             # return simple scalar value
@@ -122,19 +133,18 @@ class Tags:
     #        -> tag subscriber callback code are call by IO thread (not by tkinter main thread)
     D_GSHEET_GRT = Tag(func_src=lambda: DB.master.get_from_json('gsheet:grt'))
     D_ATMO_QUALITY = Tag(func_src=lambda: DB.master.get_from_json('atmo:quality'))
-    D_W_TODAY_LOOS = Tag(func_src=lambda: DB.master.get_from_json('weather:today:loos'))
-    D_W_FORECAST_LOOS = Tag(func_src=lambda: DB.master.get_from_json('weather:forecast:loos'))
     D_WEATHER_VIG = Tag(func_src=lambda: DB.master.get_from_json('weather:vigilance'))
     D_NEWS_LOCAL = Tag(func_src=lambda: DB.master.get_from_json('news:local'))
     D_TWEETS_GRT = Tag(func_src=lambda: DB.master.get_from_json('twitter:tweets:grtgaz'))
-    MET_PWR_ACT = Tag(func_src=lambda: DB.master.get_from_json('meters:electric:site:pwr_act'))
-    MET_TODAY_WH = Tag(func_src=lambda: DB.master.get_from_json('meters:electric:site:today_wh'))
-    MET_YESTERDAY_WH = Tag(func_src=lambda: DB.master.get_from_json('meters:electric:site:yesterday_wh'))
-    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.master.get_from_json('bridge:flyspray_rss_nord'))
-    IMG_ATMO_HDF = Tag(func_src=lambda: DB.master.get_bytes('static:img:logo_atmo_hdf:png'))
+    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.master.get_from_json('dweet:flyspray_rss_est'))
+    IMG_ATMO_GE = Tag(func_src=lambda: DB.master.get_bytes('static:img:logo_atmo_ge:png'))
     IMG_LOGO_GRT = Tag(func_src=lambda: DB.master.get_bytes('static:img:logo_grt:png'))
     IMG_GRT_CLOUD = Tag(func_src=lambda: DB.master.get_bytes('img:grt-tweet-wordcloud:png'))
     IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.master.get_bytes('img:traffic-map:png'))
+    IMG_DIR_CAM_HOUDEMONT = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:houdemont:png'))
+    IMG_DIR_CAM_VELAINE = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:velaine:png'))
+    IMG_DIR_CAM_ST_NICOLAS = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:st-nicolas:png'))
+    IMG_DIR_CAM_FLAVIGNY = Tag(func_src=lambda: DB.master.get_bytes('img:dir-cam:flavigny:png'))
 
     @classmethod
     def init(cls):
@@ -247,32 +257,41 @@ class LiveTab(Tab):
     def __init__(self, *args, **kwargs):
         Tab.__init__(self, *args, **kwargs)
         # create all tiles for this tab here
-        # logo Atmo HDF
+        # logo Atmo EST
         self.tl_img_atmo = ImageRawTile(self, bg='white')
         self.tl_img_atmo.set_tile(row=0, column=0)
-        # air quality Dunkerque
-        self.tl_atmo_dunk = AirQualityTile(self, city='Dunkerque')
-        self.tl_atmo_dunk.set_tile(row=0, column=1)
-        # air quality Lille
-        self.tl_atmo_lil = AirQualityTile(self, city='Lille')
-        self.tl_atmo_lil.set_tile(row=0, column=2)
-        # air quality Maubeuge
-        self.tl_atmo_maub = AirQualityTile(self, city='Maubeuge')
-        self.tl_atmo_maub.set_tile(row=0, column=3)
-        # air quality Saint-Quentin
-        self.tl_atmo_sque = AirQualityTile(self, city='Saint-Quentin')
-        self.tl_atmo_sque.set_tile(row=0, column=4)
+        # air quality Nancy
+        self.tl_atmo_nancy = AirQualityTile(self, city='Nancy')
+        self.tl_atmo_nancy.set_tile(row=0, column=1)
+        # air quality Metz
+        self.tl_atmo_metz = AirQualityTile(self, city='Metz')
+        self.tl_atmo_metz.set_tile(row=0, column=2)
+        # air quality Reims
+        self.tl_atmo_reims = AirQualityTile(self, city='Reims')
+        self.tl_atmo_reims.set_tile(row=0, column=3)
+        # air quality Strasbourg
+        self.tl_atmo_stras = AirQualityTile(self, city='Strasbourg')
+        self.tl_atmo_stras.set_tile(row=0, column=4)
         # traffic map
-        self.tl_tf_map = ImageRawTile(self, bg='#bbe2c6')
+        self.tl_tf_map = ImageRawTile(self, bg='#f5f5f5')
         self.tl_tf_map.set_tile(row=1, column=0, rowspan=3, columnspan=5)
-        # weather
-        self.tl_weath = WeatherTile(self)
-        self.tl_weath.set_tile(row=0, column=13, rowspan=3, columnspan=4)
+        # DIR-est Houdemont
+        self.tl_img_houdemont = ImageRawTile(self)
+        self.tl_img_houdemont.set_tile(row=0, column=5, rowspan=2, columnspan=2)
+        # DIR-est Velaine-en-Haye
+        self.tl_img_velaine = ImageRawTile(self)
+        self.tl_img_velaine.set_tile(row=0, column=7, rowspan=2, columnspan=2)
+        # DIR-est Saint-Nicolas
+        self.tl_img_st_nicolas = ImageRawTile(self)
+        self.tl_img_st_nicolas.set_tile(row=0, column=9, rowspan=2, columnspan=2)
+        # DIR-est Côte de Flavigny
+        self.tl_img_flavigny = ImageRawTile(self)
+        self.tl_img_flavigny.set_tile(row=0, column=11, rowspan=2, columnspan=2)
         # clock
         self.tl_clock = ClockTile(self)
-        self.tl_clock.set_tile(row=0, column=5, rowspan=2, columnspan=3)
+        self.tl_clock.set_tile(row=0, column=13, rowspan=2, columnspan=4)
         # twitter cloud img
-        self.tl_img_cloud = ImageRawTile(self, bg='black')
+        self.tl_img_cloud = ImageRawTile(self)
         self.tl_img_cloud.set_tile(row=2, column=5, rowspan=2, columnspan=3)
         # news banner
         self.tl_news = NewsBannerTile(self)
@@ -291,29 +310,29 @@ class LiveTab(Tab):
         self.tl_g_qsc = GaugeTile(self, title='1/4h sécurité')
         self.tl_g_qsc.set_tile(row=5, column=15, columnspan=2)
         # weather vigilance
-        self.tl_vig_59 = VigilanceTile(self, department='Nord')
-        self.tl_vig_59.set_tile(row=4, column=0)
-        self.tl_vig_62 = VigilanceTile(self, department='Pas-de-Calais')
-        self.tl_vig_62.set_tile(row=4, column=1)
-        self.tl_vig_80 = VigilanceTile(self, department='Somme')
-        self.tl_vig_80.set_tile(row=4, column=2)
-        self.tl_vig_02 = VigilanceTile(self, department='Aisnes')
-        self.tl_vig_02.set_tile(row=4, column=3)
-        self.tl_vig_60 = VigilanceTile(self, department='Oise')
-        self.tl_vig_60.set_tile(row=4, column=4)
+        self.tl_vig_54 = VigilanceTile(self, department='Meurthe & M')
+        self.tl_vig_54.set_tile(row=4, column=0)
+        self.tl_vig_55 = VigilanceTile(self, department='Meuse')
+        self.tl_vig_55.set_tile(row=4, column=1)
+        self.tl_vig_57 = VigilanceTile(self, department='Moselle')
+        self.tl_vig_57.set_tile(row=4, column=2)
+        self.tl_vig_88 = VigilanceTile(self, department='Vosges')
+        self.tl_vig_88.set_tile(row=4, column=3)
+        self.tl_vig_67 = VigilanceTile(self, department='Bas-Rhin')
+        self.tl_vig_67.set_tile(row=4, column=4)
         # Watts news
-        self.tl_watts = WattsTile(self)
-        self.tl_watts.set_tile(row=4, column=5, columnspan=2)
+        # self.tl_watts = WattsTile(self)
+        # self.tl_watts.set_tile(row=4, column=5, columnspan=2)
         # flyspray
         self.tl_fly = FlysprayTile(self)
-        self.tl_fly.set_tile(row=5, column=0, rowspan=3, columnspan=7)
+        self.tl_fly.set_tile(row=5, column=0,  rowspan=3, columnspan=7)
         # acc days stat
         self.tl_acc = DaysAccTile(self)
-        self.tl_acc.set_tile(row=0, column=8, columnspan=5, rowspan=2)
+        self.tl_acc.set_tile(row=2, column=13, columnspan=4, rowspan=1)
         # twitter
         self.tl_tw_live = TwitterTile(self)
         self.tl_tw_live.set_tile(row=2, column=8, columnspan=5, rowspan=2)
-        # grt img
+        # logo img
         self.tl_img_grt = ImageRawTile(self, bg='white')
         self.tl_img_grt.set_tile(row=6, column=13, rowspan=2, columnspan=4)
         # carousel
@@ -321,8 +340,6 @@ class LiveTab(Tab):
         self.tl_crl.set_tile(row=4, column=7, rowspan=4, columnspan=6)
         # auto-update clock
         self.start_cyclic_update(update_ms=5000)
-        # force update at startup
-        self.after(500, func=self.update)
 
     def update(self):
         # GRT wordcloud
@@ -330,25 +347,26 @@ class LiveTab(Tab):
         # traffic map
         self.tl_tf_map.raw = Tags.IMG_TRAFFIC_MAP.get()
         # atmo
-        self.tl_img_atmo.raw = Tags.IMG_ATMO_HDF.get()
+        self.tl_img_atmo.raw = Tags.IMG_ATMO_GE.get()
         # GRT
         self.tl_img_grt.raw = Tags.IMG_LOGO_GRT.get()
+        # DIR-Est webcams
+        self.tl_img_houdemont.raw = Tags.IMG_DIR_CAM_HOUDEMONT.get()
+        self.tl_img_velaine.raw = Tags.IMG_DIR_CAM_VELAINE.get()
+        self.tl_img_st_nicolas.raw = Tags.IMG_DIR_CAM_ST_NICOLAS.get()
+        self.tl_img_flavigny.raw = Tags.IMG_DIR_CAM_FLAVIGNY.get()
         # acc days stat
         self.tl_acc.acc_date_dts = Tags.D_GSHEET_GRT.get(('tags', 'DATE_ACC_DTS'))
-        self.tl_acc.acc_date_digne = Tags.D_GSHEET_GRT.get(('tags', 'DATE_ACC_DIGNE'))
         # twitter
         self.tl_tw_live.l_tweet = Tags.D_TWEETS_GRT.get('tweets')
-        # weather
-        self.tl_weath.w_today_dict = Tags.D_W_TODAY_LOOS.get()
-        self.tl_weath.w_forecast_dict = Tags.D_W_FORECAST_LOOS.get()
-        # air Dunkerque
-        self.tl_atmo_dunk.qlt_index = Tags.D_ATMO_QUALITY.get('dunkerque')
-        # air Lille
-        self.tl_atmo_lil.qlt_index = Tags.D_ATMO_QUALITY.get('lille')
-        # air Maubeuge
-        self.tl_atmo_maub.qlt_index = Tags.D_ATMO_QUALITY.get('maubeuge')
-        # air Saint-Quentin
-        self.tl_atmo_sque.qlt_index = Tags.D_ATMO_QUALITY.get('saint-quentin')
+        # air Nancy
+        self.tl_atmo_nancy.qlt_index = Tags.D_ATMO_QUALITY.get('nancy')
+        # air Metz
+        self.tl_atmo_metz.qlt_index = Tags.D_ATMO_QUALITY.get('metz')
+        # air Reims
+        self.tl_atmo_reims.qlt_index = Tags.D_ATMO_QUALITY.get('reims')
+        # air Strasbourg
+        self.tl_atmo_stras.qlt_index = Tags.D_ATMO_QUALITY.get('strasbourg')
         # update news widget
         self.tl_news.l_titles = Tags.D_NEWS_LOCAL.get()
         # gauges update
@@ -371,20 +389,16 @@ class LiveTab(Tab):
         self.tl_g_qsc.header_str = '%s/%s' % (Tags.D_GSHEET_GRT.get(('tags', 'Q_HRE_REAL_DTS')),
                                               Tags.D_GSHEET_GRT.get(('tags', 'Q_HRE_OBJ_DTS')))
         # weather vigilance
-        self.tl_vig_59.vig_level = Tags.D_WEATHER_VIG.get(('department', '59', 'vig_level'))
-        self.tl_vig_59.risk_ids = Tags.D_WEATHER_VIG.get(('department', '59', 'risk_id'))
-        self.tl_vig_62.vig_level = Tags.D_WEATHER_VIG.get(('department', '62', 'vig_level'))
-        self.tl_vig_62.risk_ids = Tags.D_WEATHER_VIG.get(('department', '62', 'risk_id'))
-        self.tl_vig_80.vig_level = Tags.D_WEATHER_VIG.get(('department', '80', 'vig_level'))
-        self.tl_vig_80.risk_ids = Tags.D_WEATHER_VIG.get(('department', '80', 'risk_id'))
-        self.tl_vig_02.vig_level = Tags.D_WEATHER_VIG.get(('department', '02', 'vig_level'))
-        self.tl_vig_02.risk_ids = Tags.D_WEATHER_VIG.get(('department', '02', 'risk_id'))
-        self.tl_vig_60.vig_level = Tags.D_WEATHER_VIG.get(('department', '60', 'vig_level'))
-        self.tl_vig_60.risk_ids = Tags.D_WEATHER_VIG.get(('department', '60', 'risk_id'))
-        # Watts news
-        self.tl_watts.pwr = Tags.MET_PWR_ACT.get()
-        self.tl_watts.today_wh = Tags.MET_TODAY_WH.get()
-        self.tl_watts.yesterday_wh = Tags.MET_YESTERDAY_WH.get()
+        self.tl_vig_54.vig_level = Tags.D_WEATHER_VIG.get(('department', '54', 'vig_level'))
+        self.tl_vig_54.risk_ids = Tags.D_WEATHER_VIG.get(('department', '54', 'risk_id'))
+        self.tl_vig_55.vig_level = Tags.D_WEATHER_VIG.get(('department', '55', 'vig_level'))
+        self.tl_vig_55.risk_ids = Tags.D_WEATHER_VIG.get(('department', '55', 'risk_id'))
+        self.tl_vig_57.vig_level = Tags.D_WEATHER_VIG.get(('department', '57', 'vig_level'))
+        self.tl_vig_57.risk_ids = Tags.D_WEATHER_VIG.get(('department', '57', 'risk_id'))
+        self.tl_vig_88.vig_level = Tags.D_WEATHER_VIG.get(('department', '88', 'vig_level'))
+        self.tl_vig_88.risk_ids = Tags.D_WEATHER_VIG.get(('department', '88', 'risk_id'))
+        self.tl_vig_67.vig_level = Tags.D_WEATHER_VIG.get(('department', '67', 'vig_level'))
+        self.tl_vig_67.risk_ids = Tags.D_WEATHER_VIG.get(('department', '67', 'risk_id'))
         # flyspray
         self.tl_fly.l_items = Tags.L_FLYSPRAY_RSS.get()
 
@@ -524,7 +538,7 @@ class FlysprayTile(Tile):
         self._msg_text = tk.StringVar()
         self._msg_text.set('n/a')
         # tk job
-        tk.Label(self, text='live Flyspray DTS Nord', bg=self.cget('bg'), fg=C_TXT,
+        tk.Label(self, text='live Flyspray DTS Est', bg=self.cget('bg'), fg=C_TXT,
                  font=('courier', 14, 'bold', 'underline')).pack()
         tk.Label(self, textvariable=self._msg_text, bg=self.cget('bg'), fg=C_TXT,
                  wraplength=750, justify=tk.LEFT, font=('courier', 13, 'bold')).pack(expand=True)
@@ -698,83 +712,6 @@ class VigilanceTile(Tile):
         for w in self.winfo_children():
             w.configure(bg=tile_color)
         self.configure(bg=tile_color)
-
-
-class WattsTile(Tile):
-    def __init__(self, *args, **kwargs):
-        Tile.__init__(self, *args, **kwargs)
-        # public
-        # private
-        self._pwr = None
-        self._tdy_wh = None
-        self._ydy_wh = None
-        self._pwr_text = tk.StringVar()
-        self._tdy_text = tk.StringVar()
-        self._ydy_text = tk.StringVar()
-        # tk job
-        tk.Label(self, text='Loos Watts news', bg=self.cget('bg'), fg=C_TXT,
-                 font=('courier', 14, 'bold', 'underline')).pack()
-        tk.Label(self, textvariable=self._pwr_text, bg=self.cget('bg'), fg=C_TXT,
-                 font=('courier', 14, 'bold')).pack(expand=True)
-        tk.Label(self, textvariable=self._tdy_text, bg=self.cget('bg'), fg=C_TXT,
-                 font=('courier', 14, 'bold')).pack(expand=True)
-        tk.Label(self, textvariable=self._ydy_text, bg=self.cget('bg'), fg=C_TXT,
-                 font=('courier', 14, 'bold')).pack(expand=True)
-        # public with accessor
-        self.pwr = None
-        self.today_wh = None
-        self.yesterday_wh = None
-
-    @property
-    def pwr(self):
-        return self._pwr
-
-    @pwr.setter
-    def pwr(self, value):
-        # check type
-        try:
-            value = int(value)
-        except (TypeError, ValueError):
-            value = None
-        # check change
-        if self._pwr != value:
-            self._pwr = value
-        # update tk lbl
-        self._pwr_text.set('  P %5s w  ' % ('n/a' if self._pwr is None else self._pwr))
-
-    @property
-    def today_wh(self):
-        return self._tdy_wh
-
-    @today_wh.setter
-    def today_wh(self, value):
-        # check type
-        try:
-            value = float(value)
-        except (TypeError, ValueError):
-            value = None
-        # check change
-        if self._tdy_wh != value:
-            self._tdy_wh = value
-        # update tk lbl
-        self._tdy_text.set('  J %5s kwh' % ('n/a' if self._tdy_wh is None else round(self._tdy_wh / 1000)))
-
-    @property
-    def yesterday_wh(self):
-        return self._ydy_wh
-
-    @yesterday_wh.setter
-    def yesterday_wh(self, value):
-        # check type
-        try:
-            value = float(value)
-        except (TypeError, ValueError):
-            value = None
-        # check change
-        if self._ydy_wh != value:
-            self._ydy_wh = value
-        # update tk lbl
-        self._ydy_text.set('J-1 %5s kwh' % ('n/a' if self._ydy_wh is None else round(self._ydy_wh / 1000)))
 
 
 class WeatherTile(Tile):  # principal, she own all the day, could be divided if wanted #json
@@ -1126,7 +1063,6 @@ class DaysAccTile(Tile):
         self._acc_date_dts = None
         self._acc_date_digne = None
         self._days_dts_str = tk.StringVar()
-        self._days_digne_str = tk.StringVar()
         # tk stuff
         # populate tile with blank grid parts
         for c in range(3):
@@ -1137,18 +1073,13 @@ class DaysAccTile(Tile):
             self.columnconfigure(c, weight=1)
         # add label
         tk.Label(self, text='La sécurité est notre priorité !',
-                 font=('courier', 20, 'bold'), bg=self.cget('bg'),
+                 font=('courier', 16, 'bold'), bg=self.cget('bg'),
                  fg=C_TXT).grid(row=0, column=0, columnspan=2)
         # DTS
-        tk.Label(self, textvariable=self._days_dts_str, font=('courier', 24, 'bold'),
+        tk.Label(self, textvariable=self._days_dts_str, font=('courier', 22, 'bold'),
                  bg=self.cget('bg'), fg=C_H_TXT).grid(row=1, column=0)
         tk.Label(self, text='jours sans accident DTS',
-                 font=('courier', 18, 'bold'), bg=self.cget('bg'), fg=C_TXT).grid(row=1, column=1, sticky=tk.W)
-        # DIGNE
-        tk.Label(self, textvariable=self._days_digne_str, font=('courier', 24, 'bold'),
-                 bg=self.cget('bg'), fg=C_H_TXT).grid(row=2, column=0)
-        tk.Label(self, text='jours sans accident DIGNE',
-                 font=('courier', 18, 'bold'), bg=self.cget('bg'), fg=C_TXT).grid(row=2, column=1, sticky=tk.W)
+                 font=('courier', 14, 'bold'), bg=self.cget('bg'), fg=C_TXT).grid(row=1, column=1, sticky=tk.W)
         # auto-update acc day counter
         self.start_cyclic_update(update_ms=5000)
 
@@ -1170,27 +1101,8 @@ class DaysAccTile(Tile):
             # update widget
             self.update()
 
-    @property
-    def acc_date_digne(self):
-        return self._acc_date_digne
-
-    @acc_date_digne.setter
-    def acc_date_digne(self, value):
-        # check type
-        try:
-            value = str(value)
-        except (TypeError, ValueError):
-            value = None
-        # check change
-        if self._acc_date_digne != value:
-            # check range
-            self._acc_date_digne = value
-            # update widget
-            self.update()
-
     def update(self):
         self._days_dts_str.set(self.day_from_now(self._acc_date_dts))
-        self._days_digne_str.set(self.day_from_now(self._acc_date_digne))
 
     @staticmethod
     def day_from_now(date_str):
