@@ -273,7 +273,7 @@ class LiveTab(Tab):
         self.tl_atmo_stras = AirQualityTile(self, city='Strasbourg')
         self.tl_atmo_stras.set_tile(row=0, column=4)
         # traffic map
-        self.tl_tf_map = ImageRawTile(self, bg='#f5f5f5')
+        self.tl_tf_map = ImageRawTile(self, bg='#bbe2c6')
         self.tl_tf_map.set_tile(row=1, column=0, rowspan=3, columnspan=5)
         # DIR-est Houdemont
         self.tl_img_houdemont = ImageRawTile(self)
@@ -291,7 +291,7 @@ class LiveTab(Tab):
         self.tl_clock = ClockTile(self)
         self.tl_clock.set_tile(row=0, column=13, rowspan=2, columnspan=4)
         # twitter cloud img
-        self.tl_img_cloud = ImageRawTile(self)
+        self.tl_img_cloud = ImageRawTile(self, bg='black')
         self.tl_img_cloud.set_tile(row=2, column=5, rowspan=2, columnspan=3)
         # news banner
         self.tl_news = NewsBannerTile(self)
