@@ -389,23 +389,23 @@ def check_owncloud_update_job():
         # document update ?
         if name == webdav_reglement_doc_dir:
             try:
-                last_update = int(DB.main.get('owncloud:document:update_ts'))
+                last_update = int(DB.main.get('int:owc:document:update-ts'))
             except TypeError:
                 last_update = 0
             # update need
             if update_ts > last_update:
                 owncloud_sync_doc_job()
-                DB.main.set('owncloud:document:update_ts', update_ts)
+                DB.main.set('int:owc:document:update-ts', update_ts)
         # carousel update ?
         elif name == webdav_carousel_img_dir:
             try:
-                last_update = int(DB.main.get('owncloud:carousel:update_ts'))
+                last_update = int(DB.main.get('int:owc:carousel:update-ts'))
             except TypeError:
                 last_update = 0
             # update need
             if update_ts > last_update:
                 owncloud_sync_carousel_job()
-                DB.main.set('owncloud:carousel:update_ts', update_ts)
+                DB.main.set('int:owc:carousel:update-ts', update_ts)
 
 
 # main

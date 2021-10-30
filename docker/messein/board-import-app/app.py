@@ -197,7 +197,7 @@ def air_quality_atmo_ge_job():
                          'reims': zones_d.get(51454, 0),
                          'strasbourg': zones_d.get(67482, 0)}
         # update redis
-        DB.main.set_to_json('atmo:quality', d_air_quality, ttl=6 * 3600)
+        DB.main.set_to_json('json:atmo', d_air_quality, ttl=6 * 3600)
 
 
 @catch_log_except()
@@ -219,7 +219,7 @@ def dir_est_img_job():
             redis_io = io.BytesIO()
             img.save(redis_io, format='PNG')
             # update redis
-            DB.main.set_bytes('img:dir-cam:%s:png' % id_redis, redis_io.getvalue(), ttl=3600)
+            DB.main.set_bytes('img:dir-est:%s:png' % id_redis, redis_io.getvalue(), ttl=3600)
 
 
 @catch_log_except()
@@ -234,12 +234,12 @@ def dweet_job():
         # update redis
         try:
             json_flyspray_est = dweet_decode(data_d['with'][0]['content']['raw_flyspray_est']).decode('utf8')
-            DB.main.set_to_json('dweet:flyspray_rss_est', json.loads(json_flyspray_est), ttl=3600)
+            DB.main.set_to_json('json:dweet:fly-est', json.loads(json_flyspray_est), ttl=3600)
         except IndexError as e:
             logging.error(f'except {type(e)} in  dweet_job(): {e}')
         try:
             json_flyspray_nord = dweet_decode(data_d['with'][0]['content']['raw_flyspray_nord']).decode('utf8')
-            DB.main.set_to_json('dweet:flyspray_rss_nord', json.loads(json_flyspray_nord), ttl=3600)
+            DB.main.set_to_json('json:dweet:fly-nord', json.loads(json_flyspray_nord), ttl=3600)
         except IndexError as e:
             logging.error(f'except {type(e)} in  dweet_job(): {e}')
 
@@ -254,7 +254,7 @@ def gsheet_job():
         tag, value = line.split(',')
         d[tag] = value
     redis_d = dict(update=datetime.now().isoformat('T'), tags=d)
-    DB.main.set_to_json('gsheet:grt', redis_d, ttl=2 * 3600)
+    DB.main.set_to_json('json:gsheet', redis_d, ttl=2 * 3600)
 
 
 @catch_log_except()
@@ -326,7 +326,7 @@ def local_info_job():
     l_titles = []
     for post in feedparser.parse('https://france3-regions.francetvinfo.fr/societe/rss?r=grand-est').entries:
         l_titles.append(post.title)
-    DB.main.set_to_json('news:local', l_titles, ttl=2 * 3600)
+    DB.main.set_to_json('json:news', l_titles, ttl=2 * 3600)
 
 
 @catch_log_except()
@@ -363,7 +363,7 @@ def twitter_job():
                 tweets_l.append(tcl_normalize_str(tw['full_text']))
         # update redis
         d_redis = dict(tweets=tweets_l, update=datetime.now().isoformat('T'))
-        DB.main.set_to_json('twitter:tweets:grtgaz', d_redis, ttl=3600)
+        DB.main.set_to_json('json:tweets:@grtgaz', d_redis, ttl=3600)
 
 
 @catch_log_except()
@@ -401,7 +401,7 @@ def vigilance_job():
             vig_data['department'][dep_code] = {'vig_level': color_id,
                                                 'flood_level': flood_id,
                                                 'risk_id': risk_id}
-        DB.main.set_to_json('weather:vigilance', vig_data, ttl=2 * 3600)
+        DB.main.set_to_json('json:vigilance', vig_data, ttl=2 * 3600)
 
 
 @catch_log_except()
@@ -443,7 +443,7 @@ def weather_today_job():
         # weather status str
         d_today['descr'] = 'n/a'
         # store to redis
-        DB.main.set_to_json('weather:today:nancy', d_today, ttl=2 * 3600)
+        DB.main.set_to_json('json:weather:today:nancy', d_today, ttl=2 * 3600)
 
 
 # main

@@ -130,8 +130,8 @@ def dweet_job():
     DW_POST_URL = 'https://dweet.io/dweet/for/'
 
     # read internal data
-    json_flyspray_nord = DB.main.get_bytes('bridge:flyspray_rss_nord')
-    json_flyspray_est = DB.main.get_bytes('bridge:flyspray_rss_est')
+    json_flyspray_nord = DB.main.get_bytes('json:bridge:fly-nord')
+    json_flyspray_est = DB.main.get_bytes('json:bridge:fly-est')
     # populate dweet_post_d dict with encoded json
     dweet_post_d = {}
     if json_flyspray_nord:
