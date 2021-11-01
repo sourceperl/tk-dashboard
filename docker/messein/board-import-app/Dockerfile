@@ -9,12 +9,14 @@ RUN pip3 install wordcloud==1.8.1
 
 # avoid to run python app as root
 ARG username=py-app
-RUN groupadd -r $username && \
-    useradd --no-log-init -r -g $username $username
+RUN useradd -m $username
 USER $username
 
 # setup environment
 ENV PYTHONUNBUFFERED=1
+
+# first matplotlib font_manager import to populate user directory (generating new fontManager)
+RUN python3 -c 'import matplotlib.font_manager'
 
 # run app
 COPY app.py ./

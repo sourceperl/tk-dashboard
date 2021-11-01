@@ -10,8 +10,7 @@ WORKDIR /usr/src/app
 
 # avoid to run python app as root
 # ARG username=py-app
-# RUN groupadd -r $username && \
-#     useradd --no-log-init -r -g $username $username
+# RUN useradd -m $username
 # USER $username
 
 # fix ImageMagick policy for pdf -> png convert

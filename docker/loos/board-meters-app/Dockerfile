@@ -8,8 +8,7 @@ RUN pip3 install git+git://github.com/sourceperl/pyHMI@v0.0.7
 
 # avoid to run python app as root
 ARG username=py-app
-RUN groupadd -r $username && \
-    useradd --no-log-init -r -g $username $username
+RUN useradd -m $username
 USER $username
 
 # setup environment
