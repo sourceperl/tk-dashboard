@@ -64,21 +64,21 @@ HMI and import/export process configuration
 
 ```bash
 # start from example
-cp conf/example/dashboard.conf /etc/opt/tk-dashboard/
+sudo cp conf/example/dashboard.conf /etc/opt/tk-dashboard/
 # customize it
-vim /etc/opt/tk-dashboard/dashboard.conf
+sudo vim /etc/opt/tk-dashboard/dashboard.conf
 ```
 
 Redis configuration for master
 
 ```bash
-cp redis/redis-master.conf /etc/opt/tk-dashboard/
+sudo cp redis/redis-master.conf /etc/opt/tk-dashboard/
 ```
 
 Redis configuration for slave
 
 ```bash
-cp redis/redis-slave.conf /etc/opt/tk-dashboard/
+sudo cp redis/redis-slave.conf /etc/opt/tk-dashboard/
 ```
 
 **Update default passwords 'pwd' with custom one.**
@@ -96,64 +96,84 @@ rsync -aALxXv --delete 192.168.0.60:/srv/dashboard/hmi/. /srv/dashboard/hmi/.
 
 ### Docker setup
 
-#### On all dashboard
+#### Loos master
 
 ```bash
-cd docker
+cd docker/
 ./docker-setup.sh
+./loos-master-setup.sh
 ```
 
-#### Loos
+#### Loos slave
+
+***Ensure ssh-copy-id is set to avoid ip ban by fail2ban.***
 
 ```bash
-# Loos setup
-cd loos/
-# start the master dashboard stack
-./master-setup.sh
-# start the slave dashboard stack
-# ensure ssh-copy-id is set to avoid ip ban by fail2ban
-./slave-setup.sh
+cd docker/
+./docker-setup.sh
+./loos-slave-setup.sh
 ```
 
-#### Messein
+#### Messein master
 
 ```bash
-# Messein setup
-cd messein/
-# start the master dashboard stack
-./master-setup.sh
-# start the slave dashboard stack
-# ensure ssh-copy-id is set to avoid ip ban by fail2ban
-./slave-setup.sh
+cd docker/
+./docker-setup.sh
+./messein-master-setup.sh
 ```
+
+#### Messein slave
+
+***Ensure ssh-copy-id is set to avoid ip ban by fail2ban.***
+
+```bash
+cd docker/
+./docker-setup.sh
+./messein-slave-setup.sh
+```
+
 
 ### Setup supervisor
 
-#### Loos
+#### Loos master
 
 ```bash
-# Loos HMI
+# scripts copy
 sudo cp scripts/board-hmi-loos.py /opt/tk-dashboard/bin/
-# for loos master dashboard
+# supervisor setup
 sudo cp supervisor/dashboard_master_loos.conf /etc/supervisor/conf.d/
-# for loos slave dashboard
-sudo cp supervisor/dashboard_slave_loos.conf /etc/supervisor/conf.d/
-sudo cp scripts/board-sync-files.py /opt/tk-dashboard/bin/
-# reload conf
 sudo supervisorctl update
 ```
 
-#### Messein
+#### Loos slave
 
 ```bash
-# Messein HMI
-sudo cp scripts/board-hmi-messein.py /opt/tk-dashboard/bin/
-# for messein master dashboard
-sudo cp supervisor/dashboard_master_messein.conf /etc/supervisor/conf.d/
-# for messein slave dashboard
-sudo cp supervisor/dashboard_slave_messein.conf /etc/supervisor/conf.d/
+# scripts copy
+sudo cp scripts/board-hmi-loos.py /opt/tk-dashboard/bin/
 sudo cp scripts/board-sync-files.py /opt/tk-dashboard/bin/
-# reload conf
+# supervisor setup
+sudo cp supervisor/dashboard_slave_loos.conf /etc/supervisor/conf.d/
+sudo supervisorctl update
+```
+
+#### Messein master
+
+```bash
+# scripts copy
+sudo cp scripts/board-hmi-messein.py /opt/tk-dashboard/bin/
+# supervisor setup
+sudo cp supervisor/dashboard_master_messein.conf /etc/supervisor/conf.d/
+sudo supervisorctl update
+```
+
+#### Messein slave
+
+```bash
+# scripts copy
+sudo cp scripts/board-hmi-messein.py /opt/tk-dashboard/bin/
+sudo cp scripts/board-sync-files.py /opt/tk-dashboard/bin/
+# supervisor setup
+sudo cp supervisor/dashboard_slave_messein.conf /etc/supervisor/conf.d/
 sudo supervisorctl update
 ```
 
