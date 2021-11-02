@@ -2,13 +2,14 @@ version: "3"
 
 services:
   board-redis-srv:
-    image: redis:6.2.3
+    image: redis:6.2.5
     container_name: board-redis-srv
     restart: unless-stopped
-    command: redis-server --slaveof board-redis-master-relay 6379 --save 3600 1
+    command: redis-server /usr/local/etc/redis/redis.conf
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
+      - /etc/opt/tk-dashboard/redis-slave.conf:/usr/local/etc/redis/redis.conf:ro
       - board-redis-data-vol:/data:rw
     networks:
       - board-net
