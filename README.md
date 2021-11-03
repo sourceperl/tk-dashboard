@@ -26,6 +26,11 @@ sudo pip3 install docker-compose
 
 # use docker cli with pi user
 sudo usermod -aG docker pi
+
+# for Raspberry Pi host, enable cgroup
+sudo sed -i '/cgroup_enable=memory/!s/$/ cgroup_enable=memory/' /boot/cmdline.txt
+sudo sed -i '/cgroup_memory=1/!s/$/ cgroup_memory=1/' /boot/cmdline.txt
+
 sudo reboot
 ```
 
