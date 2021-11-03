@@ -136,6 +136,12 @@ cd docker/
 ./messein-slave-compose up -d
 ```
 
+#### Init for all master
+
+
+```bash
+docker exec board-admin-shell board-init-static
+```
 
 ### Setup supervisor
 
