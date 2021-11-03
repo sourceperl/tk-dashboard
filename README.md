@@ -105,7 +105,7 @@ rsync -aALxXv --delete 192.168.0.60:/srv/dashboard/hmi/. /srv/dashboard/hmi/.
 ```bash
 cd docker/
 ./docker-setup.sh
-./loos-master-setup.sh
+./loos-master-compose up -d
 ```
 
 #### Loos slave
@@ -115,7 +115,7 @@ cd docker/
 ```bash
 cd docker/
 ./docker-setup.sh
-./loos-slave-setup.sh
+./loos-slave-compose up -d
 ```
 
 #### Messein master
@@ -123,7 +123,7 @@ cd docker/
 ```bash
 cd docker/
 ./docker-setup.sh
-./messein-master-setup.sh
+./messein-master-compose up -d
 ```
 
 #### Messein slave
@@ -133,7 +133,7 @@ cd docker/
 ```bash
 cd docker/
 ./docker-setup.sh
-./messein-slave-setup.sh
+./messein-slave-compose up -d
 ```
 
 
