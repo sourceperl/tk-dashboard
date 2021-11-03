@@ -6,20 +6,24 @@
 # HMI package dependency
 sudo apt update && sudo apt -y dist-upgrade
 sudo apt install -y supervisor xpdf imagemagick xscreensaver fonts-freefont-ttf \
-                    python3-cairocffi python3-pil python3-pil.imagetk
+                    python3-cairocffi python3-pil python3-pil.imagetk fail2ban ufw
 sudo pip3 install redis==3.5.3
-# security setup
-sudo apt install -y fail2ban ufw
+
 # add project space on rpi host
 sudo mkdir -p /srv/dashboard/
 sudo mkdir -p /opt/tk-dashboard/bin/
 sudo mkdir -p /etc/opt/tk-dashboard/
+```
+
+```bash
 # install docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 rm get-docker.sh
+
 # install docker-compose
 sudo pip3 install docker-compose
+
 # use docker cli with pi user
 sudo usermod -aG docker pi
 sudo reboot
