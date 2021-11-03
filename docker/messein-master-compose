@@ -1,0 +1,5 @@
+#!/bin/bash
+
+[[ -z ${@} ]] && exit 1
+
+docker-compose --file messein/master-compose.yml --env-file messein/.env $@

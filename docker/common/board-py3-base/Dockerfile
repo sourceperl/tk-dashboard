@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim
+FROM debian:buster-slim
 
 # setup timezone to Europe/Paris
 RUN ln -sf /usr/share/zoneinfo/Europe/Paris /etc/localtime
@@ -14,7 +14,6 @@ RUN apt-get install --yes \
                     python3-tz \
                     python3-dateutil \
                     python3-urllib3 \
-                    python3-redis \
                     python3-requests \ 
                     python3-requests-oauthlib \
                     python3-bs4 \
@@ -24,5 +23,6 @@ RUN apt-get install --yes \
                     python3-pil \
     && apt-get clean
 
-# add python job scheduler
+# add python packages
+RUN pip3 install redis==3.5.3
 RUN pip3 install schedule==1.1.0

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+[[ -z ${@} ]] && exit 1
+
+docker-compose --file loos/master-compose.yml --env-file loos/.env $@
