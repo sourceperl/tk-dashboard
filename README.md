@@ -72,10 +72,16 @@ sudo ufw reload
 HMI and import/export process configuration
 
 ```bash
-# start from example
-sudo cp conf/example/dashboard.conf /etc/opt/tk-dashboard/
+# start from examples
+# redis admin conf (readable only by root)
+sudo cp board/board-redis-admin.conf /etc/opt/tk-dashboard/board-redis-admin.conf
+sudo chmod 600 /etc/opt/tk-dashboard/board-redis-admin.conf
+# board conf
+sudo cp board/loos-example.board.conf /etc/opt/tk-dashboard/board.conf
+# or
+sudo cp board/messein-example.board.conf /etc/opt/tk-dashboard/board.conf
 # customize it
-sudo vim /etc/opt/tk-dashboard/dashboard.conf
+sudo vim /etc/opt/tk-dashboard/board.conf
 ```
 
 Redis configuration for master
@@ -90,7 +96,7 @@ Redis configuration for slave
 sudo cp redis/redis-slave.conf /etc/opt/tk-dashboard/
 ```
 
-**Update default passwords 'pwd' with custom one.**
+**Update default passwords 'pwd' with custom one or better with sha256 hash. Don't forget to update "board-redis-admin.conf" to reflect it's changes.**
 
 ### Setup for slave (add ssh key to allow redis relay and files sync)
 

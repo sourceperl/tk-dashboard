@@ -27,7 +27,7 @@ services:
     depends_on:
       - "board-redis-srv"
     volumes:
-      - /etc/opt/tk-dashboard/dashboard.conf:/data/conf/dashboard.conf:ro
+      - /etc/opt/tk-dashboard/board.conf:/data/conf/board.conf:ro
     networks:
       - board-net
     logging:
@@ -44,7 +44,7 @@ services:
     depends_on:
       - "board-redis-srv"
     volumes:
-      - /etc/opt/tk-dashboard/dashboard.conf:/data/conf/dashboard.conf:ro
+      - /etc/opt/tk-dashboard/board.conf:/data/conf/board.conf:ro
     networks:
       - board-net
     logging:
@@ -61,7 +61,7 @@ services:
     depends_on:
       - "board-redis-srv"
     volumes:
-      - /etc/opt/tk-dashboard/dashboard.conf:/data/conf/dashboard.conf:ro
+      - /etc/opt/tk-dashboard/board.conf:/data/conf/board.conf:ro
     networks:
       - board-net
     logging:
@@ -78,7 +78,7 @@ services:
     depends_on:
       - "board-redis-srv"
     volumes:
-      - /etc/opt/tk-dashboard/dashboard.conf:/data/conf/dashboard.conf:ro
+      - /etc/opt/tk-dashboard/board.conf:/data/conf/board.conf:ro
       - /srv/dashboard:/srv/dashboard:rw
     networks:
       - board-net

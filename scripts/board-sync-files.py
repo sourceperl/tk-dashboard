@@ -13,7 +13,7 @@ DASHBOARD_DATA_HMI_PATH = '/srv/dashboard/hmi/'
 
 # read config
 cnf = ConfigParser()
-cnf.read('/etc/opt/tk-dashboard/dashboard.conf')
+cnf.read('/etc/opt/tk-dashboard/board.conf')
 # hostname of master dashboard
 master_host = cnf.get('master', 'host')
 

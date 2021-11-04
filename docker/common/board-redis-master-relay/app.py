@@ -13,7 +13,7 @@ logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 
 # read config
 cnf = ConfigParser()
-cnf.read(os.path.expanduser('/data/conf/dashboard.conf'))
+cnf.read(os.path.expanduser('/data/conf/board.conf'))
 master_host = cnf.get('master', 'host')
 
 # format autossh args (some can be overide by environment vars)

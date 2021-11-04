@@ -31,7 +31,7 @@ USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64; rv:2.0.1) Gecko/20100101 Firefox/4
 
 # read config
 cnf = ConfigParser()
-cnf.read('/data/conf/dashboard.conf')
+cnf.read('/data/conf/board.conf')
 # redis
 redis_user = cnf.get('redis', 'user')
 redis_pass = cnf.get('redis', 'pass')

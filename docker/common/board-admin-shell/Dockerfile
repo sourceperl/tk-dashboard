@@ -1,8 +1,12 @@
 FROM board-py3-base-img
 
+# add debian backports
+RUN echo 'deb http://deb.debian.org/debian buster-backports main' > /etc/apt/sources.list.d/backports.list
+RUN apt-get update
+
 # packages install
 RUN apt-get install --yes \
-                    redis-tools \
+                    redis-tools/buster-backports \
                     vim \
                     nano \
     && apt-get clean

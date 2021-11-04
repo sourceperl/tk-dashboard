@@ -39,7 +39,7 @@ HMI_DOC_PDF_PATH = '/srv/dashboard/hmi/doc_pdf'
 
 # read config
 cnf = ConfigParser()
-cnf.read('/data/conf/dashboard.conf')
+cnf.read('/data/conf/board.conf')
 # redis
 redis_user = cnf.get('redis', 'user')
 redis_pass = cnf.get('redis', 'pass')

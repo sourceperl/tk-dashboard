@@ -57,7 +57,7 @@ CAROUSEL_PNG_PATH = '/srv/dashboard/hmi/carousel_png/'
 
 # read config
 cnf = ConfigParser()
-cnf.read('/etc/opt/tk-dashboard/dashboard.conf')
+cnf.read('/etc/opt/tk-dashboard/board.conf')
 # redis
 redis_user = cnf.get('redis', 'user')
 redis_pass = cnf.get('redis', 'pass')

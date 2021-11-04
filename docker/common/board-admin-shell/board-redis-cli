@@ -1,3 +1,24 @@
-#!/bin/sh
+#!/usr/bin/env python3
 
-redis-cli -h board-redis-srv
+from configparser import ConfigParser
+import logging
+import subprocess
+import sys
+
+
+# logging setup
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
+
+# read config
+cnf = ConfigParser()
+cnf.read('/data/conf/board-redis-admin.conf')
+# redis-admin
+redis_user = cnf.get('redis-admin', 'user')
+redis_pass = cnf.get('redis-admin', 'pass')
+
+# run redis-cli with credentials and custom user args
+try:
+    cmd = f'redis-cli -h board-redis-srv --user {redis_user} --pass {redis_pass} --no-auth-warning'
+    subprocess.call(cmd.split() + sys.argv[1:])
+except Exception as e:
+    logging.error(f'except {type(e)}: {e}')

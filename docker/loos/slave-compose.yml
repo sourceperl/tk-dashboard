@@ -25,7 +25,7 @@ services:
     container_name: board-redis-master-relay
     restart: unless-stopped
     volumes:
-      - /etc/opt/tk-dashboard/dashboard.conf:/data/conf/dashboard.conf:ro
+      - /etc/opt/tk-dashboard/board.conf:/data/conf/board.conf:ro
       - /home/pi/.ssh:/root/.ssh:ro
     networks:
       - board-net

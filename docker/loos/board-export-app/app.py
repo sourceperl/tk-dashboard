@@ -15,7 +15,7 @@ import schedule
 
 # read config
 cnf = ConfigParser()
-cnf.read('/data/conf/dashboard.conf')
+cnf.read('/data/conf/board.conf')
 # redis
 redis_user = cnf.get('redis', 'user')
 redis_pass = cnf.get('redis', 'pass')
