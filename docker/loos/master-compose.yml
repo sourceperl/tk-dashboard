@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   board-redis-srv:
-    image: redis:6.2.5
+    image: redis:6.2.6-buster
     container_name: board-redis-srv
     restart: unless-stopped
     command: redis-server /usr/local/etc/redis/redis.conf
