@@ -338,8 +338,11 @@ class LiveTab(Tab):
         # carousel
         self.tl_crl = ImageCarouselTile(self)
         self.tl_crl.set_tile(row=4, column=7, rowspan=4, columnspan=6)
-        # auto-update clock
+        # update this tab every 5s
         self.start_cyclic_update(update_ms=5000)
+        # at startup:
+        # trig update after 500 ms to let Tags io_thread populate values
+        self.after(ms=500, func=self.update)
 
     def update(self):
         # GRT wordcloud
