@@ -12,7 +12,7 @@ sudo pip3 install redis==3.5.3
 # add project space on rpi host
 sudo mkdir -p /srv/dashboard/
 sudo mkdir -p /opt/tk-dashboard/bin/
-sudo mkdir -p /etc/opt/tk-dashboard/
+sudo mkdir -p /etc/opt/tk-dashboard/cert/
 ```
 
 ## Add docker
@@ -75,6 +75,35 @@ sudo sh -c 'echo "" >> /etc/ufw/after6.rules'
 ```bash
 # ufw reload to take care of after rules files
 sudo ufw reload
+```
+
+### Setup an SSL tunnel for redis share
+
+Server setup on Loos master
+
+```bash
+# install packages
+sudo apt install -y stunnel4 openssl
+```
+
+```bash
+# create private key and self-signed certificate
+sudo openssl req -x509 -newkey rsa:4096 -days 3650 -nodes \
+                 -keyout /etc/opt/tk-dashboard/cert/redis-server-private.key \
+                 -out /etc/opt/tk-dashboard/cert/redis-server-public.crt \
+                 -subj "/C=FR/ST=Haut-de-France/L=Lille/O=/CN="
+# concatenate certificate and private key into a pem file
+sudo sh -c 'cat /etc/opt/tk-dashboard/cert/redis-server-public.crt /etc/opt/tk-dashboard/cert/redis-server-private.key \
+            > /etc/opt/tk-dashboard/cert/redis-server-private.pem'
+sudo chmod 600 /etc/opt/tk-dashboard/cert/redis-server-private.pem
+```
+
+```bash
+# add configuration file
+sudo cp stunnel/stunnel-redis-server.conf /etc/stunnel/
+# enable and start stunnel service
+sudo systemctl enable stunnel4.service
+sudo systemctl start stunnel4.service
 ```
 
 ## Add configuration files
