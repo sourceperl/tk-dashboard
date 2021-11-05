@@ -35,6 +35,21 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  board-admin-shell:
+    build: ../common/board-admin-shell/.
+    image: board-admin-shell-img
+    container_name: board-admin-shell
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    volumes:
+      - /etc/opt/tk-dashboard:/data/conf:rw
+      - /srv/dashboard:/srv/dashboard:rw
+    networks:
+      - board-net
+    logging:
+      driver: none
+
 volumes:
   board-redis-data-vol:
     name: board-redis-data-vol
