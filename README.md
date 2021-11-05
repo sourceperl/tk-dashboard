@@ -1,6 +1,6 @@
 # tk-dashboard
 
-### Raspberry Pi setup
+## Host setup
 
 ```bash
 # HMI package dependency
@@ -14,6 +14,8 @@ sudo mkdir -p /srv/dashboard/
 sudo mkdir -p /opt/tk-dashboard/bin/
 sudo mkdir -p /etc/opt/tk-dashboard/
 ```
+
+## Add docker
 
 ```bash
 # install docker
@@ -40,7 +42,9 @@ sudo sh -c 'echo "denyinterfaces veth*" >> /etc/dhcpcd.conf'
 sudo reboot
 ```
 
-### Network setup
+## Network setup
+
+### Firewall
 
 ```bash
 # UFW firewall setup
@@ -73,7 +77,7 @@ sudo sh -c 'echo "" >> /etc/ufw/after6.rules'
 sudo ufw reload
 ```
 
-### Add configuration files
+## Add configuration files
 
 HMI and import/export process configuration
 
@@ -104,7 +108,7 @@ sudo cp redis/redis-slave.conf /etc/opt/tk-dashboard/
 
 **Update default passwords 'pwd' with custom one or better with sha256 hash. Don't forget to update "board-redis-admin.conf" to reflect it's changes.**
 
-### Setup for slave (add ssh key to allow redis relay and files sync)
+## Setup for slave (add ssh key to allow redis relay and files sync)
 
 ```bash
 # create ssh key and copy it to central dashboard (file src at 192.168.0.60)
@@ -115,9 +119,9 @@ rsync -aALxXv --delete 192.168.0.60:/srv/dashboard/hmi/. /srv/dashboard/hmi/.
 # see scripts/dashboard_sync_files.py to automate this
 ```
 
-### Docker setup
+## Docker setup
 
-#### Loos master
+### Loos master
 
 ```bash
 cd docker/
@@ -125,7 +129,7 @@ cd docker/
 ./loos-master-compose up -d
 ```
 
-#### Loos slave
+### Loos slave
 
 ***Ensure ssh-copy-id is set to avoid ip ban by fail2ban.***
 
@@ -135,7 +139,7 @@ cd docker/
 ./loos-slave-compose up -d
 ```
 
-#### Messein master
+### Messein master
 
 ```bash
 cd docker/
@@ -143,7 +147,7 @@ cd docker/
 ./messein-master-compose up -d
 ```
 
-#### Messein slave
+### Messein slave
 
 ***Ensure ssh-copy-id is set to avoid ip ban by fail2ban.***
 
@@ -153,16 +157,16 @@ cd docker/
 ./messein-slave-compose up -d
 ```
 
-#### Init for all master
+### Init for all master
 
 
 ```bash
 docker exec board-admin-shell board-init-static
 ```
 
-### Setup supervisor
+## Setup supervisor
 
-#### Loos master
+### Loos master
 
 ```bash
 # scripts copy
@@ -172,7 +176,7 @@ sudo cp supervisor/dashboard_master_loos.conf /etc/supervisor/conf.d/
 sudo supervisorctl update
 ```
 
-#### Loos slave
+### Loos slave
 
 ```bash
 # scripts copy
@@ -183,7 +187,7 @@ sudo cp supervisor/dashboard_slave_loos.conf /etc/supervisor/conf.d/
 sudo supervisorctl update
 ```
 
-#### Messein master
+### Messein master
 
 ```bash
 # scripts copy
@@ -193,7 +197,7 @@ sudo cp supervisor/dashboard_master_messein.conf /etc/supervisor/conf.d/
 sudo supervisorctl update
 ```
 
-#### Messein slave
+### Messein slave
 
 ```bash
 # scripts copy
@@ -204,7 +208,7 @@ sudo cp supervisor/dashboard_slave_messein.conf /etc/supervisor/conf.d/
 sudo supervisorctl update
 ```
 
-### Setup remote access
+## Setup remote access
 
 ```bash
 sudo apt-get install -y x11vnc
@@ -214,11 +218,11 @@ x11vnc -storepasswd
 x11vnc -usepw -forever &
 ```
 
-### Turn off screensaver
+## Turn off screensaver
 
 In LXDE GUI menu go to Preferences option/screensaver and deactivate it.
 
-### Add shortcut to Desktop
+## Add shortcut to Desktop
 
 ```bash
 cp home/pi/Desktop/* /home/pi/Desktop/
