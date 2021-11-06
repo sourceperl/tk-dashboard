@@ -12,7 +12,7 @@ sudo pip3 install redis==3.5.3
 # add project space on rpi host
 sudo mkdir -p /srv/dashboard/
 sudo mkdir -p /opt/tk-dashboard/bin/
-sudo mkdir -p /etc/opt/tk-dashboard/cert/
+sudo mkdir -p /etc/opt/tk-dashboard/certs/
 ```
 
 ## Add docker
@@ -87,15 +87,19 @@ sudo apt install -y stunnel4 openssl
 ```
 
 ```bash
-# create private key and self-signed certificate
+# create private key and self-signed certificate for server
 sudo openssl req -x509 -newkey rsa:4096 -days 3650 -nodes \
-                 -keyout /etc/opt/tk-dashboard/cert/redis-server-private.key \
-                 -out /etc/opt/tk-dashboard/cert/redis-server-public.crt \
-                 -subj "/C=FR/ST=Haut-de-France/L=Lille/O=/CN="
-# concatenate certificate and private key into a pem file
-sudo sh -c 'cat /etc/opt/tk-dashboard/cert/redis-server-public.crt /etc/opt/tk-dashboard/cert/redis-server-private.key \
-            > /etc/opt/tk-dashboard/cert/redis-server-private.pem'
-sudo chmod 600 /etc/opt/tk-dashboard/cert/redis-server-private.pem
+                 -subj "/C=FR/ST=Haut-de-France/L=Loos/CN=dashboard-share" \
+                 -keyout /etc/opt/tk-dashboard/certs/redis-srv-loos.key \
+                 -out /etc/opt/tk-dashboard/certs/redis-srv-loos.crt
+```
+
+```bash
+# create private key and self-signed certificate for client
+sudo openssl req -x509 -newkey rsa:4096 -days 3650 -nodes \
+                 -subj "/C=FR/ST=Grand Est/L=Messein/CN=dashboard-share" \
+                 -keyout /etc/opt/tk-dashboard/certs/redis-cli-messein.key \
+                 -out /etc/opt/tk-dashboard/certs/redis-cli-messein.crt
 ```
 
 ```bash
