@@ -139,7 +139,7 @@ class Tags:
     L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.main.get_from_json('json:dweet:fly-est'))
     IMG_ATMO_GE = Tag(func_src=lambda: DB.main.get_bytes('img:static:logo-atmo-ge:png'))
     IMG_LOGO_GRT = Tag(func_src=lambda: DB.main.get_bytes('img:static:logo-grt:png'))
-    IMG_GRT_CLOUD = Tag(func_src=lambda: DB.main.get_bytes('img:grt-tweet-wordcloud:png'))
+    IMG_GRT_CLOUD = Tag(func_src=lambda: DB.main.get_bytes('img:grt-twitter-cloud:png'))
     IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.main.get_bytes('img:traffic-map:png'))
     IMG_DIR_CAM_HOUDEMONT = Tag(func_src=lambda: DB.main.get_bytes('img:dir-est:houdemont:png'))
     IMG_DIR_CAM_VELAINE = Tag(func_src=lambda: DB.main.get_bytes('img:dir-est:velaine:png'))

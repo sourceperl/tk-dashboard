@@ -310,7 +310,7 @@ def img_grt_tw_cloud_job():
             pil_img = word_cloud.to_image()
             pil_img.save(img_io, format='PNG')
             # store RAW PNG to redis key
-            DB.main.set_bytes('img:grt-tweet-wordcloud:png', img_io.getvalue(), ttl=2 * 3600)
+            DB.main.set_bytes('img:grt-twitter-cloud:png', img_io.getvalue(), ttl=2 * 3600)
 
 
 @catch_log_except()
