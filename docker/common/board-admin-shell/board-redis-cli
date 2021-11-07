@@ -11,7 +11,7 @@ logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 
 # read config
 cnf = ConfigParser()
-cnf.read('/data/conf/board-redis-admin.conf')
+cnf.read('/data/conf/board-admin.conf')
 # redis-admin
 redis_user = cnf.get('redis-admin', 'user')
 redis_pass = cnf.get('redis-admin', 'pass')

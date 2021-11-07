@@ -6,13 +6,15 @@
 # HMI package dependency
 sudo apt update && sudo apt -y dist-upgrade
 sudo apt install -y supervisor xpdf imagemagick xscreensaver fonts-freefont-ttf \
-                    python3-cairocffi python3-pil python3-pil.imagetk fail2ban ufw
+                    python3-cairocffi python3-pil python3-pil.imagetk \
+                    fail2ban ufw openssl stunnel4
 sudo pip3 install redis==3.5.3
 
 # add project space on rpi host
 sudo mkdir -p /srv/dashboard/
 sudo mkdir -p /opt/tk-dashboard/bin/
-sudo mkdir -p /etc/opt/tk-dashboard/certs/
+sudo mkdir -p /etc/opt/tk-dashboard/redis/
+sudo mkdir -p /etc/opt/tk-dashboard/stunnel/certs/
 ```
 
 ## Add docker
@@ -79,12 +81,7 @@ sudo ufw reload
 
 ### Setup an SSL tunnel for redis share
 
-Server setup on Loos master
-
-```bash
-# install packages
-sudo apt install -y stunnel4 openssl
-```
+Create cert/key for server (only on Loos master dashboard)
 
 ```bash
 # create private key and self-signed certificate for server
@@ -94,20 +91,36 @@ sudo openssl req -x509 -newkey rsa:4096 -days 3650 -nodes \
                  -out /etc/opt/tk-dashboard/certs/redis-srv-loos.crt
 ```
 
+Stunnel server setup (only on Loos master dashboard)
+
+```bash
+# add configuration file to tk-dashboard conf
+sudo cp stunnel/board-tunnel-redis-srv.conf /etc/opt/tk-dashboard/stunnel/
+# add a symbolic link to stunnel conf directory
+sudo ln -s /etc/opt/tk-dashboard/stunnel/board-tunnel-redis-srv.conf /etc/stunnel/
+# add directory for trusted certs of clients
+sudo mkdir -p /etc/opt/tk-dashboard/stunnel/certs/trusted.d/
+# copy trusted client certificate to trusted.d directory (see below)
+sudo cp redis-cli-messein.crt /etc/opt/tk-dashboard/stunnel/certs/trusted.d/
+# add symbolic links to certs hash values (need by stunnel CApath)
+sudo c_rehash /etc/opt/tk-dashboard/stunnel/certs/trusted.d/
+# change ownership of files to permit stunnel user access
+sudo chown -R stunnel4:stunnel4 /etc/opt/tk-dashboard/stunnel/certs/
+# enable and start stunnel service
+sudo systemctl enable stunnel4.service
+sudo systemctl start stunnel4.service
+# check stunnel status
+sudo systemctl status stunnel4.service
+```
+
+Create cert/key for client (here for Messein)
+
 ```bash
 # create private key and self-signed certificate for client
 sudo openssl req -x509 -newkey rsa:4096 -days 3650 -nodes \
                  -subj "/C=FR/ST=Grand Est/L=Messein/CN=dashboard-share" \
-                 -keyout /etc/opt/tk-dashboard/certs/redis-cli-messein.key \
-                 -out /etc/opt/tk-dashboard/certs/redis-cli-messein.crt
-```
-
-```bash
-# add configuration file
-sudo cp stunnel/stunnel-redis-server.conf /etc/stunnel/
-# enable and start stunnel service
-sudo systemctl enable stunnel4.service
-sudo systemctl start stunnel4.service
+                 -keyout redis-cli-messein.key \
+                 -out redis-cli-messein.crt
 ```
 
 ## Add configuration files
@@ -117,8 +130,8 @@ HMI and import/export process configuration
 ```bash
 # start from examples
 # redis admin conf (readable only by root)
-sudo cp board/board-redis-admin.conf /etc/opt/tk-dashboard/board-redis-admin.conf
-sudo chmod 600 /etc/opt/tk-dashboard/board-redis-admin.conf
+sudo cp board/board-admin.conf /etc/opt/tk-dashboard/board-admin.conf
+sudo chmod 600 /etc/opt/tk-dashboard/board-admin.conf
 # board conf
 sudo cp board/loos-example.board.conf /etc/opt/tk-dashboard/board.conf
 # or
@@ -130,16 +143,16 @@ sudo vim /etc/opt/tk-dashboard/board.conf
 Redis configuration for master
 
 ```bash
-sudo cp redis/redis-master.conf /etc/opt/tk-dashboard/
+sudo cp redis/board-redis-master.conf /etc/opt/tk-dashboard/redis/
 ```
 
 Redis configuration for slave
 
 ```bash
-sudo cp redis/redis-slave.conf /etc/opt/tk-dashboard/
+sudo cp redis/board-redis-slave.conf /etc/opt/tk-dashboard/redis/
 ```
 
-**Update default passwords 'pwd' with custom one or better with sha256 hash. Don't forget to update "board-redis-admin.conf" to reflect it's changes.**
+**Update default passwords 'pwd' with custom one or better with sha256 hash. Don't forget to update "board-admin.conf" to reflect it's changes.**
 
 ## Setup for slave (add ssh key to allow redis relay and files sync)
 
