@@ -7,7 +7,7 @@
 sudo apt update && sudo apt -y dist-upgrade
 sudo apt install -y supervisor xpdf imagemagick xscreensaver fonts-freefont-ttf \
                     python3-cairocffi python3-pil python3-pil.imagetk \
-                    fail2ban ufw openssl stunnel4
+                    fail2ban ufw openssl stunnel4 vim nmap
 sudo pip3 install redis==3.5.3
 
 # add project space on rpi host
