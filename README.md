@@ -87,8 +87,8 @@ Create cert/key for server (only on Loos master dashboard)
 # create private key and self-signed certificate for server
 sudo openssl req -x509 -newkey rsa:4096 -days 3650 -nodes \
                  -subj "/C=FR/ST=Haut-de-France/L=Loos/CN=dashboard-share" \
-                 -keyout /etc/opt/tk-dashboard/certs/redis-srv-loos.key \
-                 -out /etc/opt/tk-dashboard/certs/redis-srv-loos.crt
+                 -keyout /etc/opt/tk-dashboard/stunnel/certs/redis-srv-loos.key \
+                 -out /etc/opt/tk-dashboard/stunnel/certs/redis-srv-loos.crt
 ```
 
 Stunnel server setup (only on Loos master dashboard)
@@ -119,8 +119,8 @@ Create cert/key for client (here for Messein)
 # create private key and self-signed certificate for client
 sudo openssl req -x509 -newkey rsa:4096 -days 3650 -nodes \
                  -subj "/C=FR/ST=Grand Est/L=Messein/CN=dashboard-share" \
-                 -keyout redis-cli-messein.key \
-                 -out redis-cli-messein.crt
+                 -keyout /etc/opt/tk-dashboard/stunnel/certs/redis-cli-messein.key \
+                 -out /etc/opt/tk-dashboard/stunnel/certs/redis-cli-messein.crt
 ```
 
 ## Add configuration files
