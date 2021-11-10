@@ -93,16 +93,16 @@ class Devices(object):
 class Tags(object):
     # redis tags
     RD_TOTAL_PWR = Tag(0, src=Devices.rd, ref={'type': 'int',
-                                               'key': 'json:loos_elec:pwr_act',
+                                               'key': 'int:loos_elec:pwr_act',
                                                'ttl': 60})
     RD_TODAY_WH = Tag(0.0, src=Devices.rd, ref={'type': 'float',
-                                                'key': 'json:loos_elec:today_wh',
+                                                'key': 'float:loos_elec:today_wh',
                                                 'ttl': 86400})
     RD_YESTERDAY_WH = Tag(0.0, src=Devices.rd, ref={'type': 'float',
-                                                    'key': 'json:loos_elec:yesterday_wh',
+                                                    'key': 'float:loos_elec:yesterday_wh',
                                                     'ttl': 172800})
     RD_TIMESTAMP_WH = Tag(0.0, src=Devices.rd, ref={'type': 'float',
-                                                    'key': 'json:loos_elec:timestamp_wh',
+                                                    'key': 'float:loos_elec:timestamp_wh',
                                                     'ttl': 172800})
     # modbus tags
     GARAGE_PWR = Tag(0.0, src=Devices.meter_garage, ref={'type': 'float', 'addr': AD_3155_LIVE_PWR, 'span': 1000})
