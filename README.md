@@ -7,7 +7,7 @@
 sudo apt update && sudo apt -y dist-upgrade
 sudo apt install -y supervisor xpdf imagemagick xscreensaver fonts-freefont-ttf \
                     python3-cairocffi python3-pil python3-pil.imagetk \
-                    fail2ban ufw openssl stunnel4 vim nmap
+                    fail2ban ufw openssl vim nmap
 sudo pip3 install redis==3.5.3
 
 # add project space on rpi host
@@ -95,22 +95,13 @@ Stunnel server setup (only on Loos master dashboard)
 
 ```bash
 # add configuration file to tk-dashboard conf
-sudo cp stunnel/board-tunnel-redis-srv.conf /etc/opt/tk-dashboard/stunnel/
-# add a symbolic link to stunnel conf directory
-sudo ln -s /etc/opt/tk-dashboard/stunnel/board-tunnel-redis-srv.conf /etc/stunnel/
+sudo cp stunnel/redis-loos-tls-srv.conf /etc/opt/tk-dashboard/stunnel/
 # add directory for trusted certs of clients
 sudo mkdir -p /etc/opt/tk-dashboard/stunnel/certs/trusted.d/
 # copy trusted client certificate to trusted.d directory (see below)
 sudo cp redis-cli-messein.crt /etc/opt/tk-dashboard/stunnel/certs/trusted.d/
 # add symbolic links to certs hash values (need by stunnel CApath)
 sudo c_rehash /etc/opt/tk-dashboard/stunnel/certs/trusted.d/
-# change ownership of files to permit stunnel user access
-sudo chown -R stunnel4:stunnel4 /etc/opt/tk-dashboard/stunnel/certs/
-# enable and start stunnel service
-sudo systemctl enable stunnel4.service
-sudo systemctl start stunnel4.service
-# check stunnel status
-sudo systemctl status stunnel4.service
 ```
 
 Create cert/key for client (here for Messein)
@@ -127,18 +118,9 @@ Stunnel server setup (only on Messein master dashboard)
 
 ```bash
 # add configuration file to tk-dashboard conf
-sudo cp stunnel/board-tunnel-redis-cli-messein.conf /etc/opt/tk-dashboard/stunnel/
-# add a symbolic link to stunnel conf directory
-sudo ln -s /etc/opt/tk-dashboard/stunnel/board-tunnel-redis-cli-messein.conf /etc/stunnel/
+sudo cp stunnel/redis-loos-tls-cli-messein.conf /etc/opt/tk-dashboard/stunnel/
 # copy server certificate to certs directory (copy it from server host)
 sudo cp redis-srv-loos.crt /etc/opt/tk-dashboard/stunnel/certs/
-# change ownership of files to permit stunnel user access
-sudo chown -R stunnel4:stunnel4 /etc/opt/tk-dashboard/stunnel/certs/
-# enable and start stunnel service
-sudo systemctl enable stunnel4.service
-sudo systemctl start stunnel4.service
-# check stunnel status
-sudo systemctl status stunnel4.service
 ```
 
 ## Add configuration files

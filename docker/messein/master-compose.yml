@@ -19,6 +19,22 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  board-redis-loos-tls-cli:
+    build: ../common/board-stunnel/.
+    image: board-stunnel-img
+    container_name: board-redis-loos-tls-cli
+    restart: unless-stopped
+    command: stunnel /usr/local/etc/stunnel/redis-loos-tls-cli-messein.conf
+    volumes:
+      - /etc/opt/tk-dashboard/stunnel/:/usr/local/etc/stunnel/:ro
+    networks:
+      - board-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
   board-import-app:
     build: board-import-app/.
     image: board-import-app-img
