@@ -1,10 +1,8 @@
 FROM board-py3-base-img
 
 # packages install
-RUN apt-get update --quiet && apt-get upgrade --yes
-RUN apt-get install --yes \
-                    autossh \
-    && apt-get clean
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get install --yes autossh && apt-get clean
 
 # main app in /usr/src/app
 WORKDIR /usr/src/app

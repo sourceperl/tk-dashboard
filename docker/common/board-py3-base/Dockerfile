@@ -1,11 +1,7 @@
-FROM debian:buster-slim
-
-# setup timezone to Europe/Paris
-RUN ln -sf /usr/share/zoneinfo/Europe/Paris /etc/localtime
-RUN dpkg-reconfigure -f noninteractive tzdata
+FROM board-debian-base-img
 
 # packages install
-RUN apt-get update --quiet && apt-get upgrade --yes
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get install --yes \
                     git \
                     fonts-freefont-ttf \
@@ -14,7 +10,7 @@ RUN apt-get install --yes \
                     python3-tz \
                     python3-dateutil \
                     python3-urllib3 \
-                    python3-requests \ 
+                    python3-requests \
                     python3-requests-oauthlib \
                     python3-bs4 \
                     python3-feedparser \

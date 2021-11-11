@@ -1,9 +1,8 @@
 FROM board-py3-base-img
 
 # packages install
-RUN apt-get install --yes \
-                    imagemagick \
-    && apt-get clean
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get install --yes imagemagick && apt-get clean
 
 # main app in /usr/src/app
 WORKDIR /usr/src/app
