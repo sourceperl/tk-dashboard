@@ -143,13 +143,13 @@ sudo vim /etc/opt/tk-dashboard/board.conf
 Redis configuration for master
 
 ```bash
-sudo cp redis/board-redis-master.conf /etc/opt/tk-dashboard/redis/
+sudo cp redis/redis-master.conf /etc/opt/tk-dashboard/redis/
 ```
 
 Redis configuration for slave
 
 ```bash
-sudo cp redis/board-redis-slave.conf /etc/opt/tk-dashboard/redis/
+sudo cp redis/redis-slave.conf /etc/opt/tk-dashboard/redis/
 ```
 
 **Update default passwords 'pwd' with custom one or better with sha256 hash. Don't forget to update "board-admin.conf" to reflect it's changes.**
