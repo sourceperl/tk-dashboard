@@ -51,8 +51,6 @@ C_NEWS_BG = '#f7e44f'
 C_NEWS_TXT = C_BLACK
 # data path
 DOC_PDF_PATH = '/srv/dashboard/hmi/doc_pdf/'
-CAROUSEL_PNG_PATH = '/srv/dashboard/hmi/carousel_png/'
-
 
 # read config
 cnf = ConfigParser()
@@ -84,6 +82,13 @@ class CustomRedis(redis.StrictRedis):
             logging.debug('redis.get_from_json(%s)' % name)
             logging.debug(traceback.format_exc())
 
+    def get_hash(self, name):
+        try:
+            return self.hgetall(name)
+        except redis.RedisError:
+            logging.debug('redis.get_hash(%s)' % name)
+            logging.debug(traceback.format_exc())
+
 
 class DB:
     # create connector
@@ -92,14 +97,21 @@ class DB:
 
 
 class Tag:
-    def __init__(self, func_src=None):
+    def __init__(self, func_src=None, refresh=4.0):
+        # public
+        self.refresh = refresh
         # private
         self._func_src = func_src
         self._lock = threading.Lock()
         self._value = None
+        self._t_last_run = 0.0
 
-    def update(self):
-        if callable(self._func_src):
+    def io_update(self, ref=''):
+        t_now = time.monotonic()
+        run_now = (t_now - self._t_last_run) > self.refresh
+        if run_now and callable(self._func_src):
+            self._t_last_run = t_now
+            logging.debug(f'run IO update' + f' [ref {ref}]' if ref else f'')
             # avoid lock thread during _func_src() IO stuff
             cached_value = self._func_src()
             with self._lock:
@@ -137,14 +149,16 @@ class Tags:
     D_WEATHER_VIG = Tag(func_src=lambda: DB.main.get_from_json('json:vigilance'))
     D_NEWS_LOCAL = Tag(func_src=lambda: DB.main.get_from_json('json:news'))
     D_TWEETS_GRT = Tag(func_src=lambda: DB.main.get_from_json('json:tweets:@grtgaz'))
-    MET_PWR_ACT = Tag(func_src=lambda: DB.main.get_from_json('int:loos_elec:pwr_act'))
-    MET_TODAY_WH = Tag(func_src=lambda: DB.main.get_from_json('float:loos_elec:today_wh'))
+    MET_PWR_ACT = Tag(func_src=lambda: DB.main.get_from_json('int:loos_elec:pwr_act'), refresh=1.0)
+    MET_TODAY_WH = Tag(func_src=lambda: DB.main.get_from_json('float:loos_elec:today_wh'), refresh=2.0)
     MET_YESTERDAY_WH = Tag(func_src=lambda: DB.main.get_from_json('float:loos_elec:yesterday_wh'))
     L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.main.get_from_json('json:bridge:fly-nord'))
-    IMG_ATMO_HDF = Tag(func_src=lambda: DB.main.get_bytes('img:static:logo-atmo-hdf:png'))
-    IMG_LOGO_GRT = Tag(func_src=lambda: DB.main.get_bytes('img:static:logo-grt:png'))
-    IMG_GRT_CLOUD = Tag(func_src=lambda: DB.main.get_bytes('img:grt-twitter-cloud:png'))
-    IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.main.get_bytes('img:traffic-map:png'))
+    IMG_ATMO_HDF = Tag(func_src=lambda: DB.main.get_bytes('img:static:logo-atmo-hdf:png'), refresh=10.0)
+    IMG_LOGO_GRT = Tag(func_src=lambda: DB.main.get_bytes('img:static:logo-grt:png'), refresh=10.0)
+    IMG_GRT_CLOUD = Tag(func_src=lambda: DB.main.get_bytes('img:grt-twitter-cloud:png'), refresh=10.0)
+    IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.main.get_bytes('img:traffic-map:png'), refresh=10.0)
+    DIR_CAROUSEL_RAW = Tag(func_src=lambda: DB.main.get_hash('dir:carousel:raw:min-png'), refresh=30.0)
+    DIR_DOC_RAW = Tag(func_src=lambda: DB.main.get_hash('dir:doc:raw'), refresh=30.0)
 
     @classmethod
     def init(cls):
@@ -158,8 +172,8 @@ class Tags:
             for name, tag in cls.__dict__.items():
                 # if Tags attribute is a Tag refresh it (with cmd_src func)
                 if not name.startswith('__') and isinstance(tag, Tag):
-                    tag.update()
-            time.sleep(2.0)
+                    tag.io_update(ref=name)
+            time.sleep(1.0)
 
 
 class MainApp(tk.Tk):
@@ -327,7 +341,7 @@ class LiveTab(Tab):
         self.tl_img_grt = ImageRawTile(self, bg='white')
         self.tl_img_grt.set_tile(row=6, column=13, rowspan=2, columnspan=4)
         # carousel
-        self.tl_crl = ImageCarouselTile(self)
+        self.tl_crl = ImageRawCarouselTile(self, bg='white', raw_img_tag_d=Tags.DIR_CAROUSEL_RAW)
         self.tl_crl.set_tile(row=4, column=7, rowspan=4, columnspan=6)
         # auto-update clock
         self.start_cyclic_update(update_ms=5000)
@@ -336,13 +350,13 @@ class LiveTab(Tab):
 
     def update(self):
         # GRT wordcloud
-        self.tl_img_cloud.raw = Tags.IMG_GRT_CLOUD.get()
+        self.tl_img_cloud.raw_display = Tags.IMG_GRT_CLOUD.get()
         # traffic map
-        self.tl_tf_map.raw = Tags.IMG_TRAFFIC_MAP.get()
+        self.tl_tf_map.raw_display = Tags.IMG_TRAFFIC_MAP.get()
         # atmo
-        self.tl_img_atmo.raw = Tags.IMG_ATMO_HDF.get()
+        self.tl_img_atmo.raw_display = Tags.IMG_ATMO_HDF.get()
         # GRT
-        self.tl_img_grt.raw = Tags.IMG_LOGO_GRT.get()
+        self.tl_img_grt.raw_display = Tags.IMG_LOGO_GRT.get()
         # acc days stat
         self.tl_acc.acc_date_dts = Tags.D_GSHEET_GRT.get(('tags', 'DATE_ACC_DTS'))
         self.tl_acc.acc_date_digne = Tags.D_GSHEET_GRT.get(('tags', 'DATE_ACC_DIGNE'))
@@ -459,7 +473,7 @@ class Tile(tk.Frame):
         self.grid_propagate(False)
 
     def set_tile(self, row=0, column=0, rowspan=1, columnspan=1):
-        # function to print a tile on the screen at the given coordonates
+        # function to map a tile on the screen at the given coordonates
         self.grid(row=row, column=column, rowspan=rowspan, columnspan=columnspan, sticky=tk.NSEW)
 
     def start_cyclic_update(self, update_ms=500):
@@ -564,7 +578,7 @@ class FlysprayTile(Tile):
             for item in self._l_items[:TTE_MAX_NB]:
                 # limit title length
                 title = item['title']
-                title = (title[:TTE_MAX_LEN-2] + '..') if len(title) > TTE_MAX_LEN else title
+                title = (title[:TTE_MAX_LEN - 2] + '..') if len(title) > TTE_MAX_LEN else title
                 msg += '%s\n' % title
             self._msg_text.set(msg)
         except Exception:
@@ -885,7 +899,6 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
             self.lbl_today.configure(text=msg)
         except:
             self.lbl_today.configure(text='n/a')
-            logging.error(traceback.format_exc())
 
     def _on_forecast_change(self):
         # set day 1 to 4 date
@@ -905,7 +918,6 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
             # for day 1 to 4
             for d in range(1, 5):
                 self._days_lbl[d - 1].configure(text='n/a')
-            logging.error(traceback.format_exc())
 
 
 class ClockTile(Tile):
@@ -1238,11 +1250,11 @@ class ImageRawTile(Tile):
         self.lbl_img.pack(expand=True)
 
     @property
-    def raw(self):
-        return self.raw
+    def raw_display(self):
+        return self.raw_display
 
-    @raw.setter
-    def raw(self, value):
+    @raw_display.setter
+    def raw_display(self, value):
         try:
             widget_size = (self.winfo_width(), self.winfo_height())
             # display current image file if raw_img is set
@@ -1294,8 +1306,10 @@ class ImageRefreshTile(Tile):
 
 
 class ImageCarouselTile(Tile):
-    def __init__(self, *args, refresh_rate=20000, **kwargs):
+    def __init__(self, *args, img_path, refresh_rate=20000, **kwargs):
         Tile.__init__(self, *args, **kwargs)
+        # public
+        self.img_path = img_path
         # private
         self._img_index = 0
         self._img_files = list()
@@ -1315,18 +1329,17 @@ class ImageCarouselTile(Tile):
 
     def update(self):
         # display next image or skip this if skip counter is set
-        if self._skip_update_cnt > 0:
-            self._skip_update_cnt -= 1
-        else:
+        if self._skip_update_cnt <= 0:
             self._load_next_img()
+        else:
+            self._skip_update_cnt -= 1
 
     def _on_click(self, evt=None):
         # on first click: skip the 8 next auto update cycle
-        # on second one or more: load the next image
-        if not self._skip_update_cnt > 0:
-            self._skip_update_cnt = 8
-        else:
+        # on second one: also load the next image
+        if self._skip_update_cnt > 0:
             self._load_next_img()
+        self._skip_update_cnt = 8
 
     def _load_next_img(self):
         # next img file index
@@ -1341,8 +1354,102 @@ class ImageCarouselTile(Tile):
             logging.error(traceback.format_exc())
 
     def _img_files_load(self):
-        self._img_files = glob.glob(CAROUSEL_PNG_PATH + '*.png')
+        self._img_files = glob.glob(os.path.join(self.img_path, '*.png'))
         self._img_files.sort()
+
+
+class ImageRawCarouselTile(Tile):
+    def __init__(self, *args, raw_img_tag_d, change_rate_s=20.0, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
+        # public
+        self.raw_img_tag_d = raw_img_tag_d
+        # private
+        self._playlist = list()
+        self._skip_update_cnt = 0
+        # tk widget init
+        # don't remove tk_img: keep a ref to avoid del by garbage collect
+        self.tk_img = tk.PhotoImage()
+        self.lbl_img = tk.Label(self, bg=self.cget('bg'))
+        self.lbl_img.pack(expand=True)
+        # bind function for skip update
+        self.bind('<Button-1>', self._on_click)
+        self.lbl_img.bind('<Button-1>', self._on_click)
+        # auto-update carousel rotate
+        self.start_cyclic_update(update_ms=round(change_rate_s * 1000))
+        # force update after 3s at dashboard startup (redis init time)
+        self.after(ms=3000, func=self.update)
+
+    @property
+    def raw_display(self):
+        return self.raw_display
+
+    @raw_display.setter
+    def raw_display(self, value):
+        try:
+            widget_size = (self.winfo_width(), self.winfo_height())
+            # display current image file if raw_img is set
+            if value:
+                # RAW img data to Pillow (PIL) image
+                pil_img = PIL.Image.open(io.BytesIO(value))
+                # force image size to widget size
+                pil_img.thumbnail(widget_size)
+            else:
+                # create a replace 'n/a' image
+                pil_img = PIL.Image.new('RGB', widget_size, C_PINK)
+                txt = 'n/a'
+                draw = PIL.ImageDraw.Draw(pil_img)
+                font = PIL.ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 24)
+                w, h = draw.textsize(txt, font=font)
+                x = (widget_size[0] - w) / 2
+                y = (widget_size[1] - h) / 2
+                draw.text((x, y), txt, fill='black', font=font)
+            # update image label
+            self.tk_img = PIL.ImageTk.PhotoImage(pil_img)
+            self.lbl_img.configure(image=self.tk_img)
+        except Exception:
+            logging.error(traceback.format_exc())
+
+    def update(self):
+        # display next image or skip this if skip counter is set
+        if self._skip_update_cnt <= 0:
+            self._load_next_img()
+        else:
+            self._skip_update_cnt -= 1
+
+    def _load_next_img(self):
+        try:
+            # try to load next valid image
+            while True:
+                next_img_name = self._playlist.pop(0)
+                raw_value = self.raw_img_tag_d.get(next_img_name)
+                # load valid raw img or try next one
+                if raw_value:
+                    # load display and exit loop
+                    self.raw_display = raw_value
+                    break
+        except IndexError:
+            # refill playlist if empty
+            self._fill_playlist()
+
+    def _fill_playlist(self):
+        # fill playlist with image filename to display
+        try:
+            img_raw_d = self.raw_img_tag_d.get()
+            if not img_raw_d:
+                raise ValueError
+            self._playlist = list(img_raw_d.keys())
+            self._playlist.sort()
+        except ValueError:
+            # clear playlist and force "n/a" on Tile display
+            self.raw_display = None
+            self._playlist.clear()
+
+    def _on_click(self, evt=None):
+        # on first click: skip the 8 next auto update cycle
+        # on second one: also load the next image
+        if self._skip_update_cnt > 0:
+            self._load_next_img()
+        self._skip_update_cnt = 8
 
 
 # main
