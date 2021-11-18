@@ -14,6 +14,7 @@ import threading
 import glob
 import os
 import subprocess
+import tempfile
 import math
 import PIL.Image
 import PIL.ImageDraw
@@ -49,8 +50,6 @@ C_NA = C_PINK
 C_TWEET = C_BLUE
 C_NEWS_BG = '#f7e44f'
 C_NEWS_TXT = C_BLACK
-# data path
-DOC_PDF_PATH = '/srv/dashboard/hmi/doc_pdf/'
 
 # read config
 cnf = ConfigParser()
@@ -193,7 +192,7 @@ class MainApp(tk.Tk):
         # define notebook
         self.note = ttk.Notebook(self)
         self.tab1 = LiveTab(self.note)
-        self.tab2 = PdfTab(self.note, pdf_path=DOC_PDF_PATH)
+        self.tab2 = PdfTab(self.note, pdf_tag=Tags.DIR_DOC_RAW)
         self.note.add(self.tab1, text='Tableau de bord')
         self.note.add(self.tab2, text='Affichage réglementaire')
         self.note.pack()
@@ -414,34 +413,40 @@ class LiveTab(Tab):
 
 
 class PdfTab(Tab):
-    def __init__(self, *args, pdf_path='', **kwargs):
+    def __init__(self, *args, pdf_tag, **kwargs):
         Tab.__init__(self, *args, **kwargs)
         # public
-        self.pdf_path = pdf_path
+        self.pdf_files_tag_d = pdf_tag
+        self.pdf_file_l = list()
         # private
-        self._l_tl_pdf = list()
-        # tk stuff
-        # bind update in visibility event
-        self.bind('<Visibility>', lambda evt: self.update())
+        self._pdf_opener_tl_l = list()
 
-    # populate (or redo it) the tab with all PdfOpenerTile
+    # populate (or redo it) the tab with all PdfLauncherTile
     def update(self):
         try:
             # list all PDF
-            pdf_file_l = glob.glob(self.pdf_path + '*.pdf')
-            pdf_file_l.sort()
+            try:
+                pdf_raw_d = self.pdf_files_tag_d.get()
+                if not pdf_raw_d:
+                    raise ValueError
+                self.pdf_file_l = [f.decode() for f in pdf_raw_d.keys()]
+                self.pdf_file_l.sort()
+            except ValueError:
+                # clear file list
+                self.pdf_file_l.clear()
             # if there is any difference in the pdf list, REFRESH, else don't, there is no need
-            if pdf_file_l != [pdf_tl.file for pdf_tl in self._l_tl_pdf]:
+            if self.pdf_file_l != [open_tl.file for open_tl in self._pdf_opener_tl_l]:
                 # remove all old tiles
-                for tl_pdf in self._l_tl_pdf:
+                for tl_pdf in self._pdf_opener_tl_l:
                     tl_pdf.destroy()
-                self._l_tl_pdf = list()
+                self._pdf_opener_tl_l = list()
                 # populate with new tiles
                 # start at 0:1 pos
                 (r, c) = (0, 1)
-                for pdf_file in pdf_file_l:
-                    self._l_tl_pdf.append(PdfOpenerTile(self, file=pdf_file))
-                    self._l_tl_pdf[-1].set_tile(row=r, column=c, columnspan=5, rowspan=1)
+                for pdf_file in self.pdf_file_l:
+                    opener_tile = PdfLauncherTile(self, file=pdf_file)
+                    opener_tile.set_tile(row=r, column=c, columnspan=5, rowspan=1)
+                    self._pdf_opener_tl_l.append(opener_tile)
                     c += 5
                     if c >= self.nb_tile_w - 1:
                         r += 1
@@ -1007,16 +1012,17 @@ class NewsBannerTile(Tile):
             logging.error(traceback.format_exc())
 
 
-class PdfOpenerTile(Tile):
+class PdfLauncherTile(Tile):
     def __init__(self, *args, file, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # public
         self.file = file
-        self.filename = os.path.basename(file)
         # private
-        self._l_process = list()
+        self._front_name = os.path.splitext(self.file)[0]
+        self._ps = None
+        self._tmp_f = None
         # tk stuff
-        self.name = tk.Label(self, text=os.path.splitext(self.filename)[0], wraplength=550,
+        self.name = tk.Label(self, text=self._front_name, wraplength=550,
                              bg=self.cget('bg'), fg=C_TXT, font=('courrier', 20, 'bold'))
         self.name.pack(expand=True)
         # bind function for open pdf file
@@ -1026,23 +1032,38 @@ class PdfOpenerTile(Tile):
 
     def _on_click(self, evt=None):
         try:
-            # start xpdf for this pdf file (max 2 instance)
-            if len(self._l_process) < 2:
+            if not self._ps:
+                # build a temp file with RAW pdf data from redis hash
+                self._tmp_f = tempfile.NamedTemporaryFile(prefix='board-', suffix='.pdf', delete=False)
+                self._tmp_f.write(Tags.DIR_DOC_RAW.get(self.file.encode()))
+                self._tmp_f.close()
+                # open it with xpdf
                 xpdf_geometry = '-geometry %sx%s' % (self.master.winfo_width(), self.master.winfo_height() - 10)
-                self._l_process.append(subprocess.Popen(['/usr/bin/xpdf', xpdf_geometry, '-z page', '-cont', self.file],
-                                                        stdin=subprocess.DEVNULL,
-                                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                                        close_fds=True))
+                self._ps = subprocess.Popen(['/usr/bin/xpdf', xpdf_geometry, '-z page', '-cont', self._tmp_f.name],
+                                            stdin=subprocess.DEVNULL,
+                                            stdout=subprocess.DEVNULL,
+                                            stderr=subprocess.DEVNULL,
+                                            close_fds=True)
         except Exception:
             logging.error(traceback.format_exc())
 
     def _on_unmap(self, evt=None):
-        # clean all running process on tab exit
-        for i, _ in enumerate(self._l_process):
-            self._l_process[i].terminate()
+        # on tab exit
+        # if need, terminate current xpdf process
+        if self._ps:
+            self._ps.terminate()
             # avoid zombie process
-            self._l_process[i].wait()
-            del self._l_process[i]
+            self._ps.wait()
+            # reset _ps
+            self._ps = None
+        # if need, delete current pdf temp file
+        if self._tmp_f:
+            try:
+                os.remove(self._tmp_f.name)
+            except FileNotFoundError:
+                pass
+            # reset _tmp_f
+            self._tmp_f = None
 
 
 class GaugeTile(Tile):
