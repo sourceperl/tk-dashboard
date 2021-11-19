@@ -486,7 +486,7 @@ class PdfTab(Tab):
             logging.error(traceback.format_exc())
 
 
-# TODO add external tile lib
+# TODO add tiles in external lib
 class Tile(tk.Frame):
     """
     Source of all the tile here
@@ -535,9 +535,8 @@ class PdfLauncherTile(Tile):
         # public
         self.file = file
         # private
-        self._front_name = os.path.splitext(self.file)[0]
-        self._ps = None
-        self._tmp_f = None
+        self._front_name = os.path.splitext(self.file)[0].strip()
+        self._ps_l = list()
         # tk stuff
         self._name_lbl = tk.Label(self, text=self._front_name, wraplength=550,
                                   bg=self.cget('bg'), fg=C_TXT, font=('courrier', 20, 'bold'))
@@ -550,39 +549,34 @@ class PdfLauncherTile(Tile):
 
     def _on_click(self, evt=None):
         try:
-            if not self._ps:
-                # build a temp file with RAW pdf data from redis hash
-                self._tmp_f = tempfile.NamedTemporaryFile(prefix='board-', suffix='.pdf', delete=False)
-                self._tmp_f.write(DB.main.get_hash_key('dir:doc:raw', self.file))
-                self._tmp_f.close()
-                # open it with xpdf
-                xpdf_geometry = '-geometry %sx%s' % (self.master.winfo_width(), self.master.winfo_height() - 10)
-                # TODO add always on top
-                self._ps = subprocess.Popen(['/usr/bin/xpdf', xpdf_geometry, '-z page', '-cont', self._tmp_f.name],
-                                            stdin=subprocess.DEVNULL,
-                                            stdout=subprocess.DEVNULL,
-                                            stderr=subprocess.DEVNULL,
-                                            close_fds=True)
+            # build a temp file with RAW pdf data from redis hash
+            tmp_f = tempfile.NamedTemporaryFile(prefix='board-', suffix='.pdf', delete=True)
+            # TODO avoid direct DB read here
+            tmp_f.write(DB.main.get_hash_key('dir:doc:raw', self.file))
+            # open it with xpdf
+            xpdf_geometry = '-geometry %sx%s' % (self.master.winfo_width(), self.master.winfo_height() - 10)
+            ps = subprocess.Popen(['/usr/bin/xpdf', xpdf_geometry, '-z page',
+                                   '-cont', tmp_f.name],
+                                  stdin=subprocess.DEVNULL,
+                                  stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL,
+                                  close_fds=True)
+            # keep process references for _on_unmap() job
+            self._ps_l.append(ps)
+            # remove temp file after xpdf startup
+            self.after(ms=1000, func=tmp_f.close)
         except Exception:
             logging.error(traceback.format_exc())
 
     def _on_unmap(self, evt=None):
-        # on tab exit
-        # if need, terminate current xpdf process
-        if self._ps:
-            self._ps.terminate()
-            # avoid zombie process
-            self._ps.wait()
-            # reset _ps
-            self._ps = None
-        # if need, delete current pdf temp file
-        if self._tmp_f:
-            try:
-                os.remove(self._tmp_f.name)
-            except FileNotFoundError:
-                pass
-            # reset _tmp_f
-            self._tmp_f = None
+        # terminate all xpdf process on tab exit
+        # iterate on copy of process list
+        for ps in list(self._ps_l):
+            # terminate (ps wait for zombie process avoid)
+            ps.terminate()
+            ps.wait()
+            # remove ps from original list
+            self._ps_l.remove(ps)
 
 
 class MessageTile(Tile):
