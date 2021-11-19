@@ -19,14 +19,14 @@ services:
         max-size: "10m"
         max-file: "5"
 
-  board-redis-master-relay:
-    build: ../common/board-redis-master-relay/.
-    image: board-redis-master-relay-img
-    container_name: board-redis-master-relay
+  board-redis-master-tls-cli:
+    build: ../common/board-stunnel/.
+    image: board-stunnel-img
+    container_name: board-redis-master-tls-cli
     restart: unless-stopped
+    command: stunnel /usr/local/etc/stunnel/redis-messein-tls-cli-slave.conf
     volumes:
-      - /etc/opt/tk-dashboard/board.conf:/data/conf/board.conf:ro
-      - /home/pi/.ssh:/root/.ssh:ro
+      - /etc/opt/tk-dashboard/stunnel/:/usr/local/etc/stunnel/:ro
     networks:
       - board-net
     logging:

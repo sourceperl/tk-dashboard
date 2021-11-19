@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
     command: stunnel /usr/local/etc/stunnel/redis-loos-tls-srv.conf
     ports:
-      - "127.0.0.1:63790:63790"
+      - "0.0.0.0:63790:63790"
     volumes:
       - /etc/opt/tk-dashboard/stunnel/:/usr/local/etc/stunnel/:ro
     networks:
