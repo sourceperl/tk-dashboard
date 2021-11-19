@@ -44,7 +44,6 @@ services:
     tty: true
     volumes:
       - /etc/opt/tk-dashboard:/data/conf:rw
-      - /srv/dashboard:/srv/dashboard:rw
     networks:
       - board-net
     logging:

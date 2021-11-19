@@ -11,7 +11,6 @@ sudo apt install -y supervisor xpdf imagemagick xscreensaver fonts-freefont-ttf 
 sudo pip3 install redis==3.5.3
 
 # add project space on rpi host
-sudo mkdir -p /srv/dashboard/
 sudo mkdir -p /opt/tk-dashboard/bin/
 sudo mkdir -p /etc/opt/tk-dashboard/redis/
 sudo mkdir -p /etc/opt/tk-dashboard/stunnel/certs/
@@ -161,7 +160,7 @@ sudo cp redis/redis-slave.conf /etc/opt/tk-dashboard/redis/
 ssh-keygen
 ssh-copy-id pi@192.168.0.60
 # now we can manually sync file
-rsync -aALxXv --delete 192.168.0.60:/srv/dashboard/hmi/. /srv/dashboard/hmi/.
+# rsync -aALxXv --delete 192.168.0.60:/srv/dashboard/hmi/. /srv/dashboard/hmi/.
 # see scripts/dashboard_sync_files.py to automate this
 ```
 
@@ -212,45 +211,23 @@ docker exec board-admin-shell board-init-static
 
 ## Setup supervisor
 
-### Loos master
+### Loos HMI master and slave
 
 ```bash
 # scripts copy
 sudo cp scripts/board-hmi-loos.py /opt/tk-dashboard/bin/
 # supervisor setup
-sudo cp supervisor/dashboard_master_loos.conf /etc/supervisor/conf.d/
+sudo cp supervisor/dashboard_loos.conf /etc/supervisor/conf.d/
 sudo supervisorctl update
 ```
 
-### Loos slave
-
-```bash
-# scripts copy
-sudo cp scripts/board-hmi-loos.py /opt/tk-dashboard/bin/
-sudo cp scripts/board-sync-files.py /opt/tk-dashboard/bin/
-# supervisor setup
-sudo cp supervisor/dashboard_slave_loos.conf /etc/supervisor/conf.d/
-sudo supervisorctl update
-```
-
-### Messein master
+### Messein HMI master and slave
 
 ```bash
 # scripts copy
 sudo cp scripts/board-hmi-messein.py /opt/tk-dashboard/bin/
 # supervisor setup
-sudo cp supervisor/dashboard_master_messein.conf /etc/supervisor/conf.d/
-sudo supervisorctl update
-```
-
-### Messein slave
-
-```bash
-# scripts copy
-sudo cp scripts/board-hmi-messein.py /opt/tk-dashboard/bin/
-sudo cp scripts/board-sync-files.py /opt/tk-dashboard/bin/
-# supervisor setup
-sudo cp supervisor/dashboard_slave_messein.conf /etc/supervisor/conf.d/
+sudo cp supervisor/dashboard_messein.conf /etc/supervisor/conf.d/
 sudo supervisorctl update
 ```
 

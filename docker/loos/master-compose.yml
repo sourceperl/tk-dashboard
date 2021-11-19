@@ -88,24 +88,6 @@ services:
         max-size: "10m"
         max-file: "5"
 
-  board-files-app:
-    build: board-files-app/.
-    image: board-files-app-img
-    container_name: board-files-app
-    restart: unless-stopped
-    depends_on:
-      - "board-redis-srv"
-    volumes:
-      - /etc/opt/tk-dashboard/board.conf:/data/conf/board.conf:ro
-      - /srv/dashboard:/srv/dashboard:rw
-    networks:
-      - board-net
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "5"
-
   board-admin-shell:
     build: ../common/board-admin-shell/.
     image: board-admin-shell-img
@@ -115,7 +97,6 @@ services:
     tty: true
     volumes:
       - /etc/opt/tk-dashboard:/data/conf:rw
-      - /srv/dashboard:/srv/dashboard:rw
     networks:
       - board-net
     logging:
