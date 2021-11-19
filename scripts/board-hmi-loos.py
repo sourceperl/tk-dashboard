@@ -64,28 +64,35 @@ class CustomRedis(redis.StrictRedis):
         try:
             return self.get(name)
         except redis.RedisError:
-            logging.debug('redis.get_bytes(%s)' % name)
+            logging.debug(f'redis.get_bytes({name})')
             logging.debug(traceback.format_exc())
 
     def get_str(self, name):
         try:
             return self.get(name).decode('utf-8')
         except (redis.RedisError, AttributeError):
-            logging.debug('redis.get_str(%s)' % name)
+            logging.debug(f'redis.get_str({name})')
             logging.debug(traceback.format_exc())
 
     def get_from_json(self, name):
         try:
             return json.loads(self.get(name).decode('utf-8'))
         except (redis.RedisError, AttributeError, json.decoder.JSONDecodeError):
-            logging.debug('redis.get_from_json(%s)' % name)
+            logging.debug(f'redis.get_from_json({name})')
             logging.debug(traceback.format_exc())
 
     def get_hash(self, name):
         try:
             return self.hgetall(name)
         except redis.RedisError:
-            logging.debug('redis.get_hash(%s)' % name)
+            logging.debug(f'redis.get_hash({name})')
+            logging.debug(traceback.format_exc())
+
+    def get_hash_key(self, name, key):
+        try:
+            return self.hget(name, key)
+        except redis.RedisError:
+            logging.debug(f'redis.get_hash_key({name}, {key})')
             logging.debug(traceback.format_exc())
 
 
@@ -157,7 +164,7 @@ class Tags:
     IMG_GRT_CLOUD = Tag(func_src=lambda: DB.main.get_bytes('img:grt-twitter-cloud:png'), refresh=10.0)
     IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.main.get_bytes('img:traffic-map:png'), refresh=10.0)
     DIR_CAROUSEL_RAW = Tag(func_src=lambda: DB.main.get_hash('dir:carousel:raw:min-png'), refresh=30.0)
-    DIR_DOC_RAW = Tag(func_src=lambda: DB.main.get_hash('dir:doc:raw'), refresh=30.0)
+    DIR_PDF_DOC_INFOS = Tag(func_src=lambda: DB.main.get_hash('dir:doc:infos'), refresh=30.0)
 
     @classmethod
     def init(cls):
@@ -192,7 +199,7 @@ class MainApp(tk.Tk):
         # define notebook
         self.note = ttk.Notebook(self)
         self.tab1 = LiveTab(self.note)
-        self.tab2 = PdfTab(self.note, pdf_tag=Tags.DIR_DOC_RAW)
+        self.tab2 = PdfTab(self.note)
         self.note.add(self.tab1, text='Tableau de bord')
         self.note.add(self.tab2, text='Affichage réglementaire')
         self.note.pack()
@@ -342,7 +349,7 @@ class LiveTab(Tab):
         # carousel
         self.tl_crl = ImageRawCarouselTile(self, bg='white', raw_img_tag_d=Tags.DIR_CAROUSEL_RAW)
         self.tl_crl.set_tile(row=4, column=7, rowspan=4, columnspan=6)
-        # auto-update clock
+        # auto-update
         self.start_cyclic_update(update_ms=5000)
         # force update at startup
         self.after(500, func=self.update)
@@ -413,40 +420,64 @@ class LiveTab(Tab):
 
 
 class PdfTab(Tab):
-    def __init__(self, *args, pdf_tag, **kwargs):
+    def __init__(self, *args, **kwargs):
         Tab.__init__(self, *args, **kwargs)
-        # public
-        self.pdf_files_tag_d = pdf_tag
-        self.pdf_file_l = list()
         # private
-        self._pdf_opener_tl_l = list()
+        self._file_l = list()
+        self._widgets_l = list()
+        # auto-update every 5s
+        self.start_cyclic_update(update_ms=5000)
 
-    # populate (or redo it) the tab with all PdfLauncherTile
-    def update(self):
+    @property
+    def file_list(self):
+        return self._file_l
+
+    @file_list.setter
+    def file_list(self, value):
+        # check type
         try:
-            # list all PDF
-            try:
-                pdf_raw_d = self.pdf_files_tag_d.get()
-                if not pdf_raw_d:
-                    raise ValueError
-                self.pdf_file_l = [f.decode() for f in pdf_raw_d.keys()]
-                self.pdf_file_l.sort()
-            except ValueError:
-                # clear file list
-                self.pdf_file_l.clear()
-            # if there is any difference in the pdf list, REFRESH, else don't, there is no need
-            if self.pdf_file_l != [open_tl.file for open_tl in self._pdf_opener_tl_l]:
-                # remove all old tiles
-                for tl_pdf in self._pdf_opener_tl_l:
-                    tl_pdf.destroy()
-                self._pdf_opener_tl_l = list()
-                # populate with new tiles
+            value = sorted(list(value))
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._file_l != value:
+            # copy value to private cache
+            self._file_l = value
+            # notify change
+            self._on_list_change()
+
+    def update(self):
+        # update PDF list from infos dict
+        try:
+            self.file_list = [f.decode() for f in Tags.DIR_PDF_DOC_INFOS.get().keys()]
+        except (AttributeError, ValueError):
+            # notify error
+            self.file_list = None
+
+    def _on_list_change(self):
+        # if file list change, reflect it on display
+        try:
+            # remove all existing tiles widgets
+            for w in self._widgets_l:
+                w.destroy()
+            self._widgets_l.clear()
+            # if file list is empty or None
+            if not self._file_l:
+                # display error message "n/a"
+                msg_tl = MessageTile(self)
+                msg_tl.set_tile(row=0, column=0, rowspan=self.nb_tile_h, columnspan=self.nb_tile_w)
+                msg_tl.tk_str_msg.set('n/a')
+                self._widgets_l.append(msg_tl)
+            else:
+                # populate with new file launcher
                 # start at 0:1 pos
                 (r, c) = (0, 1)
-                for pdf_file in self.pdf_file_l:
-                    opener_tile = PdfLauncherTile(self, file=pdf_file)
-                    opener_tile.set_tile(row=r, column=c, columnspan=5, rowspan=1)
-                    self._pdf_opener_tl_l.append(opener_tile)
+                for file_name in self._file_l:
+                    # place PdfLauncherTile at (r,c)
+                    launcher_tile = PdfLauncherTile(self, file=file_name)
+                    launcher_tile.set_tile(row=r, column=c, columnspan=5, rowspan=1)
+                    self._widgets_l.append(launcher_tile)
+                    # set next place
                     c += 5
                     if c >= self.nb_tile_w - 1:
                         r += 1
@@ -455,6 +486,7 @@ class PdfTab(Tab):
             logging.error(traceback.format_exc())
 
 
+# TODO add external tile lib
 class Tile(tk.Frame):
     """
     Source of all the tile here
@@ -495,6 +527,72 @@ class Tile(tk.Frame):
 
     def update(self):
         pass
+
+
+class PdfLauncherTile(Tile):
+    def __init__(self, *args, file, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
+        # public
+        self.file = file
+        # private
+        self._front_name = os.path.splitext(self.file)[0]
+        self._ps = None
+        self._tmp_f = None
+        # tk stuff
+        self._name_lbl = tk.Label(self, text=self._front_name, wraplength=550,
+                                  bg=self.cget('bg'), fg=C_TXT, font=('courrier', 20, 'bold'))
+        self._name_lbl.pack(expand=True)
+        # bind function for open pdf file
+        self.bind('<Button-1>', self._on_click)
+        self._name_lbl.bind('<Button-1>', self._on_click)
+        self.bind('<Destroy>', self._on_unmap)
+        self.bind('<Unmap>', self._on_unmap)
+
+    def _on_click(self, evt=None):
+        try:
+            if not self._ps:
+                # build a temp file with RAW pdf data from redis hash
+                self._tmp_f = tempfile.NamedTemporaryFile(prefix='board-', suffix='.pdf', delete=False)
+                self._tmp_f.write(DB.main.get_hash_key('dir:doc:raw', self.file))
+                self._tmp_f.close()
+                # open it with xpdf
+                xpdf_geometry = '-geometry %sx%s' % (self.master.winfo_width(), self.master.winfo_height() - 10)
+                # TODO add always on top
+                self._ps = subprocess.Popen(['/usr/bin/xpdf', xpdf_geometry, '-z page', '-cont', self._tmp_f.name],
+                                            stdin=subprocess.DEVNULL,
+                                            stdout=subprocess.DEVNULL,
+                                            stderr=subprocess.DEVNULL,
+                                            close_fds=True)
+        except Exception:
+            logging.error(traceback.format_exc())
+
+    def _on_unmap(self, evt=None):
+        # on tab exit
+        # if need, terminate current xpdf process
+        if self._ps:
+            self._ps.terminate()
+            # avoid zombie process
+            self._ps.wait()
+            # reset _ps
+            self._ps = None
+        # if need, delete current pdf temp file
+        if self._tmp_f:
+            try:
+                os.remove(self._tmp_f.name)
+            except FileNotFoundError:
+                pass
+            # reset _tmp_f
+            self._tmp_f = None
+
+
+class MessageTile(Tile):
+    def __init__(self, *args, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
+        # public
+        self.tk_str_msg = tk.StringVar()
+        # tk stuff
+        tk.Label(self, textvariable=self.tk_str_msg, bg=self.cget('bg'),
+                 fg=C_TXT, font=('courrier', 20, 'bold')).pack(expand=True)
 
 
 class TwitterTile(Tile):
@@ -1010,60 +1108,6 @@ class NewsBannerTile(Tile):
         except:
             self._next_ban_str = spaces_head + 'n/a' + spaces_head
             logging.error(traceback.format_exc())
-
-
-class PdfLauncherTile(Tile):
-    def __init__(self, *args, file, **kwargs):
-        Tile.__init__(self, *args, **kwargs)
-        # public
-        self.file = file
-        # private
-        self._front_name = os.path.splitext(self.file)[0]
-        self._ps = None
-        self._tmp_f = None
-        # tk stuff
-        self.name = tk.Label(self, text=self._front_name, wraplength=550,
-                             bg=self.cget('bg'), fg=C_TXT, font=('courrier', 20, 'bold'))
-        self.name.pack(expand=True)
-        # bind function for open pdf file
-        self.bind('<Button-1>', self._on_click)
-        self.name.bind('<Button-1>', self._on_click)
-        self.bind('<Unmap>', self._on_unmap)
-
-    def _on_click(self, evt=None):
-        try:
-            if not self._ps:
-                # build a temp file with RAW pdf data from redis hash
-                self._tmp_f = tempfile.NamedTemporaryFile(prefix='board-', suffix='.pdf', delete=False)
-                self._tmp_f.write(Tags.DIR_DOC_RAW.get(self.file.encode()))
-                self._tmp_f.close()
-                # open it with xpdf
-                xpdf_geometry = '-geometry %sx%s' % (self.master.winfo_width(), self.master.winfo_height() - 10)
-                self._ps = subprocess.Popen(['/usr/bin/xpdf', xpdf_geometry, '-z page', '-cont', self._tmp_f.name],
-                                            stdin=subprocess.DEVNULL,
-                                            stdout=subprocess.DEVNULL,
-                                            stderr=subprocess.DEVNULL,
-                                            close_fds=True)
-        except Exception:
-            logging.error(traceback.format_exc())
-
-    def _on_unmap(self, evt=None):
-        # on tab exit
-        # if need, terminate current xpdf process
-        if self._ps:
-            self._ps.terminate()
-            # avoid zombie process
-            self._ps.wait()
-            # reset _ps
-            self._ps = None
-        # if need, delete current pdf temp file
-        if self._tmp_f:
-            try:
-                os.remove(self._tmp_f.name)
-            except FileNotFoundError:
-                pass
-            # reset _tmp_f
-            self._tmp_f = None
 
 
 class GaugeTile(Tile):
