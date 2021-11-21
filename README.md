@@ -151,7 +151,9 @@ Redis configuration for slave
 sudo cp redis/redis-slave.conf /etc/opt/tk-dashboard/redis/
 ```
 
-**Update default passwords 'pwd' with custom one or better with sha256 hash. Don't forget to update "board-admin.conf" to reflect it's changes.**
+**Update default passwords 'pwd' with custom one or better with sha256 hash.
+The tool "redis_pass_gen.py" in utils/ can be useful for this task.
+Don't forget to update "board-admin.conf" to reflect it's changes.**
 
 ## Setup for slave (add ssh key to allow redis relay and files sync)
 
