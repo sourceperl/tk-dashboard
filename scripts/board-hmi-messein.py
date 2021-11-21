@@ -14,6 +14,7 @@ import threading
 import glob
 import os
 import subprocess
+import tempfile
 import math
 import PIL.Image
 import PIL.ImageDraw
@@ -50,10 +51,6 @@ C_NA = C_PINK
 C_TWEET = C_BLUE
 C_NEWS_BG = '#f7e44f'
 C_NEWS_TXT = C_BLACK
-# data path
-DOC_PDF_PATH = '/srv/dashboard/hmi/doc_pdf/'
-CAROUSEL_PNG_PATH = '/srv/dashboard/hmi/carousel_png/'
-
 
 # read config
 cnf = ConfigParser()
@@ -68,21 +65,35 @@ class CustomRedis(redis.StrictRedis):
         try:
             return self.get(name)
         except redis.RedisError:
-            logging.debug('redis.get_bytes(%s)' % name)
+            logging.debug(f'redis.get_bytes({name})')
             logging.debug(traceback.format_exc())
 
     def get_str(self, name):
         try:
             return self.get(name).decode('utf-8')
         except (redis.RedisError, AttributeError):
-            logging.debug('redis.get_str(%s)' % name)
+            logging.debug(f'redis.get_str({name})')
             logging.debug(traceback.format_exc())
 
     def get_from_json(self, name):
         try:
             return json.loads(self.get(name).decode('utf-8'))
         except (redis.RedisError, AttributeError, json.decoder.JSONDecodeError):
-            logging.debug('redis.get_from_json(%s)' % name)
+            logging.debug(f'redis.get_from_json({name})')
+            logging.debug(traceback.format_exc())
+
+    def get_hash(self, name):
+        try:
+            return self.hgetall(name)
+        except redis.RedisError:
+            logging.debug(f'redis.get_hash({name})')
+            logging.debug(traceback.format_exc())
+
+    def get_hash_key(self, name, key):
+        try:
+            return self.hget(name, key)
+        except redis.RedisError:
+            logging.debug(f'redis.get_hash_key({name}, {key})')
             logging.debug(traceback.format_exc())
 
 
@@ -93,14 +104,21 @@ class DB:
 
 
 class Tag:
-    def __init__(self, func_src=None):
+    def __init__(self, func_src=None, refresh=4.0):
+        # public
+        self.refresh = refresh
         # private
         self._func_src = func_src
         self._lock = threading.Lock()
         self._value = None
+        self._t_last_run = 0.0
 
-    def update(self):
-        if callable(self._func_src):
+    def io_update(self, ref=''):
+        t_now = time.monotonic()
+        run_now = (t_now - self._t_last_run) > self.refresh
+        if run_now and callable(self._func_src):
+            self._t_last_run = t_now
+            logging.debug(f'run IO update' + f' [ref {ref}]' if ref else f'')
             # avoid lock thread during _func_src() IO stuff
             cached_value = self._func_src()
             with self._lock:
@@ -131,20 +149,22 @@ class Tags:
     # create all tag here
     # WARNs: -> all tag are manage by an IO thread
     #        -> tag subscriber callback code are call by IO thread (not by tkinter main thread)
-    D_GSHEET_GRT = Tag(func_src=lambda: DB.main.get_from_json('json:gsheet'))
-    D_ATMO_QUALITY = Tag(func_src=lambda: DB.main.get_from_json('json:atmo'))
-    D_WEATHER_VIG = Tag(func_src=lambda: DB.main.get_from_json('json:vigilance'))
-    D_NEWS_LOCAL = Tag(func_src=lambda: DB.main.get_from_json('json:news'))
-    D_TWEETS_GRT = Tag(func_src=lambda: DB.main.get_from_json('json:tweets:@grtgaz'))
-    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.main.get_from_json('json:dweet:fly-est'))
-    IMG_ATMO_GE = Tag(func_src=lambda: DB.main.get_bytes('img:static:logo-atmo-ge:png'))
-    IMG_LOGO_GRT = Tag(func_src=lambda: DB.main.get_bytes('img:static:logo-grt:png'))
-    IMG_GRT_CLOUD = Tag(func_src=lambda: DB.main.get_bytes('img:grt-twitter-cloud:png'))
-    IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.main.get_bytes('img:traffic-map:png'))
-    IMG_DIR_CAM_HOUDEMONT = Tag(func_src=lambda: DB.main.get_bytes('img:dir-est:houdemont:png'))
-    IMG_DIR_CAM_VELAINE = Tag(func_src=lambda: DB.main.get_bytes('img:dir-est:velaine:png'))
-    IMG_DIR_CAM_ST_NICOLAS = Tag(func_src=lambda: DB.main.get_bytes('img:dir-est:st-nicolas:png'))
-    IMG_DIR_CAM_FLAVIGNY = Tag(func_src=lambda: DB.main.get_bytes('img:dir-est:flavigny:png'))
+    D_GSHEET_GRT = Tag(func_src=lambda: DB.main.get_from_json('json:gsheet'), refresh=2.0)
+    D_ATMO_QUALITY = Tag(func_src=lambda: DB.main.get_from_json('json:atmo'), refresh=2.0)
+    D_WEATHER_VIG = Tag(func_src=lambda: DB.main.get_from_json('json:vigilance'), refresh=2.0)
+    D_NEWS_LOCAL = Tag(func_src=lambda: DB.main.get_from_json('json:news'), refresh=2.0)
+    D_TWEETS_GRT = Tag(func_src=lambda: DB.main.get_from_json('json:tweets:@grtgaz'), refresh=2.0)
+    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.main.get_from_json('json:dweet:fly-est'), refresh=2.0)
+    IMG_ATMO_GE = Tag(func_src=lambda: DB.main.get_bytes('img:static:logo-atmo-ge:png'), refresh=10.0)
+    IMG_LOGO_GRT = Tag(func_src=lambda: DB.main.get_bytes('img:static:logo-grt:png'), refresh=10.0)
+    IMG_GRT_CLOUD = Tag(func_src=lambda: DB.main.get_bytes('img:grt-twitter-cloud:png'), refresh=10.0)
+    IMG_TRAFFIC_MAP = Tag(func_src=lambda: DB.main.get_bytes('img:traffic-map:png'), refresh=10.0)
+    IMG_DIR_CAM_HOUDEMONT = Tag(func_src=lambda: DB.main.get_bytes('img:dir-est:houdemont:png'), refresh=10.0)
+    IMG_DIR_CAM_VELAINE = Tag(func_src=lambda: DB.main.get_bytes('img:dir-est:velaine:png'), refresh=10.0)
+    IMG_DIR_CAM_ST_NICOLAS = Tag(func_src=lambda: DB.main.get_bytes('img:dir-est:st-nicolas:png'), refresh=10.0)
+    IMG_DIR_CAM_FLAVIGNY = Tag(func_src=lambda: DB.main.get_bytes('img:dir-est:flavigny:png'), refresh=10.0)
+    DIR_CAROUSEL_RAW = Tag(func_src=lambda: DB.main.get_hash('dir:carousel:raw:min-png'), refresh=30.0)
+    DIR_PDF_DOC_INFOS = Tag(func_src=lambda: DB.main.get_hash('dir:doc:infos'), refresh=30.0)
 
     @classmethod
     def init(cls):
@@ -158,8 +178,8 @@ class Tags:
             for name, tag in cls.__dict__.items():
                 # if Tags attribute is a Tag refresh it (with cmd_src func)
                 if not name.startswith('__') and isinstance(tag, Tag):
-                    tag.update()
-            time.sleep(2.0)
+                    tag.io_update(ref=name)
+            time.sleep(1.0)
 
 
 class MainApp(tk.Tk):
@@ -179,7 +199,7 @@ class MainApp(tk.Tk):
         # define notebook
         self.note = ttk.Notebook(self)
         self.tab1 = LiveTab(self.note)
-        self.tab2 = PdfTab(self.note, pdf_path=DOC_PDF_PATH)
+        self.tab2 = PdfTab(self.note)
         self.note.add(self.tab1, text='Tableau de bord')
         self.note.add(self.tab2, text='Affichage réglementaire')
         self.note.pack()
@@ -325,7 +345,7 @@ class LiveTab(Tab):
         # self.tl_watts.set_tile(row=4, column=5, columnspan=2)
         # flyspray
         self.tl_fly = FlysprayTile(self)
-        self.tl_fly.set_tile(row=5, column=0,  rowspan=3, columnspan=7)
+        self.tl_fly.set_tile(row=5, column=0, rowspan=3, columnspan=7)
         # acc days stat
         self.tl_acc = DaysAccTile(self)
         self.tl_acc.set_tile(row=2, column=13, columnspan=4, rowspan=1)
@@ -336,7 +356,7 @@ class LiveTab(Tab):
         self.tl_img_grt = ImageRawTile(self, bg='white')
         self.tl_img_grt.set_tile(row=6, column=13, rowspan=2, columnspan=4)
         # carousel
-        self.tl_crl = ImageCarouselTile(self)
+        self.tl_crl = ImageRawCarouselTile(self, bg='white', raw_img_tag_d=Tags.DIR_CAROUSEL_RAW)
         self.tl_crl.set_tile(row=4, column=7, rowspan=4, columnspan=6)
         # update this tab every 5s
         self.start_cyclic_update(update_ms=5000)
@@ -407,34 +427,64 @@ class LiveTab(Tab):
 
 
 class PdfTab(Tab):
-    def __init__(self, *args, pdf_path='', **kwargs):
+    def __init__(self, *args, **kwargs):
         Tab.__init__(self, *args, **kwargs)
-        # public
-        self.pdf_path = pdf_path
         # private
-        self._l_tl_pdf = list()
-        # tk stuff
-        # bind update in visibility event
-        self.bind('<Visibility>', lambda evt: self.update())
+        self._file_l = list()
+        self._widgets_l = list()
+        # auto-update every 5s
+        self.start_cyclic_update(update_ms=5000)
 
-    # populate (or redo it) the tab with all PdfOpenerTile
-    def update(self):
+    @property
+    def file_list(self):
+        return self._file_l
+
+    @file_list.setter
+    def file_list(self, value):
+        # check type
         try:
-            # list all PDF
-            pdf_file_l = glob.glob(self.pdf_path + '*.pdf')
-            pdf_file_l.sort()
-            # if there is any difference in the pdf list, REFRESH, else don't, there is no need
-            if pdf_file_l != [pdf_tl.file for pdf_tl in self._l_tl_pdf]:
-                # remove all old tiles
-                for tl_pdf in self._l_tl_pdf:
-                    tl_pdf.destroy()
-                self._l_tl_pdf = list()
-                # populate with new tiles
+            value = sorted(list(value))
+        except (TypeError, ValueError):
+            value = None
+        # check change
+        if self._file_l != value:
+            # copy value to private cache
+            self._file_l = value
+            # notify change
+            self._on_list_change()
+
+    def update(self):
+        # update PDF list from infos dict
+        try:
+            self.file_list = [f.decode() for f in Tags.DIR_PDF_DOC_INFOS.get().keys()]
+        except (AttributeError, ValueError):
+            # notify error
+            self.file_list = None
+
+    def _on_list_change(self):
+        # if file list change, reflect it on display
+        try:
+            # remove all existing tiles widgets
+            for w in self._widgets_l:
+                w.destroy()
+            self._widgets_l.clear()
+            # if file list is empty or None
+            if not self._file_l:
+                # display error message "n/a"
+                msg_tl = MessageTile(self)
+                msg_tl.set_tile(row=0, column=0, rowspan=self.nb_tile_h, columnspan=self.nb_tile_w)
+                msg_tl.tk_str_msg.set('n/a')
+                self._widgets_l.append(msg_tl)
+            else:
+                # populate with new file launcher
                 # start at 0:1 pos
                 (r, c) = (0, 1)
-                for pdf_file in pdf_file_l:
-                    self._l_tl_pdf.append(PdfOpenerTile(self, file=pdf_file))
-                    self._l_tl_pdf[-1].set_tile(row=r, column=c, columnspan=5, rowspan=1)
+                for file_name in self._file_l:
+                    # place PdfLauncherTile at (r,c)
+                    launcher_tile = PdfLauncherTile(self, file=file_name)
+                    launcher_tile.set_tile(row=r, column=c, columnspan=5, rowspan=1)
+                    self._widgets_l.append(launcher_tile)
+                    # set next place
                     c += 5
                     if c >= self.nb_tile_w - 1:
                         r += 1
@@ -483,6 +533,66 @@ class Tile(tk.Frame):
 
     def update(self):
         pass
+
+
+class PdfLauncherTile(Tile):
+    def __init__(self, *args, file, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
+        # public
+        self.file = file
+        # private
+        self._front_name = os.path.splitext(self.file)[0].strip()
+        self._ps_l = list()
+        # tk stuff
+        self._name_lbl = tk.Label(self, text=self._front_name, wraplength=550,
+                                  bg=self.cget('bg'), fg=C_TXT, font=('courrier', 20, 'bold'))
+        self._name_lbl.pack(expand=True)
+        # bind function for open pdf file
+        self.bind('<Button-1>', self._on_click)
+        self._name_lbl.bind('<Button-1>', self._on_click)
+        self.bind('<Destroy>', self._on_unmap)
+        self.bind('<Unmap>', self._on_unmap)
+
+    def _on_click(self, evt=None):
+        try:
+            # build a temp file with RAW pdf data from redis hash
+            tmp_f = tempfile.NamedTemporaryFile(prefix='board-', suffix='.pdf', delete=True)
+            # TODO avoid direct DB read here
+            tmp_f.write(DB.main.get_hash_key('dir:doc:raw', self.file))
+            # open it with xpdf
+            xpdf_geometry = '-geometry %sx%s' % (self.master.winfo_width(), self.master.winfo_height() - 10)
+            ps = subprocess.Popen(['/usr/bin/xpdf', xpdf_geometry, '-z page',
+                                   '-cont', tmp_f.name],
+                                  stdin=subprocess.DEVNULL,
+                                  stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL,
+                                  close_fds=True)
+            # keep process references for _on_unmap() job
+            self._ps_l.append(ps)
+            # remove temp file after xpdf startup
+            self.after(ms=1000, func=tmp_f.close)
+        except Exception:
+            logging.error(traceback.format_exc())
+
+    def _on_unmap(self, evt=None):
+        # terminate all xpdf process on tab exit
+        # iterate on copy of process list
+        for ps in list(self._ps_l):
+            # terminate (ps wait for zombie process avoid)
+            ps.terminate()
+            ps.wait()
+            # remove ps from original list
+            self._ps_l.remove(ps)
+
+
+class MessageTile(Tile):
+    def __init__(self, *args, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
+        # public
+        self.tk_str_msg = tk.StringVar()
+        # tk stuff
+        tk.Label(self, textvariable=self.tk_str_msg, bg=self.cget('bg'),
+                 fg=C_TXT, font=('courrier', 20, 'bold')).pack(expand=True)
 
 
 class TwitterTile(Tile):
@@ -571,7 +681,7 @@ class FlysprayTile(Tile):
             for item in self._l_items[:TTE_MAX_NB]:
                 # limit title length
                 title = item['title']
-                title = (title[:TTE_MAX_LEN-2] + '..') if len(title) > TTE_MAX_LEN else title
+                title = (title[:TTE_MAX_LEN - 2] + '..') if len(title) > TTE_MAX_LEN else title
                 msg += '%s\n' % title
             self._msg_text.set(msg)
         except Exception:
@@ -1199,8 +1309,10 @@ class ImageRefreshTile(Tile):
 
 
 class ImageCarouselTile(Tile):
-    def __init__(self, *args, refresh_rate=20000, **kwargs):
+    def __init__(self, *args, img_path, refresh_rate=20000, **kwargs):
         Tile.__init__(self, *args, **kwargs)
+        # public
+        self.img_path = img_path
         # private
         self._img_index = 0
         self._img_files = list()
@@ -1220,18 +1332,17 @@ class ImageCarouselTile(Tile):
 
     def update(self):
         # display next image or skip this if skip counter is set
-        if self._skip_update_cnt > 0:
-            self._skip_update_cnt -= 1
-        else:
+        if self._skip_update_cnt <= 0:
             self._load_next_img()
+        else:
+            self._skip_update_cnt -= 1
 
     def _on_click(self, evt=None):
         # on first click: skip the 8 next auto update cycle
-        # on second one or more: load the next image
-        if not self._skip_update_cnt > 0:
-            self._skip_update_cnt = 8
-        else:
+        # on second one: also load the next image
+        if self._skip_update_cnt > 0:
             self._load_next_img()
+        self._skip_update_cnt = 8
 
     def _load_next_img(self):
         # next img file index
@@ -1246,8 +1357,102 @@ class ImageCarouselTile(Tile):
             logging.error(traceback.format_exc())
 
     def _img_files_load(self):
-        self._img_files = glob.glob(CAROUSEL_PNG_PATH + '*.png')
+        self._img_files = glob.glob(os.path.join(self.img_path, '*.png'))
         self._img_files.sort()
+
+
+class ImageRawCarouselTile(Tile):
+    def __init__(self, *args, raw_img_tag_d, change_rate_s=20.0, **kwargs):
+        Tile.__init__(self, *args, **kwargs)
+        # public
+        self.raw_img_tag_d = raw_img_tag_d
+        # private
+        self._playlist = list()
+        self._skip_update_cnt = 0
+        # tk widget init
+        # don't remove tk_img: keep a ref to avoid del by garbage collect
+        self.tk_img = tk.PhotoImage()
+        self.lbl_img = tk.Label(self, bg=self.cget('bg'))
+        self.lbl_img.pack(expand=True)
+        # bind function for skip update
+        self.bind('<Button-1>', self._on_click)
+        self.lbl_img.bind('<Button-1>', self._on_click)
+        # auto-update carousel rotate
+        self.start_cyclic_update(update_ms=round(change_rate_s * 1000))
+        # force update after 3s at dashboard startup (redis init time)
+        self.after(ms=3000, func=self.update)
+
+    @property
+    def raw_display(self):
+        return self.raw_display
+
+    @raw_display.setter
+    def raw_display(self, value):
+        try:
+            widget_size = (self.winfo_width(), self.winfo_height())
+            # display current image file if raw_img is set
+            if value:
+                # RAW img data to Pillow (PIL) image
+                pil_img = PIL.Image.open(io.BytesIO(value))
+                # force image size to widget size
+                pil_img.thumbnail(widget_size)
+            else:
+                # create a replace 'n/a' image
+                pil_img = PIL.Image.new('RGB', widget_size, C_PINK)
+                txt = 'n/a'
+                draw = PIL.ImageDraw.Draw(pil_img)
+                font = PIL.ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 24)
+                w, h = draw.textsize(txt, font=font)
+                x = (widget_size[0] - w) / 2
+                y = (widget_size[1] - h) / 2
+                draw.text((x, y), txt, fill='black', font=font)
+            # update image label
+            self.tk_img = PIL.ImageTk.PhotoImage(pil_img)
+            self.lbl_img.configure(image=self.tk_img)
+        except Exception:
+            logging.error(traceback.format_exc())
+
+    def update(self):
+        # display next image or skip this if skip counter is set
+        if self._skip_update_cnt <= 0:
+            self._load_next_img()
+        else:
+            self._skip_update_cnt -= 1
+
+    def _load_next_img(self):
+        try:
+            # try to load next valid image
+            while True:
+                next_img_name = self._playlist.pop(0)
+                raw_value = self.raw_img_tag_d.get(next_img_name)
+                # load valid raw img or try next one
+                if raw_value:
+                    # load display and exit loop
+                    self.raw_display = raw_value
+                    break
+        except IndexError:
+            # refill playlist if empty
+            self._fill_playlist()
+
+    def _fill_playlist(self):
+        # fill playlist with image filename to display
+        try:
+            img_raw_d = self.raw_img_tag_d.get()
+            if not img_raw_d:
+                raise ValueError
+            self._playlist = list(img_raw_d.keys())
+            self._playlist.sort()
+        except ValueError:
+            # clear playlist and force "n/a" on Tile display
+            self.raw_display = None
+            self._playlist.clear()
+
+    def _on_click(self, evt=None):
+        # on first click: skip the 8 next auto update cycle
+        # on second one: also load the next image
+        if self._skip_update_cnt > 0:
+            self._load_next_img()
+        self._skip_update_cnt = 8
 
 
 # main

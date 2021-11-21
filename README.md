@@ -78,9 +78,11 @@ sudo sh -c 'echo "" >> /etc/ufw/after6.rules'
 sudo ufw reload
 ```
 
-### Setup an SSL tunnel for redis share
+### Setup an SSL tunnel for redis slaves sync and Loos redis share
 
-Create cert/key for server (only on Loos master dashboard)
+#### Loos master
+
+Create cert/key for server
 
 ```bash
 # create private key and self-signed certificate for server
@@ -90,17 +92,29 @@ sudo openssl req -x509 -newkey rsa:4096 -days 3650 -nodes \
                  -out /etc/opt/tk-dashboard/stunnel/certs/redis-srv-loos.crt
 ```
 
-Stunnel server setup (only on Loos master dashboard)
+Stunnel server setup
 
 ```bash
 # add configuration file to tk-dashboard conf
 sudo cp stunnel/redis-loos-tls-srv.conf /etc/opt/tk-dashboard/stunnel/
-# add directory for trusted certs of clients
+# add directory for trusted certs of clients (local slave or remote share cli)
 sudo mkdir -p /etc/opt/tk-dashboard/stunnel/certs/trusted.d/
 # copy trusted client certificate to trusted.d directory (see below)
 sudo cp redis-cli-messein.crt /etc/opt/tk-dashboard/stunnel/certs/trusted.d/
 # add symbolic links to certs hash values (need by stunnel CApath)
 sudo c_rehash /etc/opt/tk-dashboard/stunnel/certs/trusted.d/
+```
+
+#### Messein master
+
+Create cert/key for server
+
+```bash
+# create private key and self-signed certificate for server
+sudo openssl req -x509 -newkey rsa:4096 -days 3650 -nodes \
+                 -subj "/C=FR/ST=Haut-de-France/L=Loos/CN=dashboard-share" \
+                 -keyout /etc/opt/tk-dashboard/stunnel/certs/redis-srv-messein.key \
+                 -out /etc/opt/tk-dashboard/stunnel/certs/redis-srv-messein.crt
 ```
 
 Create cert/key for client (here for Messein)
