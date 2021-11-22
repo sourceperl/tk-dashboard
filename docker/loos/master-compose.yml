@@ -24,7 +24,7 @@ services:
     image: board-stunnel-img
     container_name: board-redis-loos-tls-srv
     restart: unless-stopped
-    command: stunnel /usr/local/etc/stunnel/redis-loos-tls-srv.conf
+    command: stunnel /usr/local/etc/stunnel/redis-loos-m-tls-srv.conf
     ports:
       - "0.0.0.0:63790:63790"
     volumes:

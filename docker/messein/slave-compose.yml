@@ -24,7 +24,7 @@ services:
     image: board-stunnel-img
     container_name: board-redis-master-tls-cli
     restart: unless-stopped
-    command: stunnel /usr/local/etc/stunnel/redis-messein-tls-cli-slave.conf
+    command: stunnel /usr/local/etc/stunnel/redis-messein-s-tls-cli-to-master.conf
     volumes:
       - /etc/opt/tk-dashboard/stunnel/:/usr/local/etc/stunnel/:ro
     networks:
