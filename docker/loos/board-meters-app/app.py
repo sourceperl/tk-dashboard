@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
+from board_lib import catch_log_except
 from configparser import ConfigParser
 import logging
 import time
-import functools
 from pyHMI.DS_ModbusTCP import ModbusTCPDevice
 from pyHMI.DS_Redis import RedisDevice
 from pyHMI.Tag import Tag
@@ -27,36 +27,6 @@ redis_pass = cnf.get('redis', 'pass')
 # thingspeak api key
 ts_pwr_api_key = cnf.get('electric_meter', 'tspeak_pwr_w_key')
 ts_idx_api_key = cnf.get('electric_meter', 'tspeak_idx_w_key')
-
-
-# some functions
-def catch_log_except(catch=None, log_lvl=logging.ERROR, limit_arg_len=40):
-    # decorator to catch exception and produce one line log message
-    if catch is None:
-        catch = Exception
-
-    def _catch_log_except(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except catch as e:
-                # format function call "f_name(args..., kwargs...)" string (with arg/kwargs len limit)
-                func_args = ''
-                for arg in args:
-                    func_args += ', ' if func_args else ''
-                    func_args += repr(arg) if len(repr(arg)) < limit_arg_len else repr(arg)[:limit_arg_len - 2] + '..'
-                for k, v in kwargs.items():
-                    func_args += ', ' if func_args else ''
-                    func_args += repr(k) + '='
-                    func_args += repr(v) if len(repr(v)) < limit_arg_len else repr(v)[:limit_arg_len - 2] + '..'
-                func_call = f'{func.__name__}({func_args})'
-                # log message "except [except class] in f_name(args..., kwargs...): [except msg]"
-                logging.log(log_lvl, f'except {type(e)} in {func_call}: {e}')
-
-        return wrapper
-
-    return _catch_log_except
 
 
 # some class
@@ -123,9 +93,8 @@ class Tags(object):
     HEAT_I_PWR = Tag(0.0, src=Devices.meter_heat, ref={'type': 'long', 'addr': AD_2155_INDEX_PWR, 'span': 1 / 1000})
     # virtual tags
     # total power consumption
-    TOTAL_PWR = Tag(0.0, get_cmd=lambda: Tags.GARAGE_PWR.val + Tags.COLD_WATER_PWR.val +
-                                         Tags.LIGHT_PWR.val + Tags.TECH_PWR.val +
-                                         Tags.CTA_PWR.val + Tags.HEAT_PWR.val)
+    TOTAL_PWR = Tag(0.0, get_cmd=lambda: Tags.GARAGE_PWR.val + Tags.COLD_WATER_PWR.val + Tags.LIGHT_PWR.val +
+                                         Tags.TECH_PWR.val + Tags.CTA_PWR.val + Tags.HEAT_PWR.val)
 
 
 def thingspeak_send(api_key, l_values):

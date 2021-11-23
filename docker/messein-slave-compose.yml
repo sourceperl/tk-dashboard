@@ -20,11 +20,13 @@ services:
         max-file: "5"
 
   board-redis-master-tls-cli:
-    build: ../common/board-stunnel/.
+    build:
+      context: ./
+      dockerfile: common/board-stunnel/Dockerfile
     image: board-stunnel-img
     container_name: board-redis-master-tls-cli
     restart: unless-stopped
-    command: stunnel /usr/local/etc/stunnel/redis-loos-s-tls-cli-to-master.conf
+    command: stunnel /usr/local/etc/stunnel/redis-messein-s-tls-cli-to-master.conf
     volumes:
       - /etc/opt/tk-dashboard/stunnel/:/usr/local/etc/stunnel/:ro
     networks:
@@ -36,7 +38,9 @@ services:
         max-file: "5"
 
   board-admin-shell:
-    build: ../common/board-admin-shell/.
+    build:
+      context: ./
+      dockerfile: common/board-admin-shell/Dockerfile
     image: board-admin-shell-img
     container_name: board-admin-shell
     restart: unless-stopped

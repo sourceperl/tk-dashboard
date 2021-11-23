@@ -1,25 +1,20 @@
 #!/usr/bin/env python3
 
-import base64
+from board_lib import CustomRedis, catch_log_except, dweet_decode
 from collections import Counter
 from configparser import ConfigParser
 from datetime import datetime, timedelta
-import math
-import secrets
 import urllib.parse
 import hashlib
 import html
 import json
 import logging
-import functools
 import io
 import re
 import time
 from xml.dom import minidom
-import zlib
 import feedparser
 import os
-import redis
 import requests
 from requests_oauthlib import OAuth1
 import schedule
@@ -71,107 +66,13 @@ webdav_carousel_img_dir = cnf.get('owncloud_dashboard', 'webdav_carousel_img_dir
 
 
 # some functions
-def catch_log_except(catch=None, log_lvl=logging.ERROR, limit_arg_len=40):
-    # decorator to catch exception and produce one line log message
-    if catch is None:
-        catch = Exception
-
-    def _catch_log_except(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except catch as e:
-                # format function call "f_name(args..., kwargs...)" string (with arg/kwargs len limit)
-                func_args = ''
-                for arg in args:
-                    func_args += ', ' if func_args else ''
-                    func_args += repr(arg) if len(repr(arg)) < limit_arg_len else repr(arg)[:limit_arg_len - 2] + '..'
-                for k, v in kwargs.items():
-                    func_args += ', ' if func_args else ''
-                    func_args += repr(k) + '='
-                    func_args += repr(v) if len(repr(v)) < limit_arg_len else repr(v)[:limit_arg_len - 2] + '..'
-                func_call = f'{func.__name__}({func_args})'
-                # log message "except [except class] in f_name(args..., kwargs...): [except msg]"
-                logging.log(log_lvl, f'except {type(e)} in {func_call}: {e}')
-
-        return wrapper
-
-    return _catch_log_except
-
-
 def dt_utc_to_local(utc_dt):
     now_ts = time.time()
     offset = datetime.fromtimestamp(now_ts) - datetime.utcfromtimestamp(now_ts)
     return utc_dt + offset
 
 
-def byte_xor(bytes_1, bytes_2):
-    return bytes([_a ^ _b for _a, _b in zip(bytes_1, bytes_2)])
-
-
-def dweet_encode(bytes_data):
-    # compress data
-    c_data = zlib.compress(bytes_data)
-    # generate a random token
-    token = secrets.token_bytes(64)
-    # xor random token and private key
-    key = dweet_key.encode('utf8')
-    key_mask = key * math.ceil(len(token) / len(key))
-    xor_token = byte_xor(token, key_mask)
-    # xor data and token
-    token_mask = token * math.ceil(len(c_data) / len(token))
-    xor_data = byte_xor(c_data, token_mask)
-    # concatenate xor random token and xor data
-    msg_block = xor_token + xor_data
-    # encode result in base64 (for no utf-8 byte support)
-    return base64.b64encode(msg_block)
-
-
-def dweet_decode(b64_msg_block):
-    # decode base64 msg
-    msg_block = base64.b64decode(b64_msg_block)
-    # split message: [xor_token part : xor_data part]
-    xor_token = msg_block[:64]
-    xor_data = msg_block[64:]
-    # token = xor_token xor private key
-    key = dweet_key.encode('utf8')
-    key_mask = key * math.ceil(len(xor_token) / len(key))
-    token = byte_xor(xor_token, key_mask)
-    # compressed data = xor_data xor token
-    token_mask = token * math.ceil(len(xor_data) / len(token))
-    c_data = byte_xor(xor_data, token_mask)
-    # return decompress data
-    return zlib.decompress(c_data)
-
-
 # some class
-class CustomRedis(redis.StrictRedis):
-    @catch_log_except(catch=redis.RedisError)
-    def set_bytes(self, name, value, ttl=None):
-        return self.set(name, value, ex=ttl)
-
-    @catch_log_except(catch=redis.RedisError)
-    def get_bytes(self, name):
-        return self.get(name)
-
-    @catch_log_except(catch=redis.RedisError)
-    def set_str(self, name, value, ttl=None):
-        return self.set(name, value, ex=ttl)
-
-    @catch_log_except(catch=(redis.RedisError, AttributeError))
-    def get_str(self, name):
-        return self.get(name).decode('utf-8')
-
-    @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError))
-    def set_to_json(self, name, obj, ttl=None):
-        return self.set(name, json.dumps(obj), ex=ttl)
-
-    @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError))
-    def get_from_json(self, name):
-        return json.loads(self.get(name).decode('utf-8'))
-
-
 class DB:
     # create connector
     main = CustomRedis(host='board-redis-srv', username=redis_user, password=redis_pass,
@@ -217,7 +118,7 @@ def air_quality_atmo_hdf_job():
                          'saint-quentin': zones_d.get('02691', 0),
                          'valenciennes': zones_d.get('59606', 0)}
         # update redis
-        DB.main.set_to_json('json:atmo', d_air_quality, ttl=6 * 3600)
+        DB.main.set_to_json('json:atmo', d_air_quality, ex=6 * 3600)
 
 
 @catch_log_except()
@@ -226,9 +127,9 @@ def bridge_job():
     fly_data_nord = DB.bridge.get_from_json('rx:bur:flyspray_rss_nord')
     fly_data_est = DB.bridge.get_from_json('rx:bur:flyspray_rss_est')
     if fly_data_nord:
-        DB.main.set_to_json('json:bridge:fly-nord', fly_data_nord, ttl=1 * 3600)
+        DB.main.set_to_json('json:bridge:fly-nord', fly_data_nord, ex=1 * 3600)
     if fly_data_est:
-        DB.main.set_to_json('json:bridge:fly-est', fly_data_est, ttl=1 * 3600)
+        DB.main.set_to_json('json:bridge:fly-est', fly_data_est, ex=1 * 3600)
 
 
 @catch_log_except()
@@ -243,13 +144,15 @@ def dweet_job():
         data_d = r.json()
         # update redis
         try:
-            json_flyspray_est = dweet_decode(data_d['with'][0]['content']['raw_flyspray_est']).decode('utf8')
-            DB.main.set_to_json("json:dweet:fly-est", json.loads(json_flyspray_est), ttl=3600)
+            json_flyspray_est = dweet_decode(data_d['with'][0]['content']['raw_flyspray_est'], dweet_key)
+            json_flyspray_est = json_flyspray_est.decode('utf8')
+            DB.main.set_to_json("json:dweet:fly-est", json.loads(json_flyspray_est), ex=3600)
         except IndexError as e:
             logging.error(f'except {type(e)} in  dweet_job(): {e}')
         try:
-            json_flyspray_nord = dweet_decode(data_d['with'][0]['content']['raw_flyspray_nord']).decode('utf8')
-            DB.main.set_to_json("json:dweet:fly-nord", json.loads(json_flyspray_nord), ttl=3600)
+            json_flyspray_nord = dweet_decode(data_d['with'][0]['content']['raw_flyspray_nord'], dweet_key)
+            json_flyspray_nord = json_flyspray_nord.decode('utf8')
+            DB.main.set_to_json("json:dweet:fly-nord", json.loads(json_flyspray_nord), ex=3600)
         except IndexError as e:
             logging.error(f'except {type(e)} in  dweet_job(): {e}')
 
@@ -264,7 +167,7 @@ def gsheet_job():
         tag, value = line.split(',')
         d[tag] = value
     redis_d = dict(update=datetime.now().isoformat('T'), tags=d)
-    DB.main.set_to_json('json:gsheet', redis_d, ttl=2 * 3600)
+    DB.main.set_to_json('json:gsheet', redis_d, ex=2 * 3600)
 
 
 @catch_log_except()
@@ -280,7 +183,7 @@ def img_gmap_traffic_job():
         img_io = io.BytesIO()
         pil_img.save(img_io, format='PNG')
         # store RAW PNG to redis key
-        DB.main.set_bytes('img:traffic-map:png', img_io.getvalue(), ttl=2 * 3600)
+        DB.main.set('img:traffic-map:png', img_io.getvalue(), ex=2 * 3600)
 
 
 @catch_log_except()
@@ -327,7 +230,7 @@ def img_grt_tw_cloud_job():
             pil_img = word_cloud.to_image()
             pil_img.save(img_io, format='PNG')
             # store RAW PNG to redis key
-            DB.main.set_bytes('img:grt-twitter-cloud:png', img_io.getvalue(), ttl=2 * 3600)
+            DB.main.set('img:grt-twitter-cloud:png', img_io.getvalue(), ex=2 * 3600)
 
 
 @catch_log_except()
@@ -336,7 +239,7 @@ def local_info_job():
     l_titles = []
     for post in feedparser.parse('https://france3-regions.francetvinfo.fr/societe/rss?r=hauts-de-france').entries:
         l_titles.append(post.title)
-    DB.main.set_to_json('json:news', l_titles, ttl=2 * 3600)
+    DB.main.set_to_json('json:news', l_titles, ex=2 * 3600)
 
 
 @catch_log_except()
@@ -370,7 +273,7 @@ def openweathermap_forecast_job():
                         t_today = item['main']['temp']
                         d_days[0]['t'] = t_today
     # store to redis
-    DB.main.set_to_json('json:weather:forecast:loos', d_days, ttl=2 * 3600)
+    DB.main.set_to_json('json:weather:forecast:loos', d_days, ex=2 * 3600)
 
 
 @catch_log_except()
@@ -610,7 +513,7 @@ def twitter_job():
                 tweets_l.append(tcl_normalize_str(tw['full_text']))
         # update redis
         d_redis = dict(tweets=tweets_l, update=datetime.now().isoformat('T'))
-        DB.main.set_to_json('json:tweets:@grtgaz', d_redis, ttl=3600)
+        DB.main.set_to_json('json:tweets:@grtgaz', d_redis, ex=3600)
 
 
 @catch_log_except()
@@ -648,7 +551,7 @@ def vigilance_job():
             vig_data['department'][dep_code] = {'vig_level': color_id,
                                                 'flood_level': flood_id,
                                                 'risk_id': risk_id}
-        DB.main.set_to_json('json:vigilance', vig_data, ttl=2 * 3600)
+        DB.main.set_to_json('json:vigilance', vig_data, ex=2 * 3600)
 
 
 @catch_log_except()
@@ -690,7 +593,7 @@ def weather_today_job():
         # weather status str
         d_today['descr'] = 'n/a'
         # store to redis
-        DB.main.set_to_json('json:weather:today:loos', d_today, ttl=2 * 3600)
+        DB.main.set_to_json('json:weather:today:loos', d_today, ex=2 * 3600)
 
 
 # main

@@ -2,4 +2,4 @@
 
 [[ -z ${@} ]] && exit 1
 
-docker-compose --file loos/slave-compose.yml --env-file loos/.env $@
+docker-compose --file loos-slave-compose.yml --env-file loos/.env $@

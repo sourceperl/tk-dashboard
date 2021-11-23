@@ -12,10 +12,10 @@ RUN apt-get install --yes \
 ENV PYTHONUNBUFFERED=1
 
 # copy board-* tools
-COPY board-* /usr/local/bin/
+COPY common/board-admin-shell/board-* /usr/local/bin/
 
 # copy entrypoint script
-COPY docker-entrypoint.sh /
+COPY common/board-admin-shell/docker-entrypoint.sh /
 
 # start in /root/
 WORKDIR /root/

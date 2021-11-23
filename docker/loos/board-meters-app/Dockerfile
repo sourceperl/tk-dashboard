@@ -15,5 +15,6 @@ USER $username
 ENV PYTHONUNBUFFERED=1
 
 # run app
-COPY app.py ./
+COPY loos/board-meters-app/board_lib.py ./
+COPY loos/board-meters-app/app.py ./
 CMD [ "python3", "./app.py" ]

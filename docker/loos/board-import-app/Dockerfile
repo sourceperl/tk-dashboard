@@ -25,6 +25,7 @@ ENV PYTHONUNBUFFERED=1
 RUN python3 -c 'import matplotlib.font_manager'
 
 # run app
-COPY webdav.py ./
-COPY app.py ./
+COPY loos/board-import-app/webdav.py ./
+COPY loos/board-import-app/board_lib.py ./
+COPY loos/board-import-app/app.py ./
 CMD [ "python3", "./app.py" ]

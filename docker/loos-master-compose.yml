@@ -19,12 +19,12 @@ services:
         max-size: "10m"
         max-file: "5"
 
-  board-redis-messein-tls-srv:
-    build: ../common/board-stunnel/.
+  board-redis-loos-tls-srv:
+    build: common/board-stunnel
     image: board-stunnel-img
-    container_name: board-redis-messein-tls-srv
+    container_name: board-redis-loos-tls-srv
     restart: unless-stopped
-    command: stunnel /usr/local/etc/stunnel/redis-messein-m-tls-srv.conf
+    command: stunnel /usr/local/etc/stunnel/redis-loos-m-tls-srv.conf
     ports:
       - "0.0.0.0:63790:63790"
     volumes:
@@ -37,24 +37,10 @@ services:
         max-size: "10m"
         max-file: "5"
 
-  board-redis-loos-tls-cli:
-    build: ../common/board-stunnel/.
-    image: board-stunnel-img
-    container_name: board-redis-loos-tls-cli
-    restart: unless-stopped
-    command: stunnel /usr/local/etc/stunnel/redis-messein-m-tls-cli-to-loos.conf
-    volumes:
-      - /etc/opt/tk-dashboard/stunnel/:/usr/local/etc/stunnel/:ro
-    networks:
-      - board-net
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "5"
-
   board-import-app:
-    build: board-import-app/.
+    build:
+      context: ./
+      dockerfile: loos/board-import-app/Dockerfile
     image: board-import-app-img
     container_name: board-import-app
     restart: unless-stopped
@@ -70,15 +56,55 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  board-export-app:
+    build:
+      context: ./
+      dockerfile: loos/board-export-app/Dockerfile
+    image: board-export-app-img
+    container_name: board-export-app
+    restart: unless-stopped
+    depends_on:
+      - "board-redis-srv"
+    volumes:
+      - /etc/opt/tk-dashboard/board.conf:/data/conf/board.conf:ro
+    networks:
+      - board-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  board-meters-app:
+    build:
+      context: ./
+      dockerfile: loos/board-meters-app/Dockerfile
+    image: board-meters-app-img
+    container_name: board-meters-app
+    restart: unless-stopped
+    depends_on:
+      - "board-redis-srv"
+    volumes:
+      - /etc/opt/tk-dashboard/board.conf:/data/conf/board.conf:ro
+    networks:
+      - board-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
   board-admin-shell:
-    build: ../common/board-admin-shell/.
+    build:
+      context: ./
+      dockerfile: common/board-admin-shell/Dockerfile
     image: board-admin-shell-img
     container_name: board-admin-shell
     restart: unless-stopped
     stdin_open: true
     tty: true
     volumes:
-      - /etc/opt/tk-dashboard/:/data/conf:rw
+      - /etc/opt/tk-dashboard:/data/conf:rw
     networks:
       - board-net
     logging:

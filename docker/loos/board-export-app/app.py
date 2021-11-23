@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
 
+from board_lib import CustomRedis, catch_log_except, dweet_encode
 from configparser import ConfigParser
-import base64
-import json
 import logging
-import functools
-import math
-import secrets
 import time
-import zlib
-import redis
 import requests
 import schedule
 
@@ -24,102 +18,7 @@ dweet_id = cnf.get('dweet', 'id')
 dweet_key = cnf.get('dweet', 'key')
 
 
-# some function
-def catch_log_except(catch=None, log_lvl=logging.ERROR, limit_arg_len=40):
-    # decorator to catch exception and produce one line log message
-    if catch is None:
-        catch = Exception
-
-    def _catch_log_except(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except catch as e:
-                # format function call "f_name(args..., kwargs...)" string (with arg/kwargs len limit)
-                func_args = ''
-                for arg in args:
-                    func_args += ', ' if func_args else ''
-                    func_args += repr(arg) if len(repr(arg)) < limit_arg_len else repr(arg)[:limit_arg_len - 2] + '..'
-                for k, v in kwargs.items():
-                    func_args += ', ' if func_args else ''
-                    func_args += repr(k) + '='
-                    func_args += repr(v) if len(repr(v)) < limit_arg_len else repr(v)[:limit_arg_len - 2] + '..'
-                func_call = f'{func.__name__}({func_args})'
-                # log message "except [except class] in f_name(args..., kwargs...): [except msg]"
-                logging.log(log_lvl, f'except {type(e)} in {func_call}: {e}')
-
-        return wrapper
-
-    return _catch_log_except
-
-
-def byte_xor(bytes_1, bytes_2):
-    return bytes([_a ^ _b for _a, _b in zip(bytes_1, bytes_2)])
-
-
-def dweet_encode(bytes_data):
-    # compress data
-    c_data = zlib.compress(bytes_data)
-    # generate a random token
-    token = secrets.token_bytes(64)
-    # xor random token and private key
-    key = dweet_key.encode('utf8')
-    key_mask = key * math.ceil(len(token) / len(key))
-    xor_token = byte_xor(token, key_mask)
-    # xor data and token
-    token_mask = token * math.ceil(len(c_data) / len(token))
-    xor_data = byte_xor(c_data, token_mask)
-    # concatenate xor random token and xor data
-    msg_block = xor_token + xor_data
-    # encode binary data with base64
-    return base64.b64encode(msg_block)
-
-
-def dweet_decode(b64_msg_block):
-    # decode base64 msg
-    msg_block = base64.b64decode(b64_msg_block)
-    # split message: [xor_token part : xor_data part]
-    xor_token = msg_block[:64]
-    xor_data = msg_block[64:]
-    # token = xor_token xor private key
-    key = dweet_key.encode('utf8')
-    key_mask = key * math.ceil(len(xor_token) / len(key))
-    token = byte_xor(xor_token, key_mask)
-    # compressed data = xor_data xor token
-    token_mask = token * math.ceil(len(xor_data) / len(token))
-    c_data = byte_xor(xor_data, token_mask)
-    # return decompress data
-    return zlib.decompress(c_data)
-
-
 # some class
-class CustomRedis(redis.StrictRedis):
-    @catch_log_except(catch=redis.RedisError)
-    def set_bytes(self, name, value):
-        return self.set(name, value)
-
-    @catch_log_except(catch=redis.RedisError)
-    def get_bytes(self, name):
-        return self.get(name)
-
-    @catch_log_except(catch=redis.RedisError)
-    def set_str(self, name, value):
-        return self.set(name, value)
-
-    @catch_log_except(catch=(redis.RedisError, AttributeError))
-    def get_str(self, name):
-        return self.get(name).decode('utf-8')
-
-    @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError))
-    def set_to_json(self, name, obj):
-        return self.set(name, json.dumps(obj))
-
-    @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError))
-    def get_from_json(self, name):
-        return json.loads(self.get(name).decode('utf-8'))
-
-
 class DB:
     main = CustomRedis(host='board-redis-srv', username=redis_user, password=redis_pass,
                        socket_timeout=4, socket_keepalive=True)
@@ -130,20 +29,27 @@ def dweet_job():
     DW_POST_URL = 'https://dweet.io/dweet/for/'
 
     # read internal data
-    json_flyspray_nord = DB.main.get_bytes('json:bridge:fly-nord')
-    json_flyspray_est = DB.main.get_bytes('json:bridge:fly-est')
+    json_flyspray_nord = DB.main.get('json:bridge:fly-nord')
+    json_flyspray_est = DB.main.get('json:bridge:fly-est')
     # populate dweet_post_d dict with encoded json
     dweet_post_d = {}
     if json_flyspray_nord:
-        dweet_post_d['raw_flyspray_nord'] = dweet_encode(json_flyspray_nord).decode('ascii')
+        dweet_post_d['raw_flyspray_nord'] = dweet_encode(json_flyspray_nord, dweet_key).decode('ascii')
     if json_flyspray_est:
-        dweet_post_d['raw_flyspray_est'] = dweet_encode(json_flyspray_est).decode('ascii')
+        dweet_post_d['raw_flyspray_est'] = dweet_encode(json_flyspray_est, dweet_key).decode('ascii')
     # if dweet_post_d not empty publish to dweet
     if dweet_post_d:
         r = requests.post(DW_POST_URL + dweet_id, json=dweet_post_d, timeout=15.0)
         # check error
         if r.status_code == 200:
             logging.debug("dweet update ok")
+
+
+@catch_log_except()
+def redis_export_job():
+    # fill Messein share keyspace
+    for k in ['img:grt-twitter-cloud:png', 'json:tweets:@grtgaz']:
+        DB.main.execute_command('COPY', k, f'share:messein:{k}', 'REPLACE')
 
 
 # main
@@ -154,8 +60,10 @@ if __name__ == '__main__':
 
     # init scheduler
     schedule.every(5).minutes.do(dweet_job)
+    schedule.every(2).minutes.do(redis_export_job)
     # first call
     dweet_job()
+    redis_export_job()
 
     # main loop
     while True:
