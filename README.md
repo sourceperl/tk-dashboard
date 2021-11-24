@@ -157,6 +157,8 @@ Stunnel server setup (only on Messein master dashboard)
 # add configuration file to tk-dashboard conf
 sudo cp stunnel/redis-messein-m-tls-srv.conf /etc/opt/tk-dashboard/stunnel/
 sudo cp stunnel/redis-messein-m-tls-cli-to-loos.conf /etc/opt/tk-dashboard/stunnel/
+# add directory for trusted certs of clients
+sudo mkdir -p /etc/opt/tk-dashboard/stunnel/certs/trusted.d/
 # copy server certificate to certs directory (copy it from server host)
 sudo cp redis-loos-m-srv.crt /etc/opt/tk-dashboard/stunnel/certs/
 # copy trusted client certificate to trusted.d directory (see below)
