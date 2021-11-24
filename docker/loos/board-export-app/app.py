@@ -27,7 +27,7 @@ def loos_redis_export_job():
                     'json:tweets:@grtgaz',
                     'json:flyspray-est']
     for k in share_keys_l:
-        DB.main.execute_command('COPY', k, f'share:messein:{k}', 'REPLACE')
+        DB.main.execute_command('COPY', k, f'to:messein:{k}', 'REPLACE')
 
 
 # main

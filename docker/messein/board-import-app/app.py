@@ -368,9 +368,9 @@ def owc_sync_doc_job():
 
 @catch_log_except()
 def loos_redis_import_job():
-    share_keys_l = [('share:messein:json:tweets:@grtgaz', 'json:tweets:@grtgaz'),
-                    ('share:messein:img:grt-twitter-cloud:png', 'img:grt-twitter-cloud:png'),
-                    ('share:messein:json:flyspray-est', 'json:flyspray-est')]
+    share_keys_l = [('to:messein:json:tweets:@grtgaz', 'from:loos:json:tweets:@grtgaz'),
+                    ('to:messein:img:grt-twitter-cloud:png', 'from:loos:img:grt-twitter-cloud:png'),
+                    ('to:messein:json:flyspray-est', 'from:loos:json:flyspray-est')]
     for from_remote_key, to_local_key in share_keys_l:
         # copy redis data from loos key to local key
         data = DB.loos.get(from_remote_key)
