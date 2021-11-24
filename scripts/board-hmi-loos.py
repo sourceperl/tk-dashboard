@@ -151,7 +151,7 @@ class Tags:
     MET_PWR_ACT = Tag(func_src=lambda: DB.main.get_from_json('int:loos_elec:pwr_act'), refresh=1.0)
     MET_TODAY_WH = Tag(func_src=lambda: DB.main.get_from_json('float:loos_elec:today_wh'), refresh=2.0)
     MET_YESTERDAY_WH = Tag(func_src=lambda: DB.main.get_from_json('float:loos_elec:yesterday_wh'))
-    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.main.get_from_json('json:bridge:fly-nord'))
+    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.main.get_from_json('json:flyspray-nord'))
     IMG_ATMO_HDF = Tag(func_src=lambda: DB.main.get_bytes('img:static:logo-atmo-hdf:png'), refresh=10.0)
     IMG_LOGO_GRT = Tag(func_src=lambda: DB.main.get_bytes('img:static:logo-grt:png'), refresh=10.0)
     IMG_GRT_CLOUD = Tag(func_src=lambda: DB.main.get_bytes('img:grt-twitter-cloud:png'), refresh=10.0)

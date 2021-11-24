@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from board_lib import CustomRedis, catch_log_except, dweet_decode
+from board_lib import CustomRedis, catch_log_except, dt_utc_to_local
 from collections import Counter
 from configparser import ConfigParser
 from datetime import datetime, timedelta
@@ -54,22 +54,12 @@ tw_api_key = cnf.get('twitter', 'api_key')
 tw_api_secret = cnf.get('twitter', 'api_secret')
 tw_access_token = cnf.get('twitter', 'access_token')
 tw_access_token_secret = cnf.get('twitter', 'access_token_secret')
-# dweet
-dweet_id = cnf.get('dweet', 'id')
-dweet_key = cnf.get('dweet', 'key')
 # webdav
 webdav_url = cnf.get('owncloud_dashboard', 'webdav_url')
 webdav_user = cnf.get('owncloud_dashboard', 'webdav_user')
 webdav_pass = cnf.get('owncloud_dashboard', 'webdav_pass')
 webdav_reglement_doc_dir = cnf.get('owncloud_dashboard', 'webdav_reglement_doc_dir')
 webdav_carousel_img_dir = cnf.get('owncloud_dashboard', 'webdav_carousel_img_dir')
-
-
-# some functions
-def dt_utc_to_local(utc_dt):
-    now_ts = time.time()
-    offset = datetime.fromtimestamp(now_ts) - datetime.utcfromtimestamp(now_ts)
-    return utc_dt + offset
 
 
 # some class
@@ -127,34 +117,9 @@ def bridge_job():
     fly_data_nord = DB.bridge.get_from_json('rx:bur:flyspray_rss_nord')
     fly_data_est = DB.bridge.get_from_json('rx:bur:flyspray_rss_est')
     if fly_data_nord:
-        DB.main.set_as_json('json:bridge:fly-nord', fly_data_nord, ex=1 * 3600)
+        DB.main.set_as_json('json:flyspray-nord', fly_data_nord, ex=1 * 3600)
     if fly_data_est:
-        DB.main.set_as_json('json:bridge:fly-est', fly_data_est, ex=1 * 3600)
-
-
-@catch_log_except()
-def dweet_job():
-    DW_GET_URL = 'https://dweet.io/get/latest/dweet/for/'
-
-    # https request
-    r = requests.get(DW_GET_URL + dweet_id, timeout=10.0)
-    # check error
-    if r.status_code == 200:
-        # parse data
-        data_d = r.json()
-        # update redis
-        try:
-            json_flyspray_est = dweet_decode(data_d['with'][0]['content']['raw_flyspray_est'], dweet_key)
-            json_flyspray_est = json_flyspray_est.decode('utf8')
-            DB.main.set_as_json('json:dweet:fly-est', json.loads(json_flyspray_est), ex=3600)
-        except IndexError as e:
-            logging.error(f'except {type(e)} in  dweet_job(): {e}')
-        try:
-            json_flyspray_nord = dweet_decode(data_d['with'][0]['content']['raw_flyspray_nord'], dweet_key)
-            json_flyspray_nord = json_flyspray_nord.decode('utf8')
-            DB.main.set_as_json('json:dweet:fly-nord', json.loads(json_flyspray_nord), ex=3600)
-        except IndexError as e:
-            logging.error(f'except {type(e)} in  dweet_job(): {e}')
+        DB.main.set_as_json('json:flyspray-est', fly_data_est, ex=1 * 3600)
 
 
 @catch_log_except()
@@ -612,7 +577,6 @@ if __name__ == '__main__':
     schedule.every(1).hours.do(owc_sync_doc_job)
     schedule.every(60).minutes.do(air_quality_atmo_hdf_job)
     schedule.every(2).minutes.do(bridge_job)
-    schedule.every(15).minutes.do(dweet_job)
     schedule.every(5).minutes.do(gsheet_job)
     schedule.every(2).minutes.do(img_gmap_traffic_job)
     schedule.every(30).minutes.do(img_grt_tw_cloud_job)
@@ -624,7 +588,6 @@ if __name__ == '__main__':
     # first call
     air_quality_atmo_hdf_job()
     bridge_job()
-    dweet_job()
     gsheet_job()
     img_gmap_traffic_job()
     img_grt_tw_cloud_job()

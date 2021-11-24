@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from board_lib import CustomRedis, catch_log_except, dweet_decode
+from board_lib import CustomRedis, catch_log_except, dt_utc_to_local
 from configparser import ConfigParser
 from datetime import datetime
 import urllib.parse
@@ -24,6 +24,7 @@ import PIL.Image
 import PIL.ImageDraw
 from webdav import WebDAV
 
+
 # some const
 USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64; rv:2.0.1) Gecko/20100101 Firefox/4.0.1'
 
@@ -35,17 +36,17 @@ owc_car_dir_last_sync = 0
 cnf = ConfigParser()
 cnf.read('/data/conf/board.conf')
 # redis
-redis_user = cnf.get('redis', 'user')
-redis_pass = cnf.get('redis', 'pass')
+main_redis_user = cnf.get('redis', 'user')
+main_redis_pass = cnf.get('redis', 'pass')
+# redis-loos for share
+loos_redis_user = cnf.get('redis-loos', 'user')
+loos_redis_pass = cnf.get('redis-loos', 'pass')
 # gmap img traffic
 gmap_img_url = cnf.get('gmap_img', 'img_url')
 # gsheet
 gsheet_url = cnf.get('gsheet', 'url')
 # openweathermap
 ow_app_id = cnf.get('openweathermap', 'app_id')
-# dweet
-dweet_id = cnf.get('dweet', 'id')
-dweet_key = cnf.get('dweet', 'key')
 # webdav
 webdav_url = cnf.get('owncloud_dashboard', 'webdav_url')
 webdav_user = cnf.get('owncloud_dashboard', 'webdav_user')
@@ -54,17 +55,12 @@ webdav_reglement_doc_dir = cnf.get('owncloud_dashboard', 'webdav_reglement_doc_d
 webdav_carousel_img_dir = cnf.get('owncloud_dashboard', 'webdav_carousel_img_dir')
 
 
-# some functions
-def dt_utc_to_local(utc_dt):
-    now_ts = time.time()
-    offset = datetime.fromtimestamp(now_ts) - datetime.utcfromtimestamp(now_ts)
-    return utc_dt + offset
-
-
 # some class
 class DB:
     # create connector
-    main = CustomRedis(host='board-redis-srv', username=redis_user, password=redis_pass,
+    main = CustomRedis(host='board-redis-srv', username=main_redis_user, password=main_redis_pass,
+                       socket_timeout=4, socket_keepalive=True)
+    loos = CustomRedis(host='board-redis-loos-tls-cli', username=loos_redis_user, password=loos_redis_pass,
                        socket_timeout=4, socket_keepalive=True)
 
 
@@ -130,30 +126,6 @@ def dir_est_img_job():
 
 
 @catch_log_except()
-def dweet_job():
-    DW_GET_URL = 'https://dweet.io/get/latest/dweet/for/'
-    # https request
-    r = requests.get(DW_GET_URL + dweet_id, timeout=10.0)
-    # check error
-    if r.status_code == 200:
-        # parse data
-        data_d = r.json()
-        # update redis
-        try:
-            json_flyspray_est = dweet_decode(data_d['with'][0]['content']['raw_flyspray_est'], dweet_key)
-            json_flyspray_est = json_flyspray_est.decode('utf8')
-            DB.main.set_as_json('json:dweet:fly-est', json.loads(json_flyspray_est), ex=3600)
-        except IndexError as e:
-            logging.error(f'except {type(e)} in  dweet_job(): {e}')
-        try:
-            json_flyspray_nord = dweet_decode(data_d['with'][0]['content']['raw_flyspray_nord'], dweet_key)
-            json_flyspray_nord = json_flyspray_nord.decode('utf8')
-            DB.main.set_as_json('json:dweet:fly-nord', json.loads(json_flyspray_nord), ex=3600)
-        except IndexError as e:
-            logging.error(f'except {type(e)} in  dweet_job(): {e}')
-
-
-@catch_log_except()
 def gsheet_job():
     # https request
     response = requests.get(gsheet_url, timeout=5.0)
@@ -179,7 +151,7 @@ def img_gmap_traffic_job():
         img_io = io.BytesIO()
         pil_img.save(img_io, format='PNG')
         # store RAW PNG to redis key
-        DB.main.set('img:traffic-map:png', img_io.getvalue(), 2 * 3600)
+        DB.main.set('img:traffic-map:png', img_io.getvalue(), ex=2 * 3600)
 
 
 @catch_log_except()
@@ -395,6 +367,18 @@ def owc_sync_doc_job():
 
 
 @catch_log_except()
+def loos_redis_import_job():
+    share_keys_l = [('share:messein:json:tweets:@grtgaz', 'json:tweets:@grtgaz'),
+                    ('share:messein:img:grt-twitter-cloud:png', 'img:grt-twitter-cloud:png'),
+                    ('share:messein:json:flyspray-est', 'json:flyspray-est')]
+    for from_remote_key, to_local_key in share_keys_l:
+        # copy redis data from loos key to local key
+        data = DB.loos.get(from_remote_key)
+        if data:
+            DB.main.set(to_local_key, data, ex=4 * 3600)
+
+
+@catch_log_except()
 def vigilance_job():
     # request XML data from server
     r = requests.get('http://vigilance.meteofrance.com/data/NXFR34_LFPW_.xml', timeout=10.0)
@@ -488,9 +472,9 @@ if __name__ == '__main__':
     schedule.every(5).minutes.do(owc_updated_job)
     schedule.every(1).hours.do(owc_sync_carousel_job)
     schedule.every(1).hours.do(owc_sync_doc_job)
+    schedule.every(2).minutes.do(loos_redis_import_job)
     schedule.every(60).minutes.do(air_quality_atmo_ge_job)
     schedule.every(5).minutes.do(dir_est_img_job)
-    schedule.every(15).minutes.do(dweet_job)
     schedule.every(5).minutes.do(gsheet_job)
     schedule.every(2).minutes.do(img_gmap_traffic_job)
     schedule.every(5).minutes.do(local_info_job)
@@ -499,10 +483,10 @@ if __name__ == '__main__':
     # first call
     air_quality_atmo_ge_job()
     dir_est_img_job()
-    dweet_job()
     gsheet_job()
     img_gmap_traffic_job()
     local_info_job()
+    loos_redis_import_job()
     vigilance_job()
     weather_today_job()
     owc_updated_job()

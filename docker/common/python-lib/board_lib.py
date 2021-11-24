@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 
 import base64
+from datetime import datetime
 import functools
 import json
 import logging
 import math
-import redis
 import secrets
+import time
 import zlib
+import redis
 
 
 # some function
+def byte_xor(bytes_1, bytes_2):
+    return bytes([_a ^ _b for _a, _b in zip(bytes_1, bytes_2)])
+
+
 def catch_log_except(catch=None, log_lvl=logging.ERROR, limit_arg_len=40):
     # decorator to catch exception and produce one line log message
     if catch is None:
@@ -40,8 +46,10 @@ def catch_log_except(catch=None, log_lvl=logging.ERROR, limit_arg_len=40):
     return _catch_log_except
 
 
-def byte_xor(bytes_1, bytes_2):
-    return bytes([_a ^ _b for _a, _b in zip(bytes_1, bytes_2)])
+def dt_utc_to_local(utc_dt):
+    now_ts = time.time()
+    offset = datetime.fromtimestamp(now_ts) - datetime.utcfromtimestamp(now_ts)
+    return utc_dt + offset
 
 
 def dweet_encode(bytes_data: bytes, dweet_key: str):

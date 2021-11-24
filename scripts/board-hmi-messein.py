@@ -147,7 +147,7 @@ class Tags:
     D_WEATHER_VIG = Tag(func_src=lambda: DB.main.get_from_json('json:vigilance'), refresh=2.0)
     D_NEWS_LOCAL = Tag(func_src=lambda: DB.main.get_from_json('json:news'), refresh=2.0)
     D_TWEETS_GRT = Tag(func_src=lambda: DB.main.get_from_json('json:tweets:@grtgaz'), refresh=2.0)
-    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.main.get_from_json('json:dweet:fly-est'), refresh=2.0)
+    L_FLYSPRAY_RSS = Tag(func_src=lambda: DB.main.get_from_json('json:flyspray-est'), refresh=2.0)
     IMG_ATMO_GE = Tag(func_src=lambda: DB.main.get_bytes('img:static:logo-atmo-ge:png'), refresh=10.0)
     IMG_LOGO_GRT = Tag(func_src=lambda: DB.main.get_bytes('img:static:logo-grt:png'), refresh=10.0)
     IMG_GRT_CLOUD = Tag(func_src=lambda: DB.main.get_bytes('img:grt-twitter-cloud:png'), refresh=10.0)
