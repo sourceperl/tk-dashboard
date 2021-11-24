@@ -82,25 +82,13 @@ def dweet_decode(b64_msg_block: bytes, dweet_key: str):
 # some class
 class CustomRedis(redis.Redis):
     @catch_log_except(catch=redis.RedisError)
-    def set(self, name, value, ex=None, px=None, nx=False, xx=False, keepttl=False):
-        return super().set(name, value, ex, px, nx, xx, keepttl)
-
-    @catch_log_except(catch=redis.RedisError)
-    def get(self, name):
-        return super().get(name)
-
-    @catch_log_except(catch=(redis.RedisError, AttributeError))
-    def get_str(self, name):
-        return super().get(name).decode('utf-8')
+    def execute_command(self, *args, **options):
+        return super().execute_command(*args, **options)
 
     @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError))
-    def set_to_json(self, name, obj, ex=None, px=None, nx=False, xx=False, keepttl=False):
-        return super().set(name, json.dumps(obj), ex, px, nx, xx, keepttl)
+    def set_as_json(self, name, obj, ex=None, px=None, nx=False, xx=False, keepttl=False):
+        return super().set(name=name, value=json.dumps(obj), ex=ex, px=px, nx=nx, xx=xx, keepttl=keepttl)
 
     @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError))
     def get_from_json(self, name):
         return json.loads(super().get(name).decode('utf-8'))
-
-    @catch_log_except(catch=redis.RedisError)
-    def execute_command(self, *args, **options):
-        return super().execute_command(*args, **options)

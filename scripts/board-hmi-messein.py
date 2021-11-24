@@ -68,13 +68,6 @@ class CustomRedis(redis.StrictRedis):
             logging.debug(f'redis.get_bytes({name})')
             logging.debug(traceback.format_exc())
 
-    def get_str(self, name):
-        try:
-            return self.get(name).decode('utf-8')
-        except (redis.RedisError, AttributeError):
-            logging.debug(f'redis.get_str({name})')
-            logging.debug(traceback.format_exc())
-
     def get_from_json(self, name):
         try:
             return json.loads(self.get(name).decode('utf-8'))

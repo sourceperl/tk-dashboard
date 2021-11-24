@@ -215,7 +215,7 @@ class CustomRedis(redis.StrictRedis):
         return self.get(name).decode('utf-8')
 
     @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError))
-    def set_to_json(self, name, obj):
+    def set_as_json(self, name, obj):
         return self.set(name, json.dumps(obj))
 
     @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError))
