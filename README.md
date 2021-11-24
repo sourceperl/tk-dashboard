@@ -159,6 +159,10 @@ sudo cp stunnel/redis-messein-m-tls-srv.conf /etc/opt/tk-dashboard/stunnel/
 sudo cp stunnel/redis-messein-m-tls-cli-to-loos.conf /etc/opt/tk-dashboard/stunnel/
 # copy server certificate to certs directory (copy it from server host)
 sudo cp redis-loos-m-srv.crt /etc/opt/tk-dashboard/stunnel/certs/
+# copy trusted client certificate to trusted.d directory (see below)
+sudo cp redis-messein-s-cli-to-master.crt /etc/opt/tk-dashboard/stunnel/certs/trusted.d/
+# add symbolic links to certs hash values (need by stunnel CApath)
+sudo c_rehash /etc/opt/tk-dashboard/stunnel/certs/trusted.d/
 ```
 
 #### Messein slave
