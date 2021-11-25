@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
-from board_lib import CustomRedis, catch_log_except, dt_utc_to_local
 from configparser import ConfigParser
 from datetime import datetime
 import urllib.parse
 import hashlib
+import io
 import json
 import logging
-import io
+import os
+import re
 import time
 from xml.dom import minidom
 import feedparser
-import os
 import requests
 import schedule
 import PIL.Image
@@ -22,6 +22,7 @@ import pytz
 import pdf2image
 import PIL.Image
 import PIL.ImageDraw
+from board_lib import CustomRedis, catch_log_except, dt_utc_to_local
 from webdav import WebDAV
 
 
@@ -254,10 +255,17 @@ def owc_sync_carousel_job():
         file_path = f_d['file_path']
         size = f_d['content_length']
         if file_path and not file_path.endswith('/'):
-            # download filter: ignore txt file or heavy fie (>10 MB)
-            ok_load = not file_path.lower().endswith('.txt') \
-                      and (size < 10 * 1024 * 1024)
-            if ok_load:
+            # search site only tags (_@loos_, _@messein_...) in filename
+            # site id is 16 chars max
+            site_tag_l = re.findall(r'_@([a-zA-Z0-9\-]{1,16})', file_path)
+            site_tag_l = [s.strip().lower() for s in site_tag_l]
+            site_tag_ok = 'messein' in site_tag_l or not site_tag_l
+            # download filter: ignore txt type, heavy file (>10 MB) or name tags mismatch
+            filter_ok = not file_path.lower().endswith('.txt') \
+                        and (size < 10 * 1024 * 1024) \
+                        and site_tag_ok
+            # add file to owncloud dict
+            if filter_ok:
                 own_files_d[f_d['file_path']] = size
     # exist only on local redis
     for f in list(set(local_files_d) - set(own_files_d)):
