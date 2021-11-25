@@ -268,6 +268,7 @@ docker exec board-admin-shell board-init-static
 
 ```bash
 # scripts copy
+sudo cp scripts/board_hmi_lib.py /opt/tk-dashboard/bin/
 sudo cp scripts/board-hmi-loos.py /opt/tk-dashboard/bin/
 # supervisor setup
 sudo cp supervisor/dashboard_loos.conf /etc/supervisor/conf.d/
@@ -278,6 +279,7 @@ sudo supervisorctl update
 
 ```bash
 # scripts copy
+sudo cp scripts/board_hmi_lib.py /opt/tk-dashboard/bin/
 sudo cp scripts/board-hmi-messein.py /opt/tk-dashboard/bin/
 # supervisor setup
 sudo cp supervisor/dashboard_messein.conf /etc/supervisor/conf.d/
