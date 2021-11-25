@@ -89,14 +89,16 @@ def dweet_decode(b64_msg_block: bytes, dweet_key: str):
 
 # some class
 class CustomRedis(redis.Redis):
-    @catch_log_except(catch=redis.RedisError)
+    LOG_LEVEL = logging.ERROR
+
+    @catch_log_except(catch=redis.RedisError, log_lvl=LOG_LEVEL)
     def execute_command(self, *args, **options):
         return super().execute_command(*args, **options)
 
-    @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError))
+    @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError), log_lvl=LOG_LEVEL)
     def set_as_json(self, name, obj, ex=None, px=None, nx=False, xx=False, keepttl=False):
         return super().set(name=name, value=json.dumps(obj), ex=ex, px=px, nx=nx, xx=xx, keepttl=keepttl)
 
-    @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError))
+    @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError), log_lvl=LOG_LEVEL)
     def get_from_json(self, name):
         return json.loads(super().get(name).decode('utf-8'))
