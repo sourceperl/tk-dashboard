@@ -4,13 +4,10 @@ import tkinter as tk
 from tkinter import ttk
 from configparser import ConfigParser
 import logging
-import time
-import threading
-from board_hmi_lib import CustomRedis, Tag, Tab, PdfTab, Colors, Geometry
-from board_hmi_lib import AirQualityTile, ClockTile, DaysAccTileLoos, GaugeTile, \
-                          MessageTile, NewsBannerTile, TwitterTile, FlysprayTile, \
-                          ImageRawTile, ImageRawCarouselTile, VigilanceTile, WattsTile, WeatherTile
-
+from board_hmi_lib import \
+    CustomRedis, Tag, TagsBase, Tab, PdfTab, Geometry, \
+    AirQualityTile, ClockTile, DaysAccTileLoos, GaugeTile, NewsBannerTile, TwitterTile,\
+    FlysprayTile, ImageRawTile, ImageRawCarouselTile, VigilanceTile, WattsTile, WeatherTile
 
 # read config
 cnf = ConfigParser()
@@ -26,43 +23,29 @@ class DB:
                        socket_timeout=4, socket_keepalive=True)
 
 
-class Tags:
-    # create all tag here
-    # WARNs: -> all tag are manage by an IO thread
-    #        -> tag subscriber callback code are call by IO thread (not by tkinter main thread)
-    D_GSHEET_GRT = Tag(get_cmd=lambda: DB.main.get_from_json('json:gsheet'), io_refresh=2.0)
-    D_ATMO_QUALITY = Tag(get_cmd=lambda: DB.main.get_from_json('json:atmo'), io_refresh=2.0)
-    D_W_TODAY_LOOS = Tag(get_cmd=lambda: DB.main.get_from_json('json:weather:today:loos'), io_refresh=2.0)
-    D_W_FORECAST_LOOS = Tag(get_cmd=lambda: DB.main.get_from_json('json:weather:forecast:loos'), io_refresh=2.0)
-    D_WEATHER_VIG = Tag(get_cmd=lambda: DB.main.get_from_json('json:vigilance'), io_refresh=2.0)
-    D_NEWS_LOCAL = Tag(get_cmd=lambda: DB.main.get_from_json('json:news'), io_refresh=2.0)
-    D_TWEETS_GRT = Tag(get_cmd=lambda: DB.main.get_from_json('json:tweets:@grtgaz'), io_refresh=2.0)
-    MET_PWR_ACT = Tag(get_cmd=lambda: DB.main.get_from_json('int:loos_elec:pwr_act'), io_refresh=1.0)
-    MET_TODAY_WH = Tag(get_cmd=lambda: DB.main.get_from_json('float:loos_elec:today_wh'), io_refresh=2.0)
-    MET_YESTERDAY_WH = Tag(get_cmd=lambda: DB.main.get_from_json('float:loos_elec:yesterday_wh'), io_refresh=2.0)
-    L_FLYSPRAY_RSS = Tag(get_cmd=lambda: DB.main.get_from_json('json:flyspray-nord'), io_refresh=2.0)
-    IMG_ATMO_HDF = Tag(get_cmd=lambda: DB.main.get('img:static:logo-atmo-hdf:png'), io_refresh=10.0)
-    IMG_LOGO_GRT = Tag(get_cmd=lambda: DB.main.get('img:static:logo-grt:png'), io_refresh=10.0)
-    IMG_GRT_CLOUD = Tag(get_cmd=lambda: DB.main.get('img:grt-twitter-cloud:png'), io_refresh=10.0)
-    IMG_TRAFFIC_MAP = Tag(get_cmd=lambda: DB.main.get('img:traffic-map:png'), io_refresh=10.0)
-    DIR_CAROUSEL_RAW = Tag(get_cmd=lambda: DB.main.hgetall('dir:carousel:raw:min-png'), io_refresh=10.0)
-    DIR_PDF_DOC_LIST= Tag(get_cmd=lambda: map(bytes.decode, DB.main.hkeys('dir:doc:raw')))
-    RAW_PDF_DOC_CONTENT = Tag(get_cmd=lambda file: DB.main.hget('dir:doc:raw', file))
-
-    @classmethod
-    def init(cls):
-        # start IO thread
-        threading.Thread(target=cls._io_thread, daemon=True).start()
-
-    @classmethod
-    def _io_thread(cls):
-        # for non-blocking tag auto-update method (avoid GUI hang when IO delay occur)
-        while True:
-            for name, tag in cls.__dict__.items():
-                # if Tags attribute is a Tag refresh it (with cmd_src func)
-                if not name.startswith('__') and isinstance(tag, Tag):
-                    tag.io_update(ref=name)
-            time.sleep(1.0)
+class Tags(TagsBase):
+    # create all tags here
+    # WARNs: -> all tags with io_every set are manage by an independent (of tk mainloop) IO thread
+    #           this thread periodically update tag value and avoid tk GUI loop do this and lose time on DB IO
+    #        -> tags callbacks (read/write methods) are call by this IO thread (not by tkinter main thread)
+    D_GSHEET_GRT = Tag(read=lambda: DB.main.get_js('json:gsheet'), io_every=2.0)
+    D_ATMO_QUALITY = Tag(read=lambda: DB.main.get_js('json:atmo'), io_every=2.0)
+    D_W_TODAY_LOOS = Tag(read=lambda: DB.main.get_js('json:weather:today:loos'), io_every=2.0)
+    D_W_FORECAST_LOOS = Tag(read=lambda: DB.main.get_js('json:weather:forecast:loos'), io_every=2.0)
+    D_WEATHER_VIG = Tag(read=lambda: DB.main.get_js('json:vigilance'), io_every=2.0)
+    D_NEWS_LOCAL = Tag(read=lambda: DB.main.get_js('json:news'), io_every=2.0)
+    D_TWEETS_GRT = Tag(read=lambda: DB.main.get_js('json:tweets:@grtgaz'), io_every=2.0)
+    MET_PWR_ACT = Tag(read=lambda: DB.main.get_js('int:loos_elec:pwr_act'), io_every=1.0)
+    MET_TODAY_WH = Tag(read=lambda: DB.main.get_js('float:loos_elec:today_wh'), io_every=2.0)
+    MET_YESTERDAY_WH = Tag(read=lambda: DB.main.get_js('float:loos_elec:yesterday_wh'), io_every=2.0)
+    L_FLYSPRAY_RSS = Tag(read=lambda: DB.main.get_js('json:flyspray-nord'), io_every=2.0)
+    IMG_ATMO_HDF = Tag(read=lambda: DB.main.get('img:static:logo-atmo-hdf:png'), io_every=10.0)
+    IMG_LOGO_GRT = Tag(read=lambda: DB.main.get('img:static:logo-grt:png'), io_every=10.0)
+    IMG_GRT_CLOUD = Tag(read=lambda: DB.main.get('img:grt-twitter-cloud:png'), io_every=10.0)
+    IMG_TRAFFIC_MAP = Tag(read=lambda: DB.main.get('img:traffic-map:png'), io_every=10.0)
+    DIR_CAROUSEL_RAW = Tag(read=lambda: DB.main.hgetall('dir:carousel:raw:min-png'), io_every=10.0)
+    DIR_PDF_DOC_LIST = Tag(read=lambda: map(bytes.decode, DB.main.hkeys('dir:doc:raw')))
+    RAW_PDF_DOC_CONTENT = Tag(read=lambda file: DB.main.hget('dir:doc:raw', file))
 
 
 class MainApp(tk.Tk):
@@ -98,7 +81,7 @@ class MainApp(tk.Tk):
         self.bind_all('<Any-KeyPress>', self._trig_user_idle_t)
         self.bind_all('<Any-ButtonPress>', self._trig_user_idle_t)
 
-    def _trig_user_idle_t(self, evt=None):
+    def _trig_user_idle_t(self, _evt):
         # cancel the previous event
         if self._idle_timer is not None:
             self.after_cancel(self._idle_timer)
@@ -111,10 +94,7 @@ class MainApp(tk.Tk):
 
 
 class LiveTab(Tab):
-    """
-    First Tab, which is the hottest from all of them
-    Damn
-    """
+    """ Main dynamic Tab """
 
     def __init__(self, *args, **kwargs):
         Tab.__init__(self, *args, **kwargs)
@@ -193,8 +173,9 @@ class LiveTab(Tab):
         self.tl_crl.set_tile(row=4, column=7, rowspan=4, columnspan=6)
         # auto-update
         self.start_cyclic_update(update_ms=5000)
-        # force update at startup
-        self.after(500, func=self.update)
+        # at startup:
+        # trig update after 1s to let Tags io_thread populate values
+        self.after(ms=1000, func=self.update)
 
     def update(self):
         # GRT wordcloud

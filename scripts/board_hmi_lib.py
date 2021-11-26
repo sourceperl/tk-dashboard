@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from datetime import datetime, timedelta
+import copy
 import glob
 import functools
 import io
@@ -21,10 +22,10 @@ import PIL.ImageDraw
 import PIL.ImageFont
 import PIL.ImageTk
 
-
 # global configuration
 # avoid PIL debug message
 logging.getLogger('PIL').setLevel(logging.WARNING)
+
 
 # some const as class
 # default dashboard color (can be override)
@@ -48,8 +49,11 @@ class Colors:
     NEWS_BG = '#f7e44f'
     NEWS_TXT = BLACK
 
+
 # geometry
 class Geometry:
+    NB_TILE_W = 17
+    NB_TILE_H = 9
     TAB_PAD_HEIGHT = 17
     TAB_PAD_WIDTH = 17
     NEWS_BANNER_HEIGHT = 90
@@ -94,46 +98,80 @@ class CustomRedis(redis.Redis):
         return super().execute_command(*args, **options)
 
     @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError), log_lvl=LOG_LEVEL)
-    def set_as_json(self, name, obj, ex=None, px=None, nx=False, xx=False, keepttl=False):
+    def set_js(self, name, obj, ex=None, px=None, nx=False, xx=False, keepttl=False):
         return super().set(name=name, value=json.dumps(obj), ex=ex, px=px, nx=nx, xx=xx, keepttl=keepttl)
 
     @catch_log_except(catch=(redis.RedisError, AttributeError, json.decoder.JSONDecodeError), log_lvl=LOG_LEVEL)
-    def get_from_json(self, name):
+    def get_js(self, name):
         return json.loads(super().get(name).decode('utf-8'))
 
 
 class Tag:
-    def __init__(self, value=None, get_cmd=None, io_refresh=None):
-        # public
-        self.io_refresh = io_refresh
+    def __init__(self, value=None, read=None, write=None, io_every=None):
         # private
-        self._get_cmd = get_cmd
-        self._lock = threading.Lock()
         self._value = value
-        self._t_last_run = 0.0
+        self._read_cmd = read
+        self._write_cmd = write
+        self._lock = threading.Lock()
+        self._th_io_every = io_every
+        self._th_last_run = 0.0
 
     def io_update(self, ref=''):
-        if self.io_refresh:
+        # method call by Tags io thread
+        if self._th_io_every:
             t_now = time.monotonic()
-            run_now = (t_now - self._t_last_run) > self.io_refresh
-            if run_now and callable(self._get_cmd):
-                self._t_last_run = t_now
-                logging.debug(f'run IO update' + f' [ref {ref}]' if ref else f'')
-                # avoid lock thread during _func_src() IO stuff
-                self.set(self._get_cmd())
+            run_now = (t_now - self._th_last_run) > self._th_io_every
+            # if read method is define, do it
+            if run_now:
+                self._th_last_run = t_now
+                # if read method is define, do it
+                if callable(self._read_cmd):
+                    logging.debug(f'IO thread call read cmd' + f' [ref {ref}]' if ref else f'')
+                    # secure call to read method callback, catch any exception
+                    try:
+                        cache_value = self._read_cmd()
+                    except Exception:
+                        cache_value = None
+                    # update internal tag value
+                    with self._lock:
+                        self._value = cache_value
+                # if write method is define, do it
+                if callable(self._write_cmd):
+                    logging.debug(f'IO thread call write cmd' + f' [ref {ref}]' if ref else f'')
+                    # avoid lock thread during _write_cmd() IO stuff
+                    # read internal tag value
+                    with self._lock:
+                        cached_value = self._value
+                    # secure call to write method callback, catch any exception
+                    try:
+                        self._write_cmd(cached_value)
+                    except Exception:
+                        pass
 
     def set(self, value):
         with self._lock:
             self._value = value
-
-    def get(self, path=None, args={}):
-        # if tag don't use io_thread, call get_cmd immediately
-        if not self.io_refresh:
-            if callable(self._get_cmd):
+        # if tag don't use io_thread, call _write_cmd immediately
+        if not self._th_io_every:
+            if callable(self._write_cmd):
                 try:
-                    self.set(self._get_cmd(**args))
-                except:
-                    self.set(None)
+                    self._write_cmd(value)
+                except Exception:
+                    pass
+
+    def get(self, path=None, args=None):
+        # process func args
+        if args is None:
+            args = {}
+        # if this tag don't use io_thread, call _read_cmd now
+        if not self._th_io_every:
+            if callable(self._read_cmd):
+                try:
+                    cached_value = self._read_cmd(**args)
+                except Exception:
+                    cached_value = None
+                with self._lock:
+                    self._value = cached_value
         # if a path is define use it
         if path:
             # ensure path is an iterable
@@ -141,7 +179,8 @@ class Tag:
                 path = [path]
             # explore path to retrieve item we want
             with self._lock:
-                item = self._value
+                # ensure no reference to _value by copy
+                item = copy.copy(self._value)
             try:
                 for cur_lvl in path:
                     item = item[cur_lvl]
@@ -150,9 +189,35 @@ class Tag:
             except (KeyError, TypeError, IndexError):
                 return None
         else:
-            # return simple scalar value
+            # return simple value (avoid return reference with copy)
             with self._lock:
-                return self._value
+                # ensure no reference to _value by copy
+                return copy.copy(self._value)
+
+
+class TagsBase:
+    # create all tags here
+    # WARNs: -> all tags with io_every set are manage by an independent (of tk mainloop) IO thread
+    #           this thread periodically update tag value and avoid tk GUI loop do this and lose time on DB IO
+    #        -> tags callbacks (read/write methods) are call by this IO thread (not by tkinter main thread)
+    __IO_THREAD_TAG_LIST = list()
+
+    @classmethod
+    def init(cls):
+        # compile tag list for IO thread before starting it
+        for name, attr in cls.__dict__.items():
+            if not name.startswith('__') and isinstance(attr, Tag):
+                cls.__IO_THREAD_TAG_LIST.append((name, attr))
+        # start IO thread
+        threading.Thread(target=cls._io_thread_task, daemon=True).start()
+
+    @classmethod
+    def _io_thread_task(cls):
+        # IO thread main loop
+        while True:
+            for name, tag in cls.__IO_THREAD_TAG_LIST:
+                tag.io_update(ref=name)
+            time.sleep(1.0)
 
 
 # Tab library
@@ -165,8 +230,8 @@ class Tab(tk.Frame):
         tk.Frame.__init__(self, *args, **kwargs)
         # public
         self._update_ms = None
-        self.nb_tile_w = 17
-        self.nb_tile_h = 9
+        self.nb_tile_w = Geometry.NB_TILE_W
+        self.nb_tile_h = Geometry.NB_TILE_H
         # private
         self._screen_w = self.winfo_screenwidth()
         self._screen_h = self.winfo_screenheight() - 60
@@ -473,7 +538,7 @@ class DaysAccTileLoos(Tile):
         try:
             day, month, year = map(int, str(date_str).split('/'))
             return str((datetime.now() - datetime(year, month, day)).days)
-        except Exception:
+        except (TypeError, ValueError):
             return 'n/a'
 
 
@@ -531,7 +596,7 @@ class DaysAccTileMessein(Tile):
         try:
             day, month, year = map(int, str(date_str).split('/'))
             return str((datetime.now() - datetime(year, month, day)).days)
-        except Exception:
+        except (TypeError, ValueError):
             return 'n/a'
 
 
@@ -677,7 +742,6 @@ class GaugeTile(Tile):
         self.can.coords(self.can_arrow, 112, 100, x, y)
 
 
-
 class ImageTile(Tile):
     def __init__(self, *args, file='', img_ratio=1, **kwargs):
         Tile.__init__(self, *args, **kwargs)
@@ -789,7 +853,7 @@ class ImageCarouselTile(Tile):
         else:
             self._skip_update_cnt -= 1
 
-    def _on_click(self, evt=None):
+    def _on_click(self, _evt):
         # on first click: skip the 8 next auto update cycle
         # on second one: also load the next image
         if self._skip_update_cnt > 0:
@@ -899,7 +963,7 @@ class ImageRawCarouselTile(Tile):
             self.raw_display = None
             self._playlist.clear()
 
-    def _on_click(self, evt=None):
+    def _on_click(self, _evt):
         # on first click: skip the 8 next auto update cycle
         # on second one: also load the next image
         if self._skip_update_cnt > 0:
@@ -977,7 +1041,7 @@ class NewsBannerTile(Tile):
                 self._next_ban_str += title + spaces_head
         except TypeError:
             self._next_ban_str = spaces_head + 'n/a' + spaces_head
-        except:
+        except Exception:
             self._next_ban_str = spaces_head + 'n/a' + spaces_head
             logging.error(traceback.format_exc())
 
@@ -1001,7 +1065,7 @@ class PdfLauncherTile(Tile):
         self.bind('<Destroy>', self._on_unmap)
         self.bind('<Unmap>', self._on_unmap)
 
-    def _on_click(self, evt=None):
+    def _on_click(self, _evt):
         try:
             # build a temp file with RAW pdf data from redis hash
             raw_data = self.raw_tag.get(args={'file': self.file})
@@ -1022,7 +1086,7 @@ class PdfLauncherTile(Tile):
         except Exception:
             logging.error(traceback.format_exc())
 
-    def _on_unmap(self, evt=None):
+    def _on_unmap(self, _evt):
         # terminate all xpdf process on tab exit
         # iterate on copy of process list
         for ps in list(self._ps_l):
@@ -1333,7 +1397,7 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
                   'Mise à jour    : %s\n'
             msg %= (temp, dewpt, press, w_gust_msg, w_speed, w_dir, update_fr)
             self.lbl_today.configure(text=msg)
-        except:
+        except Exception:
             self.lbl_today.configure(text='n/a')
             logging.error(traceback.format_exc())
 
@@ -1351,7 +1415,7 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
                 message = '%s\n\nT min %d°C\nT max %d°C'
                 message %= (day_desr, day_t_min, day_t_max)
                 self._days_lbl[d - 1].configure(text=message)
-        except:
+        except Exception:
             # for day 1 to 4
             for d in range(1, 5):
                 self._days_lbl[d - 1].configure(text='n/a')
