@@ -5,7 +5,7 @@ from tkinter import ttk
 from configparser import ConfigParser
 import logging
 from board_hmi_lib import \
-    CustomRedis, Tag, TagsBase, Tab, PdfTab, Geometry, \
+    CustomRedis, Tag, TagsBase, Tab, PdfTab, Geometry, wait_uptime, \
     AirQualityTile, ClockTile, DaysAccTileMessein, FlysprayTile, GaugeTile, \
     ImageRawTile, ImageRawCarouselTile, NewsBannerTile, TwitterTile, VigilanceTile
 
@@ -246,6 +246,9 @@ class LiveTab(Tab):
 
 # main
 if __name__ == '__main__':
+    # at startup: wait system ready (DB, display, RTC sync...)
+    # set min uptime to 10s
+    wait_uptime(10.0)
     # logging setup
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
     logging.info('board-hmi-app started')

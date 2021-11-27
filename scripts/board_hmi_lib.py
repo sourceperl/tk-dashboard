@@ -89,6 +89,14 @@ def catch_log_except(catch=None, log_lvl=logging.ERROR, limit_arg_len=40):
     return _catch_log_except
 
 
+def wait_uptime(min_s: float):
+    while True:
+        uptime = float(open('/proc/uptime', 'r').readline().split()[0])
+        if uptime > min_s:
+            break
+        time.sleep(0.1)
+
+
 # some class
 class CustomRedis(redis.Redis):
     LOG_LEVEL = logging.DEBUG
