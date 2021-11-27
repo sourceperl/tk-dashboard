@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
-import tkinter as tk
-from tkinter import ttk
+import argparse
 from configparser import ConfigParser
 import logging
+import tkinter as tk
+from tkinter import ttk
 from board_hmi_lib import \
     CustomRedis, Tag, TagsBase, Tab, PdfTab, Geometry, wait_uptime, \
     AirQualityTile, ClockTile, DaysAccTileLoos, GaugeTile, NewsBannerTile, TwitterTile,\
     FlysprayTile, ImageRawTile, ImageRawCarouselTile, VigilanceTile, WattsTile, WeatherTile
+
 
 # read config
 cnf = ConfigParser()
@@ -56,8 +58,9 @@ class MainApp(tk.Tk):
         # private
         self._idle_timer = None
         # tk stuff
-        # remove mouse icon for a dashboard
-        self.config(cursor='none')
+        # remove mouse icon in touchscreen mode (default)
+        if not app_conf.get('cursor'):
+            self.config(cursor='none')
         # define style to fix size of tab header
         self.style = ttk.Style()
         self.style.theme_settings('default',
@@ -244,11 +247,18 @@ class LiveTab(Tab):
 
 # main
 if __name__ == '__main__':
+    # parse command line args
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--debug', action='store_true', default=False, help='turn on debug mode')
+    parser.add_argument('-c', '--cursor', action='store_true', default=False, help='turn on mouse cursor')
+    # populate global dict app_conf
+    app_conf = vars(parser.parse_args())
     # at startup: wait system ready (DB, display, RTC sync...)
     # set min uptime to 10s
     wait_uptime(10.0)
     # logging setup
-    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
+    lvl = logging.DEBUG if app_conf.get('debug') else logging.INFO
+    logging.basicConfig(format='%(asctime)s %(message)s', level=lvl)
     logging.info('board-hmi-app started')
     # init Tags
     Tags.init()
