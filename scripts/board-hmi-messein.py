@@ -58,7 +58,7 @@ class MainApp(tk.Tk):
         self._idle_timer = None
         # tk stuff
         # remove mouse icon in touchscreen mode (default)
-        if not app_conf.get('cursor'):
+        if not app_conf.cursor:
             self.config(cursor='none')
         # define style to fix size of tab header
         self.style = ttk.Style()
@@ -251,15 +251,21 @@ class LiveTab(Tab):
 if __name__ == '__main__':
     # parse command line args
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--debug', action='store_true', default=False, help='turn on debug mode')
-    parser.add_argument('-c', '--cursor', action='store_true', default=False, help='turn on mouse cursor')
-    # populate global dict app_conf
-    app_conf = vars(parser.parse_args())
+    parser.add_argument('-c', '--cursor', action='store_true', default=False,
+                        help='display mouse cursor')
+    parser.add_argument('-d', '--debug', action='store_true', default=False,
+                        help='debug mode')
+    parser.add_argument('-s', '--skip-full', action='store_true', default=False,
+                        help='skip fullscreen mode')
+    parser.add_argument('-w', '--wait-up', action='store', type=float, default=30.0,
+                        help='wait min sys uptime before tk start (default is 30s)')
+    # populate global app_conf
+    app_conf = parser.parse_args()
     # at startup: wait system ready (DB, display, RTC sync...)
-    # set min uptime to 10s
-    wait_uptime(10.0)
+    # set min uptime (default is 30s)
+    wait_uptime(app_conf.wait_up)
     # logging setup
-    lvl = logging.DEBUG if app_conf.get('debug') else logging.INFO
+    lvl = logging.DEBUG if app_conf.debug else logging.INFO
     logging.basicConfig(format='%(asctime)s %(message)s', level=lvl)
     logging.info('board-hmi-app started')
     # init Tags
@@ -267,5 +273,5 @@ if __name__ == '__main__':
     # start tkinter
     app = MainApp()
     app.title('GRTgaz Dashboard')
-    app.attributes('-fullscreen', True)
+    app.attributes('-fullscreen', not app_conf.skip_full)
     app.mainloop()
