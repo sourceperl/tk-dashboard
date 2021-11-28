@@ -226,7 +226,7 @@ class LiveTab(Tab):
         self.tl_g_qsc.percent = Tags.D_GSHEET_GRT.get(('tags', 'Q_HRE_JAUGE_DTS'))
         self.tl_g_qsc.header_str = '%s/%s' % (Tags.D_GSHEET_GRT.get(('tags', 'Q_HRE_REAL_DTS')),
                                               Tags.D_GSHEET_GRT.get(('tags', 'Q_HRE_OBJ_DTS')))
-        # weather vigilance
+        # vigilance
         self.tl_vig_59.vig_level = Tags.D_WEATHER_VIG.get(('department', '59', 'vig_level'))
         self.tl_vig_59.risk_ids = Tags.D_WEATHER_VIG.get(('department', '59', 'risk_id'))
         self.tl_vig_62.vig_level = Tags.D_WEATHER_VIG.get(('department', '62', 'vig_level'))

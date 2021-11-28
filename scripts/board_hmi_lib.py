@@ -1210,26 +1210,27 @@ class VigilanceTile(Tile):
             self._on_data_change()
 
     def _on_data_change(self):
+        # update color of tile and color str
         try:
-            self._level_str.set('%s' % VigilanceTile.VIG_LVL[self._vig_level].upper())
+            level_str = VigilanceTile.VIG_LVL[self._vig_level].upper()
             tile_color = VigilanceTile.VIG_COLOR[self._vig_level]
         except (IndexError, TypeError):
-            # set tk var
-            self._level_str.set('N/A')
-            # choose tile color
+            level_str = 'N/A'
             tile_color = Colors.NA
+        # apply to tk
+        self._level_str.set(f'{level_str}')
+        for w in self.winfo_children():
+            w.configure(bg=tile_color)
+        self.configure(bg=tile_color)
+        # add risks str
         try:
             str_risk = ' '
             for id_risk in self._risk_ids[:2]:
                 str_risk += VigilanceTile.ID_RISK[id_risk] + ' '
-            self._risk_str.set('%s' % str_risk)
         except (IndexError, TypeError):
-            # set tk var
-            self._risk_str.set('n/a')
-        # update tile and his childs color
-        for w in self.winfo_children():
-            w.configure(bg=tile_color)
-        self.configure(bg=tile_color)
+            str_risk = 'n/a'
+        # apply to tk
+        self._risk_str.set(f'{str_risk}')
 
 
 class WattsTile(Tile):
@@ -1309,7 +1310,7 @@ class WattsTile(Tile):
         self._ydy_text.set('J-1 %5s kwh' % ('n/a' if self._ydy_wh is None else round(self._ydy_wh / 1000)))
 
 
-class WeatherTile(Tile):  # principal, she own all the day, could be divided if wanted #json
+class WeatherTile(Tile):
     def __init__(self, *args, **kwargs):
         Tile.__init__(self, *args, **kwargs)
         # public
@@ -1323,25 +1324,23 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
         for c in range(4):
             for r in range(3):
                 self.grid_rowconfigure(r, weight=1)
-                tk.Label(master=self, pady=0, padx=0).grid(column=c, row=r)
+                tk.Label(self, pady=0, padx=0).grid(column=c, row=r)
             self.grid_columnconfigure(c, weight=1)
             # creation
             self._days_f_l.append(
-                tk.LabelFrame(master=self, text='dd/mm/yyyy', bg=self.cget('bg'), fg=Colors.TXT,
+                tk.LabelFrame(self, text='n/a', bg=self.cget('bg'), fg=Colors.TXT,
                               font=('bold', 10)))
             self._days_lbl.append(
-                tk.Label(master=self._days_f_l[c], text='n/a', bg=self.cget('bg'), fg=Colors.TXT,
+                tk.Label(self._days_f_l[c], text='n/a', bg=self.cget('bg'), fg=Colors.TXT,
                          font='bold', anchor=tk.W, justify=tk.LEFT))
-            # end creation
             # impression
             self._days_f_l[c].grid(row=2, column=c, sticky=tk.NSEW)
             self._days_f_l[c].grid_propagate(False)
             self._days_lbl[c].grid(sticky=tk.NSEW)
             self._days_lbl[c].grid_propagate(False)
-
         # today frame
-        self.frm_today = tk.LabelFrame(master=self, bg=self.cget('bg'), fg=Colors.TXT, text='n/a', font=('bold', 18))
-        self.lbl_today = tk.Label(master=self.frm_today, text='n/a', bg=self.cget('bg'), fg=Colors.TXT,
+        self.frm_today = tk.LabelFrame(self, bg=self.cget('bg'), fg=Colors.TXT, text='n/a', font=('bold', 18))
+        self.lbl_today = tk.Label(self.frm_today, text='n/a', bg=self.cget('bg'), fg=Colors.TXT,
                                   font=('courier', 18, 'bold'), anchor=tk.W, justify=tk.LEFT)
         self.frm_today.grid(row=0, column=0, columnspan=4, rowspan=2, sticky=tk.NSEW)
         self.frm_today.grid_propagate(False)
@@ -1354,11 +1353,6 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
 
     @w_today_dict.setter
     def w_today_dict(self, value):
-        # check type
-        try:
-            value = dict(value)
-        except (TypeError, ValueError):
-            value = None
         # check change
         if self._w_today_dict != value:
             self._w_today_dict = value
@@ -1370,61 +1364,62 @@ class WeatherTile(Tile):  # principal, she own all the day, could be divided if 
 
     @w_forecast_dict.setter
     def w_forecast_dict(self, value):
-        # check type
-        try:
-            value = dict(value)
-            # since json fmt doesn't allow this: ensure key are python int (not str)
-            value = {int(k): v for k, v in value.items()}
-        except (TypeError, ValueError):
-            value = None
         # check change
         if self._w_forecast_dict != value:
             self._w_forecast_dict = value
             self._on_forecast_change()
 
     def _on_today_change(self):
-        # set today date
-        self.frm_today.configure(text=datetime.now().date())
+        # set today frame label
+        self.frm_today.configure(text=datetime.now().date().strftime('%d/%m/%Y'))
         # fill labels
-        try:
-            # today
-            temp = '%s' % self._w_today_dict.get('temp', '--')
-            dewpt = '%s' % self._w_today_dict.get('dewpt', '--')
-            press = '%s' % self._w_today_dict.get('press', '----')
-            w_speed = '%s' % self._w_today_dict.get('w_speed', '--')
-            w_gust_msg = '%s' % self._w_today_dict.get('w_gust', '')
-            w_gust_msg = '%9s' % ('(raf %s)' % w_gust_msg) if w_gust_msg else ''
-            w_dir = self._w_today_dict.get('w_dir', '--')
-            update_fr = self._w_today_dict.get('update_fr', '--')
-            # today message
-            msg = 'Température    : %4s °C\n' + \
-                  'Point de rosée : %4s °C\n' + \
-                  'Pression       : %4s hPa\n' + \
-                  'Vent %9s : %4s km/h %s\n' + \
-                  '\n' + \
-                  'Mise à jour    : %s\n'
-            msg %= (temp, dewpt, press, w_gust_msg, w_speed, w_dir, update_fr)
-            self.lbl_today.configure(text=msg)
-        except Exception:
+        if self._w_today_dict:
+            try:
+                # today
+                temp = '%s' % self._w_today_dict.get('temp', '--')
+                dewpt = '%s' % self._w_today_dict.get('dewpt', '--')
+                press = '%s' % self._w_today_dict.get('press', '----')
+                w_speed = '%s' % self._w_today_dict.get('w_speed', '--')
+                w_gust_msg = '%s' % self._w_today_dict.get('w_gust', '')
+                w_gust_msg = '%9s' % ('(raf %s)' % w_gust_msg) if w_gust_msg else ''
+                w_dir = self._w_today_dict.get('w_dir', '--')
+                update_fr = self._w_today_dict.get('update_fr', '--')
+                # today message
+                msg = f'Température    : {temp:>4} °C\n' + \
+                      f'Point de rosée : {dewpt:>4} °C\n' + \
+                      f'Pression       : {press:>4} hPa\n' + \
+                      f'Vent {w_gust_msg:9} : {w_speed:>4} km/h {w_dir}\n' + \
+                      f'\n' + \
+                      f'Mise à jour    : {update_fr}\n'
+                self.lbl_today.configure(text=msg)
+            except Exception:
+                logging.error(traceback.format_exc())
+                self.lbl_today.configure(text='error')
+        else:
             self.lbl_today.configure(text='n/a')
-            logging.error(traceback.format_exc())
 
     def _on_forecast_change(self):
-        # set day 1 to 4 date
+        # set forecast frames labels
         for i in range(4):
-            self._days_f_l[i].configure(text=datetime.now().date() + timedelta(days=i + 1))
-        try:
-            # for day 1 to 4
-            for d in range(1, 5):
-                day_desr = self._w_forecast_dict[d]['description']
-                day_t_min = self._w_forecast_dict[d]['t_min']
-                day_t_max = self._w_forecast_dict[d]['t_max']
-                # set day message
-                message = '%s\n\nT min %d°C\nT max %d°C'
-                message %= (day_desr, day_t_min, day_t_max)
-                self._days_lbl[d - 1].configure(text=message)
-        except Exception:
-            # for day 1 to 4
-            for d in range(1, 5):
-                self._days_lbl[d - 1].configure(text='n/a')
-            logging.error(traceback.format_exc())
+            dt = datetime.now().date() + timedelta(days=i + 1)
+            self._days_f_l[i].configure(text=dt.strftime('%d/%m/%Y'))
+        # refresh forecast labels with new data if availables (or error msg if not)
+        if self._w_forecast_dict:
+            try:
+                for i in range(4):
+                    # set day message
+                    d = str(i + 1)
+                    day_desr = self._w_forecast_dict[d]['description']
+                    day_t_min = self._w_forecast_dict[d]['t_min']
+                    day_t_max = self._w_forecast_dict[d]['t_max']
+                    msg = f'{day_desr}\n\nT min {day_t_min:.0f}°C\nT max {day_t_max:.0f}°C'
+                    self._days_lbl[i].configure(text=msg)
+            except Exception:
+                logging.error(traceback.format_exc())
+                # update days labels to 'n/a' error message
+                for i in range(4):
+                    self._days_lbl[i].configure(text='error')
+        else:
+            # update days labels to 'n/a' error message
+            for i in range(4):
+                self._days_lbl[i].configure(text='n/a')
