@@ -53,7 +53,8 @@ class MainApp(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         # public
-        self.user_idle_timeout = 120000
+        # user idle timeout set to 15mn
+        self.user_idle_timeout_s = 900
         # private
         self._idle_timer = None
         # tk stuff
@@ -88,7 +89,7 @@ class MainApp(tk.Tk):
         if self._idle_timer is not None:
             self.after_cancel(self._idle_timer)
         # create new timer
-        self._idle_timer = self.after(self.user_idle_timeout, self._on_user_idle)
+        self._idle_timer = self.after(self.user_idle_timeout_s * 1000, self._on_user_idle)
 
     def _on_user_idle(self):
         # select first tab
