@@ -160,7 +160,10 @@ def local_info_job():
     # do request
     l_titles = []
     for post in feedparser.parse('https://france3-regions.francetvinfo.fr/societe/rss?r=grand-est').entries:
-        l_titles.append(post.title)
+        title = post.title
+        title = title.strip()
+        title = title.replace('\n', ' ')
+        l_titles.append(title)
     DB.main.set_as_json('json:news', l_titles, ex=2 * 3600)
 
 
