@@ -41,8 +41,6 @@ cnf.read('/data/conf/board.conf')
 # redis
 redis_user = cnf.get('redis', 'user')
 redis_pass = cnf.get('redis', 'pass')
-# hostname of bridge server
-bridge_host = cnf.get('bridge', 'host')
 # gmap img traffic
 gmap_img_url = cnf.get('gmap_img', 'img_url')
 # gsheet
@@ -67,7 +65,7 @@ class DB:
     # create connector
     main = CustomRedis(host='board-redis-srv', username=redis_user, password=redis_pass,
                        socket_timeout=4, socket_keepalive=True)
-    bridge = CustomRedis(host=bridge_host, socket_timeout=4, socket_keepalive=True)
+    bridge = CustomRedis(host='board-redis-cli-bridge-int', socket_timeout=4, socket_keepalive=True)
 
 
 # some function

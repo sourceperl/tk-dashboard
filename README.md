@@ -93,11 +93,20 @@ sudo openssl req -x509 -newkey rsa:4096 -days 3650 -nodes \
                  -out ${target_prefix}.crt
 ```
 
+Copy client cert/key and the server cert for the Loos internet bridge
+
+```bash
+sudo cp redis-cli-to-bridge-int.crt /etc/opt/tk-dashboard/stunnel/certs/
+sudo cp redis-cli-to-bridge-int.key /etc/opt/tk-dashboard/stunnel/certs/
+sudo cp redis-bridge-srv.crt /etc/opt/tk-dashboard/stunnel/certs/
+```
+
 Stunnel server setup
 
 ```bash
 # add configuration file to tk-dashboard conf
 sudo cp stunnel/redis-loos-m-tls-srv.conf /etc/opt/tk-dashboard/stunnel/
+sudo cp stunnel/redis-bridge-int-tls-cli.conf /etc/opt/tk-dashboard/stunnel/
 # add directory for trusted certs of clients (local slave or remote share cli)
 sudo mkdir -p /etc/opt/tk-dashboard/stunnel/certs/trusted.d/
 # copy trusted client certificate to trusted.d directory (see below)

@@ -37,6 +37,22 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  board-redis-cli-bridge-int:
+    build: common/board-stunnel
+    image: board-stunnel-img
+    container_name: board-redis-cli-bridge-int
+    restart: unless-stopped
+    command: stunnel /usr/local/etc/stunnel/redis-bridge-int-tls-cli.conf
+    volumes:
+      - /etc/opt/tk-dashboard/stunnel/:/usr/local/etc/stunnel/:ro
+    networks:
+      - board-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
   board-import-app:
     build:
       context: ./
